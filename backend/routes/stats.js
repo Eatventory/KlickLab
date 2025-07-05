@@ -98,30 +98,42 @@ router.get('/top-clicks', async (req, res) => {
 
 router.get('/click-trend', async (req, res) => {
   try {
-    const date = req.query.date || new Date().toISOString().split('T')[0];
+    const period = parseInt(req.query.period) || 60; // 조회 범위 (분)
+    const step = parseInt(req.query.step) || 5;      // 집계 단위 (분)
 
-		const clickTrendRes = await clickhouse.query({
-			query: `
+    const clickTrendRes = await clickhouse.query({
+      query: `
+        WITH 
+					now() AS base,
+					toRelativeMinuteNum(base) AS base_min,
+					${step} AS step_minute,
+					${period} AS period_minute
 				SELECT 
-					formatDateTime(toStartOfFiveMinute(timestamp), '%R') AS time,
+					formatDateTime(
+						toDateTime(base_min * 60) 
+							+ toIntervalMinute(
+									intDiv(toRelativeMinuteNum(timestamp) - base_min, step_minute) * step_minute
+								),
+						'%H:%i'
+					) AS time,
 					count() AS count
 				FROM events
 				WHERE 
 					event_name = 'auto_click'
-					AND toDate(timestamp) = toDate('${date}')
+					AND timestamp >= base - toIntervalMinute(period_minute)
 				GROUP BY time
 				ORDER BY time
-			`,
-			format: 'JSONEachRow'
-		});
+      `,
+      format: 'JSONEachRow'
+    });
 
-		// const clickTrend = await clickTrendRes.json();
-		const rawTrend = await clickTrendRes.json();
-		const clickTrend = rawTrend.map(row => ({
-			time: row.time,
-			count: Number(row.count)
-		}));
-		res.status(200).json({ data: clickTrend });
+    const rawTrend = await clickTrendRes.json();
+    const clickTrend = rawTrend.map(row => ({
+      time: row.time,
+      count: Number(row.count)
+    }));
+
+    res.status(200).json({ data: clickTrend });
   } catch (err) {
     console.error('Click Trend API ERROR:', err);
     res.status(500).json({ error: 'Failed to get click trend data' });
