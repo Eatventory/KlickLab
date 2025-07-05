@@ -13,10 +13,6 @@ app.use(cors({
   methods: ['POST'],
 }));
 
-/* analytics 라우팅 */
-// const analyticsRoutes = require('./routes/analytics');
-// app.use('/api/analytics', analyticsRoutes);
-
 /* stats 라우팅 */
 const statsRoutes = require('./routes/stats');
 app.use('/api/stats', statsRoutes);
