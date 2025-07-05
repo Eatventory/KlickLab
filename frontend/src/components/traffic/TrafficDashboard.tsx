@@ -81,14 +81,6 @@ export const TrafficDashboard: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      {/* 방문자 수 트렌드 */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <TrendingUp className="w-5 h-5 text-gray-600" />
-          <h2 className="text-lg font-semibold text-gray-900">방문자 수 트렌드</h2>
-        </div>
-        <VisitorChart data={trafficData?.visitorTrend || mockDashboardData.visitorTrend} />
-      </div>
 
       {/* 필터 */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -102,6 +94,7 @@ export const TrafficDashboard: React.FC = () => {
             onChange={(e) => handleFilterChange('period', e.target.value)}
             className="px-3 py-2 border border-gray-300 rounded-md text-sm"
           >
+            <option value="hourly">시간별</option>
             <option value="daily">일별</option>
             <option value="weekly">주별</option>
             <option value="monthly">월별</option>
@@ -130,6 +123,17 @@ export const TrafficDashboard: React.FC = () => {
           </select>
         </div>
       </div>
+
+      {/* 방문자 수 트렌드 */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <TrendingUp className="w-5 h-5 text-gray-600" />
+          <h2 className="text-lg font-semibold text-gray-900">방문자 수 트렌드</h2>
+        </div>
+        <VisitorChart data={trafficData?.visitorTrend || mockDashboardData.visitorTrend} />
+      </div>
+
+      
 
       {/* 향후 구현 예정 컴포넌트들 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
