@@ -108,7 +108,7 @@ export const UserPathSankeyChart: React.FC = () => {
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div className="flex justify-center">
       <svg width={chartWidth} height={chartHeight} style={{ position: 'relative', zIndex: 0 }}>
         <defs>
           <linearGradient id="nodeGradient" x1="0" y1="0" x2="1" y2="1">
