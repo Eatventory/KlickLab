@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ExitPageChart } from './ExitPageChart';
 import { PageTimeChart } from './PageTimeChart';
+import { DropoffInsightsCard } from './DropoffInsightsCard';
 import { Clock, BarChart3, TrendingUp } from 'lucide-react';
 import { mockDashboardData } from '../../data/mockData';
 
@@ -86,8 +87,10 @@ export const EngagementDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* 향후 구현 예정 컴포넌트들 */}
+      {/* 이탈률 요약 & 세션 길이 분포 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <DropoffInsightsCard />
+
         {/* 세션 길이 분포 */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center gap-2 mb-4">
@@ -98,8 +101,10 @@ export const EngagementDashboard: React.FC = () => {
             개발 중...
           </div>
         </div>
+      </div>
 
-        {/* 클릭 전 체류시간 */}
+      {/* 클릭 전 체류시간 */}
+      <div className="grid grid-cols-1 gap-8">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center gap-2 mb-4">
             <Clock className="w-5 h-5 text-gray-600" />

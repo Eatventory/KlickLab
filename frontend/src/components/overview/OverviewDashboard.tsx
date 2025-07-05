@@ -4,6 +4,7 @@ import { Summary } from './Summary';
 import { TopClicks } from './TopClicks';
 import { ClickTrend } from './ClickTrend';
 import { UserPathSankeyChart } from '../user/UserPathSankeyChart';
+import { DropoffInsightsCard } from '../engagement/DropoffInsightsCard';
 
 interface VisitorsData {
   today: number;
@@ -106,13 +107,11 @@ export const OverviewDashboard: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm flex flex-col justify-between">
-          <div className="text-lg font-bold mb-2 text-center">Top 5 클릭 요소</div>
+        <div className="bg-white p-6 rounded-lg shadow-sm flex flex-col justify-center">
           <TopClicks />
         </div>
-        <div className="bg-white p-6 rounded-lg shadow-sm flex flex-col items-center justify-center min-h-[120px]">
-          <div className="animate-pulse bg-gray-200 rounded w-16 h-6 mb-2" />
-          <div className="text-gray-400 text-sm">평균 세션 길이<br/>준비 중입니다</div>
+        <div className="bg-white p-6 rounded-lg shadow-sm flex flex-col justify-center">
+          <DropoffInsightsCard />
         </div>
       </div>
 
@@ -133,7 +132,7 @@ export const OverviewDashboard: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-lg shadow-sm flex flex-col items-center justify-center min-h-[120px]">
           <div className="animate-pulse bg-gray-200 rounded w-16 h-6 mb-2" />
-          <div className="text-gray-400 text-sm">이탈률 카드<br/>준비 중입니다</div>
+          <div className="text-gray-400 text-sm">평균 세션 길이<br/>준비 중입니다</div>
         </div>
         <div className="bg-white p-6 rounded-lg shadow-sm flex flex-col items-center justify-center min-h-[120px]">
           <div className="animate-pulse bg-gray-200 rounded w-16 h-6 mb-2" />
