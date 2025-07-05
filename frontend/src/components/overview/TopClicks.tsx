@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart3 } from 'lucide-react';
+import { BarChart3, TrendingUp } from 'lucide-react';
 
 interface TopClickItem {
   label: string;
@@ -18,13 +18,11 @@ export const TopClicks: React.FC = () => {
   useEffect(() => {
     const fetchTopClicks = async () => {
       try {
-        // const today = new Date().toISOString().split('T')[0];
         const response = await fetch(`/api/stats/top-clicks`);
         const result: TopClicksData = await response.json();
         setData(result.items || []);
       } catch (error) {
         console.error('Failed to fetch top clicks:', error);
-        // Fallback to mock data
         setData([
           { label: '구매하기', count: 1203 },
           { label: '장바구니', count: 987 },
@@ -39,7 +37,6 @@ export const TopClicks: React.FC = () => {
 
     fetchTopClicks();
     
-    // 10초마다 데이터 갱신
     const interval = setInterval(fetchTopClicks, 10000);
     return () => clearInterval(interval);
   }, []);
@@ -55,60 +52,74 @@ export const TopClicks: React.FC = () => {
   const maxCount = Math.max(...data.map(item => item.count));
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-gray-700">Top 5 클릭</h3>
+    <div className="space-y-2">
+      <div className="flex items-center justify-end">
         <div className="flex items-center gap-2">
-          <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+          <TrendingUp className="w-3 h-3 text-green-500 animate-pulse" />
           <span className="text-xs text-gray-500">실시간</span>
         </div>
       </div>
       
-      <div className="space-y-3">
+      <div className="space-y-2">
         {data.map((item, index) => {
           const percentage = maxCount > 0 ? (item.count / maxCount) * 100 : 0;
-          const intensity = Math.max(0.3, percentage / 100); // 최소 30% 투명도
+          const isTop = index === 0;
           
           return (
             <div 
               key={index} 
-              className="relative"
+              className="relative group"
               onMouseEnter={() => setHoveredItem(item.label)}
               onMouseLeave={() => setHoveredItem(null)}
             >
-              <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center w-6 h-6 bg-blue-100 text-blue-600 text-xs font-bold rounded-full">
+              <div className="flex items-center gap-3 p-2 rounded-lg bg-gradient-to-r from-white to-gray-50 border border-gray-100 hover:border-blue-200 hover:shadow-md transition-all duration-300 cursor-pointer">
+                <div className={`flex items-center justify-center w-6 h-6 text-xs font-bold rounded-full transition-all duration-300 ${
+                  isTop 
+                    ? 'bg-gradient-to-br from-yellow-400 to-orange-500 text-white shadow-sm' 
+                    : 'bg-gradient-to-br from-blue-100 to-blue-200 text-blue-700'
+                }`}>
                   {index + 1}
                 </div>
                 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-medium text-gray-900 truncate">
+                    <span className="text-sm font-semibold text-gray-900 truncate group-hover:text-blue-600 transition-colors duration-200">
                       {item.label}
                     </span>
-                    <span className="text-sm font-semibold text-gray-900">
+                    <span className="text-sm font-bold text-gray-900 ml-2">
                       {item.count.toLocaleString()}
                     </span>
                   </div>
                   
-                  <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div className="relative w-full bg-gray-100 rounded-full h-2 overflow-hidden">
                     <div
-                      className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-300"
+                      className={`h-2 rounded-full transition-all duration-500 ease-out ${
+                        isTop 
+                          ? 'bg-gradient-to-r from-yellow-400 to-orange-500 shadow-sm' 
+                          : 'bg-gradient-to-r from-blue-500 to-blue-600'
+                      }`}
                       style={{ 
                         width: `${percentage}%`,
-                        opacity: intensity
+                        boxShadow: isTop ? '0 1px 4px rgba(251, 191, 36, 0.3)' : 'none'
                       }}
+                    />
+                    <div
+                      className={`absolute inset-0 rounded-full transition-all duration-500 ${
+                        isTop 
+                          ? 'bg-gradient-to-r from-yellow-400 to-orange-500 opacity-20 blur-sm' 
+                          : 'bg-gradient-to-r from-blue-500 to-blue-600 opacity-10 blur-sm'
+                      }`}
+                      style={{ width: `${percentage}%` }}
                     />
                   </div>
                 </div>
               </div>
               
-              {/* Hover Tooltip */}
               {hoveredItem === item.label && (
-                <div className="absolute top-full left-0 mt-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg z-10 whitespace-nowrap">
-                  <div className="font-medium">{item.label}</div>
-                  <div>{item.count.toLocaleString()}회 클릭</div>
-                  <div className="text-gray-300">
+                <div className="absolute top-full left-0 mt-2 px-3 py-2 bg-white text-gray-800 text-xs rounded-lg shadow-lg z-10 whitespace-nowrap border border-gray-200 backdrop-blur-sm">
+                  <div className="font-semibold text-gray-900">{item.label}</div>
+                  <div className="text-blue-600 font-bold">{item.count.toLocaleString()}회 클릭</div>
+                  <div className="text-gray-500 text-xs">
                     전체의 {((item.count / data.reduce((sum, d) => sum + d.count, 0)) * 100).toFixed(1)}%
                   </div>
                 </div>
@@ -118,10 +129,10 @@ export const TopClicks: React.FC = () => {
         })}
       </div>
       
-      <div className="pt-2 border-t border-gray-100">
-        <div className="flex items-center justify-between text-xs text-gray-500">
-          <span>총 클릭 수</span>
-          <span className="font-medium">
+      <div className="pt-2">
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-gray-600 font-medium">총 클릭 수</span>
+          <span className="font-bold text-gray-900">
             {data.reduce((sum, item) => sum + item.count, 0).toLocaleString()}
           </span>
         </div>
