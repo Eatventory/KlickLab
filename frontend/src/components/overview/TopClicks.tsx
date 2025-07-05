@@ -53,6 +53,19 @@ export const TopClicks: React.FC = () => {
 
   return (
     <div className="space-y-2">
+      {/* 헤더 */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-blue-50 rounded-lg">
+            <BarChart3 className="w-5 h-5 text-blue-600" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-gray-900">클릭 TOP 5</h3>
+            <p className="text-sm text-gray-500">인기 요소 분석</p>
+          </div>
+        </div>
+      </div>
+
       <div className="flex items-center justify-end">
         <div className="flex items-center gap-2">
           <TrendingUp className="w-3 h-3 text-green-500 animate-pulse" />

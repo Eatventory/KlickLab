@@ -107,8 +107,7 @@ export const OverviewDashboard: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm flex flex-col justify-between">
-          <div className="text-lg font-bold mb-2 text-center">Top 5 클릭 요소</div>
+        <div className="bg-white p-6 rounded-lg shadow-sm flex flex-col justify-center">
           <TopClicks />
         </div>
         <div className="bg-white p-6 rounded-lg shadow-sm flex flex-col justify-center">
