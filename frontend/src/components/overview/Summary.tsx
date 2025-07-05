@@ -18,12 +18,10 @@ export const Summary: React.FC = () => {
   useEffect(() => {
     const generateSummary = async () => {
       try {
-        const today = new Date().toISOString().split('T')[0];
-        
         // Top 클릭 요소와 전체 클릭 수를 동시에 가져오기
         const [topClicksResponse, clicksResponse] = await Promise.all([
-          fetch(`http://localhost:3000/api/stats/top-clicks?date=${today}`),
-          fetch(`http://localhost:3000/api/stats/clicks?date=${today}`)
+          fetch(`http://localhost:3000/api/stats/top-clicks`),
+          fetch(`http://localhost:3000/api/stats/clicks`)
         ]);
         
         const topClicksData = await topClicksResponse.json();

@@ -98,13 +98,14 @@ router.get('/top-clicks', async (req, res) => {
 
 router.get('/click-trend', async (req, res) => {
   try {
+    const baseTime = `'${req.query.baseTime}'`;
     const period = parseInt(req.query.period) || 60; // 조회 범위 (분)
     const step = parseInt(req.query.step) || 5;      // 집계 단위 (분)
 
     const clickTrendRes = await clickhouse.query({
       query: `
         WITH 
-					now() AS base,
+					parseDateTimeBestEffortOrNull(${baseTime}) AS base,
 					toRelativeMinuteNum(base) AS base_min,
 					${step} AS step_minute,
 					${period} AS period_minute
