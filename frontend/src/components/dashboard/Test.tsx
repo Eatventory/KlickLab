@@ -130,16 +130,15 @@ const Test: React.FC = () => {
     const pollData = async () => {
       try {
         // 필터에 따라 다른 API 엔드포인트 호출
-        const endpoint = import.meta.env.VITE_ENDPOINT;
-        let apiUrl = `${endpoint}/api/button-clicks`;
+        let apiUrl = `/api/button-clicks`;
         
         if (filters.mainCategory !== 'all') {
           if (filters.subCategory === 'all') {
             // 카테고리 전체 (모바일 전체, 데스크탑 전체)
-            apiUrl = `${endpoint}/api/button-clicks?platform=${filters.mainCategory}`;
+            apiUrl = `/api/button-clicks?platform=${filters.mainCategory}`;
           } else {
             // 특정 플랫폼
-            apiUrl = `${endpoint}/api/button-clicks?platform=${filters.subCategory}`;
+            apiUrl = `/api/button-clicks?platform=${filters.subCategory}`;
           }
         }
         

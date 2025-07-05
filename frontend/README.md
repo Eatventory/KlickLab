@@ -1,8 +1,3 @@
-🔹 배포 시에 `.env` 파일을 생성해주세요.
-```bash
-VITE_ENDPOINT=
-```
----
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
