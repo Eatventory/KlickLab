@@ -11,12 +11,43 @@ interface VisitorData {
 
 interface VisitorChartProps {
   data: VisitorData[];
+  period?: 'hourly' | 'daily' | 'weekly' | 'monthly';
 }
 
-export const VisitorChart: React.FC<VisitorChartProps> = ({ data }) => {
+export const VisitorChart: React.FC<VisitorChartProps> = ({ data, period = 'daily' }) => {
+  // 집계 단위별 라벨 포맷 함수
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
+    if (period === 'hourly') {
+      // YYYY-MM-DD HH
+      if (dateString.includes(' ')) {
+        const [date, hour] = dateString.split(' ');
+        return `${date}\n${hour}시`;
+      }
+      return dateString; // hour가 없으면 날짜만
+    } else if (period === 'weekly') {
+      // ISO 주차: 2024-23 -> 2024년 23주차
+      const parts = dateString.split('-');
+      if (parts.length === 2) {
+        const [year, week] = parts;
+        return `${year}년 ${week}주차`;
+      }
+      return dateString;
+    } else if (period === 'monthly') {
+      // YYYY-MM -> 2024년 6월
+      const parts = dateString.split('-');
+      if (parts.length === 2) {
+        const [year, month] = parts;
+        return `${year}년 ${Number(month)}월`;
+      }
+      return dateString;
+    } else {
+      // YYYY-MM-DD -> 6월 10일
+      const date = new Date(dateString);
+      if (!isNaN(date.getTime())) {
+        return date.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
+      }
+      return dateString;
+    }
   };
 
   const CustomTooltip = ({ active, payload, label }: any) => {
