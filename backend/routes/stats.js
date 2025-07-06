@@ -145,7 +145,7 @@ router.get('/dropoff-summary', async (req, res) => {
   try {
     const query = `
       SELECT
-        page_path as page,
+        page,
         round(countIf(event_name = 'page_exit') / count() * 100, 1) AS dropRate
       FROM klicklab.events
       WHERE page != ''
