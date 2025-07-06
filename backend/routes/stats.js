@@ -141,4 +141,25 @@ router.get('/click-trend', async (req, res) => {
   }
 });
 
+router.get('/dropoff-summary', async (req, res) => {
+  try {
+    const query = `
+      SELECT
+        page,
+        round(countIf(event_name = 'page_exit') / count() * 100, 1) AS dropRate
+      FROM klicklab.events
+      WHERE page != ''
+      GROUP BY page
+      ORDER BY dropRate DESC
+      LIMIT 5
+    `;
+    const result = await clickhouse.query({ query, format: 'JSONEachRow' });
+    const data = await result.json();
+    res.status(200).json({ data: data });
+  } catch (err) {
+    console.error('Dropoff Summary API ERROR:', err);
+    res.status(500).json({ error: 'Failed to get dropoff summary data' });
+  }
+});
+
 module.exports = router;

@@ -1,27 +1,3 @@
-// =========================
-// KlickLab API 목록 및 설명
-// =========================
-//
-// 1. 트래픽 대시보드 통합 API
-//    GET /api/dashboard/traffic
-//    - 방문자 추이(시간/일/주/월), 메인페이지 클릭 랭킹 등 대시보드용 데이터 제공
-//    - 쿼리 파라미터: period, gender, ageGroup
-//    - 예시: /api/dashboard/traffic?period=hourly&gender=all&ageGroup=all
-//
-// 2. 버튼 클릭 통계 API (데모)
-//    GET /api/button-clicks
-//    - 버튼별 클릭 수, 클릭 이벤트 목록 제공
-//    - 쿼리 파라미터: platform (선택)
-//    - 예시: /api/button-clicks?platform=mobile
-//
-// 3. 이벤트 수집 API
-//    POST /api/analytics/collect
-//    - 클라이언트에서 사용자 행동 데이터 수집용
-//    - body: { event_name, timestamp, ... }
-//
-// (필요시 추가 분석 API: /api/dashboard/channel, /api/dashboard/timezone 등)
-//
-// =========================
 const express = require('express');
 const cors = require('cors');
 const app = express();
@@ -90,6 +66,7 @@ app.get('/api/button-clicks', async (req, res) => {
   }
 });
 
+/* ▼ 다른 라우팅 파일로 분리해야 함 */
 // Traffic 탭 통합 API
 app.get('/api/dashboard/traffic', async (req, res) => {
   try {
@@ -206,58 +183,7 @@ app.get('/api/dashboard/traffic', async (req, res) => {
     res.status(500).json({ error: 'Failed to get traffic dashboard data' });
   }
 });
-
-// 이벤트 데이터 수집을 위한 POST API 엔드포인트를 ClickHouse 기반으로 리팩토링
-app.post('/api/analytics/collect', async (req, res) => {
-  const data = req.body;
-  try {
-    // UTC → KST 변환
-    const utcDate = new Date(data.timestamp);
-    const kstDate = new Date(utcDate.getTime() + 9 * 60 * 60 * 1000);
-    // ClickHouse INSERT 쿼리 작성 (컬럼명은 events 테이블 구조에 맞게 조정 필요)
-    const insertQuery = `
-      INSERT INTO events (
-        event_name, timestamp, client_id, user_id, session_id,
-        page_path, page_title, referrer,
-        device_type, os, browser, language,
-        timezone, traffic_medium, traffic_source, traffic_campaign,
-        user_gender, user_age,
-        properties, context
-      ) VALUES
-    `;
-    // JSON 컬럼은 문자열로 변환
-    const values = [
-      data.event_name,
-      kstDate.toISOString().replace('T', ' ').slice(0, 19),
-      data.client_id,
-      data.user_id,
-      data.session_id,
-      data.properties?.page_path ?? null,
-      data.properties?.page_title ?? null,
-      data.properties?.referrer ?? null,
-      data.context?.device?.device_type ?? null,
-      data.context?.device?.os ?? null,
-      data.context?.device?.browser ?? null,
-      data.context?.device?.language ?? null,
-      data.context?.geo?.timezone ?? null,
-      data.context?.traffic_source?.traffic_medium ?? null,
-      data.context?.traffic_source?.traffic_source ?? null,
-      data.context?.traffic_source?.campaign ?? null,
-      data.user_gender,
-      data.user_age,
-      JSON.stringify(data.properties ?? {}),
-      JSON.stringify(data.context ?? {})
-    ];
-    // ClickHouse는 VALUES (...) 형식의 다중 행 삽입 지원
-    const valuesStr = `(${values.map(v => v === null ? 'NULL' : `'${String(v).replace(/'/g, "''")}'`).join(', ')})`;
-    const fullQuery = insertQuery + valuesStr;
-    await clickhouse.query({ query: fullQuery, format: 'JSON' });
-    res.status(200).json({ status: 'ok' });
-  } catch (err) {
-    console.error('ClickHouse INSERT ERROR:', err);
-    res.status(500).json({ error: 'ClickHouse insert failed' });
-  }
-});
+/* ▲ 다른 라우팅 파일로 분리해야 함 */
 
 app.listen(PORT, () => {
   console.log(`KlickLab 서버 실행 중: http://localhost:${PORT}`);
