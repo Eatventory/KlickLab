@@ -24,7 +24,6 @@ app.use('/api/users', usersRoutes);
 /* ▼ 메트릭 연결 */
 const metricsPort = 9091; // 메트릭 전용 포트
 const client = require('prom-client');
-
 // Prometheus 메트릭을 담을 전용 공간(레지스트리)을 생성
 const register = new client.Registry();
 
@@ -68,6 +67,12 @@ app.use((req, res, next) => {
     end({ route, code: res.statusCode, method: req.method });
   });
   // 6. 다음 미들웨어 또는 실제 API 로직을 실행.
+  next();
+});
+
+// 모든 요청에 대해 콘솔에 로그를 남기는 미들웨어 추가
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
   next();
 });
 
@@ -301,11 +306,11 @@ app.get('/api/dashboard/traffic', async (req, res) => {
     // 메인 페이지에서 이동하는 페이지 Top 10 쿼리
     const mainPageNavQuery = `
       SELECT
-        properties_page_path AS page,
+        page_path AS page,
         count() AS clicks,
         uniq(user_id) AS uniqueClicks
       FROM events
-      WHERE ${whereClause} AND properties_page_path != '/'
+      WHERE ${whereClause} AND page_path != '/'
       GROUP BY page
       ORDER BY clicks DESC
       LIMIT 10
