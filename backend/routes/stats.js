@@ -164,7 +164,24 @@ router.get('/dropoff-summary', async (req, res) => {
 
 router.get('/userpath-summary', async (req, res) => {
   try {
-    const query = `
+    // 1. 상위 페이지 추출
+    const topPagesRes = await clickhouseClient.query({
+      query: `
+        SELECT page
+        FROM klicklab.events
+        WHERE event_name = 'page_view'
+          AND timestamp >= now() - interval 7 day
+        GROUP BY page
+        ORDER BY count(*) DESC
+        LIMIT 20
+      `,
+      format: "JSON"
+    }).toPromise();
+
+    const allowedPages = topPagesRes.data.map((row: any) => `'${row.page}'`).join(", ");
+
+    // 2. 이동 경로 분석
+    const pathQuery = `
       SELECT 
         path[1] AS from,
         path[2] AS to,
@@ -176,12 +193,12 @@ router.get('/userpath-summary', async (req, res) => {
         FROM (
           SELECT 
             user_id,
-            page,
+            page_path as page,
             toUnixTimestamp(timestamp) AS ts,
             row_number() OVER (PARTITION BY user_id ORDER BY timestamp) AS path_order
           FROM klicklab.events
-          WHERE page IN ('메인페이지', '상품목록', '검색', '로그인', '상품상세', '장바구니', '결제', '마이페이지')
-            AND event_name = 'page_view'
+          WHERE event_name = 'page_view'
+            AND page IN (${allowedPages})
         )
         GROUP BY user_id
       )
@@ -190,7 +207,7 @@ router.get('/userpath-summary', async (req, res) => {
       ORDER BY value DESC
     `;
 
-    const result = await clickhouse.query({ query, format: "JSON" }).toPromise();
+    const result = await clickhouse.query({ query: pathQuery, format: "JSON" }).toPromise();
 
     res.status(200).json(result.data);
   } catch (err) {
