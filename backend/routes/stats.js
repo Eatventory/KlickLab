@@ -11,13 +11,13 @@ router.get('/visitors', async (req, res) => {
           formatDateTime(date, '%Y-%m-%d') AS date_str,
           toUInt64(visitors) AS visitors
         FROM klicklab.daily_metrics
-        WHERE date >= today() - 6 AND date < today()
+        WHERE date >= toDate(toTimeZone(now(), 'Asia/Seoul')) - 6 AND date < toDate(toTimeZone(now(), 'Asia/Seoul'))
         UNION ALL
         SELECT
           formatDateTime(toDate(timestamp), '%Y-%m-%d') AS date_str,
           toUInt64(countDistinct(client_id)) AS visitors
         FROM events
-        WHERE toDate(timestamp) = today()
+        WHERE toDate(timestamp) = toDate(toTimeZone(now(), 'Asia/Seoul'))
         GROUP BY toDate(timestamp)
         ORDER BY date_str ASC
       `,
@@ -29,12 +29,11 @@ router.get('/visitors', async (req, res) => {
       visitors: Number(row.visitors)
     }));
 
-    // 기존 today/yesterday 로직 유지
     const yesterdayRes = await clickhouse.query({
       query: `
         SELECT visitors
         FROM daily_metrics
-        WHERE date = yesterday();
+        WHERE date = toDate(toTimeZone(now() - INTERVAL 1 DAY, 'Asia/Seoul'));
       `,
       format: 'JSON'
     });
@@ -44,7 +43,7 @@ router.get('/visitors', async (req, res) => {
       query: `
         SELECT countDistinct(client_id) AS visitors
         FROM events
-        WHERE date(timestamp) = today()
+        WHERE date(timestamp) = toDate(toTimeZone(now(), 'Asia/Seoul'))
       `,
       format: 'JSON'
     });
@@ -67,18 +66,17 @@ router.get('/clicks', async (req, res) => {
 			query: `
 				SELECT clicks
 				FROM daily_metrics
-				WHERE date = yesterday();
+				WHERE date = toDate(toTimeZone(now() - INTERVAL 1 DAY, 'Asia/Seoul'));
 			`,
 			format: 'JSON'
 		});
 		const yesterdayClicks = (await yesterdayRes.json()).data[0]?.clicks ?? 0;
 
-		// 오늘 방문자 수
 		const clickRes = await clickhouse.query({
 			query: `
 				SELECT count() AS clicks
 				FROM events
-				WHERE date(timestamp) >= today() AND event_name = 'auto_click'
+				WHERE date(timestamp) >= toDate(toTimeZone(now(), 'Asia/Seoul')) AND event_name = 'auto_click'
 			`,
 			format: 'JSON'
 		});
@@ -100,7 +98,7 @@ router.get('/top-clicks', async (req, res) => {
 			query: `
 				SELECT target_text, count() AS cnt
 				FROM events
-				WHERE date(timestamp) >= today() AND event_name = 'auto_click' AND target_text != ''
+				WHERE date(timestamp) >= toDate(toTimeZone(now(), 'Asia/Seoul')) AND event_name = 'auto_click' AND target_text != ''
 				GROUP BY target_text
 				ORDER BY cnt DESC
 				LIMIT 5
@@ -170,7 +168,7 @@ router.get('/dropoff-summary', async (req, res) => {
         page_path as page,
         round(countIf(event_name = 'page_exit') / count() * 100, 1) AS dropRate
       FROM events
-      WHERE date(timestamp) >= today() AND page != ''
+      WHERE date(timestamp) >= toDate(toTimeZone(now(), 'Asia/Seoul')) AND page != ''
       GROUP BY page
       ORDER BY dropRate DESC
       LIMIT 5
@@ -201,7 +199,7 @@ router.get('/userpath-summary', async (req, res) => {
             page_path
           FROM events
           WHERE event_name IN ('page_view', 'auto_click')
-            AND date(timestamp) = today()
+            AND date(timestamp) = toDate(toTimeZone(now(), 'Asia/Seoul'))
           ORDER BY user_id, timestamp
         )
         GROUP BY user_id

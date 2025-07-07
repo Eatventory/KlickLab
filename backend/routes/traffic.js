@@ -60,12 +60,13 @@ router.get("/", async (req, res) => {
     
     // 방문자 추이 쿼리 (unique user_id, total count)
     const visitorTrendQuery = `
-      WITH toDate('${todayStr}') AS today
-      , past_clients AS (
-        SELECT DISTINCT client_id
-        FROM events
-        WHERE timestamp < today
-      )
+      WITH 
+        toDate(toTimeZone(parseDateTimeBestEffort('${todayStr}'), 'Asia/Seoul')) AS today,
+        past_clients AS (
+          SELECT DISTINCT client_id
+          FROM events
+          WHERE timestamp < today
+        )
       SELECT
         ${formatExpr} AS date_str,
         toUInt64(visitors) AS visitors,
@@ -73,7 +74,7 @@ router.get("/", async (req, res) => {
         toUInt64(visitors - new_visitors) AS returningVisitors
       FROM daily_metrics
       WHERE date < today
-        AND date >= toDate('${startDateStr}')
+        AND date >= toDate(toTimeZone(parseDateTimeBestEffort('${startDateStr}'), 'Asia/Seoul'))
       UNION ALL
       SELECT
         ${eventFormatExpr} AS date_str,
