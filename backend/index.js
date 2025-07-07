@@ -3,6 +3,25 @@ const cors = require('cors');
 const app = express();
 const path = require("path");
 const PORT = 3000;
+
+const clickhouse = require("./src/config/clickhouse");
+app.use(express.json());
+app.use(express.static(path.join(__dirname, "public")));
+// app.use(cors());
+app.use(cors({
+  origin: '*',
+  methods: ['POST'],
+}));
+
+/* stats 라우팅 */
+const statsRoutes = require('./routes/stats');
+app.use('/api/stats', statsRoutes);
+
+/* users 라우팅 */
+const statsRoutes = require('./routes/users');
+app.use('/api/users', statsRoutes);
+
+/* ▼ 메트릭 연결 */
 const metricsPort = 9091; // 메트릭 전용 포트
 const client = require('prom-client');
 
@@ -29,15 +48,6 @@ const httpRequestDurationMicroseconds = new client.Histogram({
 });
 register.registerMetric(httpRequestDurationMicroseconds);
 
-const clickhouse = require("./src/config/clickhouse");
-app.use(express.json());
-app.use(express.static(path.join(__dirname, "public")));
-// app.use(cors());
-app.use(cors({
-  origin: '*',
-  methods: ['POST'],
-}));
-
 // 메트릭 수집 미들웨어
 app.use((req, res, next) => {
   // 1. 요청이 들어오는 순간, 타이머를 시작하고 '종료 함수(end)'를 받아둔다.
@@ -61,15 +71,12 @@ app.use((req, res, next) => {
   next();
 });
 
-/* stats 라우팅 */
-const statsRoutes = require('./routes/stats');
-app.use('/api/stats', statsRoutes);
-
 // Prometheus 메트릭 엔드포인트
 app.get('/metrics', async (req, res) => {
   res.set('Content-Type', register.contentType);
   res.end(await register.metrics());
 });
+/* ▲ 메트릭 연결 */
 
 /* 데모용 테스트 API */
 app.get('/api/button-clicks', async (req, res) => {
