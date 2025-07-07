@@ -202,4 +202,79 @@ router.get('/userpath-summary', async (req, res) => {
   }
 });
 
+router.get('/average-session-duration', async (req, res) => {
+  try {
+    const query = `
+      SELECT 
+        toDate(timestamp) AS date,
+        avg(session_duration) AS avg_session_seconds
+      FROM (
+        SELECT 
+          session_id,
+          min(timestamp) AS session_start,
+          max(timestamp) AS session_end,
+          dateDiff('second', min(timestamp), max(timestamp)) AS session_duration
+        FROM klicklab.events
+        GROUP BY session_id
+      )
+      GROUP BY date
+      ORDER BY date DESC
+      LIMIT 7
+    `;
+
+    const resultSet = await clickhouse.query({ query, format: 'JSONEachRow' });
+    const result = await resultSet.json();
+    res.status(200).json({ data: result });
+  } catch (err) {
+    console.error('Session Duration API ERROR:', err);
+    res.status(500).json({ error: 'Failed to get session duration data' });
+  }
+});
+
+router.get('/conversion-rate', async (req, res) => {
+  const fromPage = req.query.from || '/';
+  const toPage = req.query.to || '/';
+
+  const query = `
+    WITH
+      a_sessions AS (
+        SELECT session_id, min(timestamp) AS a_time
+        FROM klicklab.events
+        WHERE page_path = '${fromPage}'
+        GROUP BY session_id
+      ),
+      ab_sessions AS (
+        SELECT a.session_id
+        FROM a_sessions a
+        JOIN (
+          SELECT session_id, min(timestamp) AS b_time
+          FROM klicklab.events
+          WHERE page_path = '${toPage}'
+          GROUP BY session_id
+        ) b ON a.session_id = b.session_id AND a.a_time < b.b_time
+      )
+
+    SELECT 
+      (SELECT count(*) FROM ab_sessions) AS converted,
+      (SELECT count(*) FROM a_sessions) AS total,
+      round((converted / total) * 100, 1) AS conversion_rate
+  `;
+
+  try {
+    const resultSet = await clickhouse.query({ query, format: 'JSONEachRow' });
+    const [data] = await resultSet.json();
+    const response = {
+      from: fromPage,
+      to: toPage,
+      converted: data.converted,
+      total: data.total,
+      conversionRate: data.conversion_rate,
+    };
+    res.status(200).json({ data: response });
+  } catch (err) {
+    console.error('Conversion Rate API ERROR:', err);
+    res.status(500).json({ error: 'Failed to get conversion rate data' });
+  }
+});
+
 module.exports = router;
