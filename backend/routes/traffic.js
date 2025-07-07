@@ -2,6 +2,18 @@ const express = require("express");
 const router = express.Router();
 const clickhouse = require('../src/config/clickhouse');
 
+function getAgeCondition(ageGroup) {
+  switch (ageGroup) {
+    case "10s": return "user_age >= 10 AND user_age < 20";
+    case "20s": return "user_age >= 20 AND user_age < 30";
+    case "30s": return "user_age >= 30 AND user_age < 40";
+    case "40s": return "user_age >= 40 AND user_age < 50";
+    case "50s": return "user_age >= 50 AND user_age < 60";
+    case "60s+": return "user_age >= 60";
+    default: return "";
+  }
+}
+
 /* Traffic 탭 통합 API */
 router.get("/", async (req, res) => {
   try {
@@ -58,42 +70,38 @@ router.get("/", async (req, res) => {
       where.push(`user_gender = '${gender}'`);
     }
     if (ageGroup !== "all") {
-      let ageCond = "";
-      switch (ageGroup) {
-        case "10s":
-          ageCond = "user_age >= 10 AND user_age < 20";
-          break;
-        case "20s":
-          ageCond = "user_age >= 20 AND user_age < 30";
-          break;
-        case "30s":
-          ageCond = "user_age >= 30 AND user_age < 40";
-          break;
-        case "40s":
-          ageCond = "user_age >= 40 AND user_age < 50";
-          break;
-        case "50s":
-          ageCond = "user_age >= 50 AND user_age < 60";
-          break;
-        case "60s+":
-          ageCond = "user_age >= 60";
-          break;
-      }
+      const ageCond = getAgeCondition(ageGroup);
       if (ageCond) where.push(ageCond);
     }
     const whereClause = where.join(" AND ");
 
+    const todayStr = now.toISOString().slice(0, 10); // 'YYYY-MM-DD'
+    
     // 방문자 추이 쿼리 (unique user_id, total count)
     const visitorTrendQuery = `
-    SELECT
-      ${groupBy} AS date,
-      count() AS visitors,
-      uniq(user_id) AS newVisitors,
-      (count() - uniq(user_id)) AS returningVisitors
-    FROM events
-    WHERE ${whereClause}
-    GROUP BY date
-    ORDER BY date ASC
+      WITH toDate('${todayStr}') AS today
+      SELECT
+        formatDateTime(date, '%Y-%m-%d') AS date_str,
+        visitors,
+        new_visitors AS newVisitors,
+        visitors - new_visitors AS returningVisitors
+      FROM klicklab.daily_metrics
+      WHERE date < today
+        AND date >= toDate('${startDateStr}')
+      UNION ALL
+      SELECT
+        formatDateTime(timestamp, '%Y-%m-%d') AS date_str,
+        count() AS visitors,
+        uniq(user_id) AS newVisitors,
+        count() - uniq(user_id) AS returningVisitors
+      FROM events
+      WHERE 
+        toDate(timestamp) = today
+        AND event_name = 'auto_click'
+        ${gender !== "all" ? `AND user_gender = '${gender}'` : ""}
+        ${ageGroup !== "all" ? `AND ${getAgeCondition(ageGroup)}` : ""}
+      GROUP BY date_str
+      ORDER BY date_str ASC
     `;
     const visitorTrendResult = await clickhouse.query({
       query: visitorTrendQuery,
@@ -250,7 +258,7 @@ router.get("/", async (req, res) => {
       referrerDistribution,
     });
   } catch (err) {
-    console.error("ClickHouse Dashboard API ERROR:", err);
+    console.error("Traffic Dashboard API ERROR:", err);
     res.status(500).json({ error: "Failed to get traffic dashboard data" });
   }
 });
