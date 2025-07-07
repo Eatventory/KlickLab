@@ -165,40 +165,39 @@ router.get('/dropoff-summary', async (req, res) => {
 router.get('/userpath-summary', async (req, res) => {
   try {
     // 1. 상위 페이지 추출
-    const topPagesRes = await clickhouseClient.query({
+    const topPagesRes = await clickhouse.query({
       query: `
-        SELECT page
+        SELECT page_path
         FROM klicklab.events
         WHERE event_name = 'page_view'
           AND timestamp >= now() - interval 7 day
-        GROUP BY page
+        GROUP BY page_path
         ORDER BY count(*) DESC
         LIMIT 20
       `,
       format: "JSON"
     }).toPromise();
 
-    const allowedPages = topPagesRes.data.map((row: any) => `'${row.page}'`).join(", ");
+    const allowedPages = topPagesRes.data.map((row: any) => `'${row.page_path}'`).join(", ");
 
     // 2. 이동 경로 분석
     const pathQuery = `
       SELECT 
-        path[1] AS from,
-        path[2] AS to,
+        from,
+        to,
         count(*) AS value
       FROM (
         SELECT 
           user_id,
-          groupArray(path_order)(page) AS path
+          groupArray(path_order)(page_path) AS path
         FROM (
           SELECT 
             user_id,
-            page_path as page,
-            toUnixTimestamp(timestamp) AS ts,
+            page_path,
             row_number() OVER (PARTITION BY user_id ORDER BY timestamp) AS path_order
           FROM klicklab.events
           WHERE event_name = 'page_view'
-            AND page IN (${allowedPages})
+            AND page_path IN (${allowedPages})
         )
         GROUP BY user_id
       )
