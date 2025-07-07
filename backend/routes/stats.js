@@ -141,4 +141,62 @@ router.get('/click-trend', async (req, res) => {
   }
 });
 
+router.get('/dropoff-summary', async (req, res) => {
+  try {
+    const query = `
+      SELECT
+        page_path as page,
+        round(countIf(event_name = 'page_exit') / count() * 100, 1) AS dropRate
+      FROM klicklab.events
+      WHERE date(timestamp) >= today() AND page != ''
+      GROUP BY page
+      ORDER BY dropRate DESC
+      LIMIT 5
+    `;
+    const result = await clickhouse.query({ query, format: 'JSONEachRow' });
+    const data = await result.json();
+    res.status(200).json({ data: data });
+  } catch (err) {
+    console.error('Dropoff Summary API ERROR:', err);
+    res.status(500).json({ error: 'Failed to get dropoff summary data' });
+  }
+});
+
+router.get('/userpath-summary', async (req, res) => {
+  try {
+    const query = `
+      SELECT 
+        path[1] AS from,
+        path[2] AS to,
+        count(*) AS value
+      FROM (
+        SELECT 
+          user_id,
+          groupArray(path_order)(page) AS path
+        FROM (
+          SELECT 
+            user_id,
+            page,
+            toUnixTimestamp(timestamp) AS ts,
+            row_number() OVER (PARTITION BY user_id ORDER BY timestamp) AS path_order
+          FROM klicklab.events
+          WHERE page IN ('메인페이지', '상품목록', '검색', '로그인', '상품상세', '장바구니', '결제', '마이페이지')
+            AND event_name = 'page_view'
+        )
+        GROUP BY user_id
+      )
+      ARRAY JOIN arrayZip(arraySlice(path, 1, length(path)-1), arraySlice(path, 2)) AS (from, to)
+      GROUP BY from, to
+      ORDER BY value DESC
+    `;
+
+    const result = await clickhouse.query({ query, format: "JSON" }).toPromise();
+
+    res.status(200).json(result.data);
+  } catch (err) {
+    console.error('User Path Summary API ERROR:', err);
+    res.status(500).json({ error: 'Failed to get userpath summary data' });
+  }
+});
+
 module.exports = router;
