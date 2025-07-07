@@ -314,7 +314,7 @@ app.post('/api/analytics/collect', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-   console.log(`KlickLab API server listening on port ${mainPort}`);
+   console.log(`KlickLab API server listening on port ${PORT}`);
 });
 
 app.listen(metricsPort, () => {
