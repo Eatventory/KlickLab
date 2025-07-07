@@ -23,41 +23,45 @@ router.get("/", async (req, res) => {
       ageGroup = "all",
     } = req.query;
     const now = new Date();
-    let startDate, groupBy, dateFormat, dateAlias;
+    // let startDate, groupBy, dateFormat, dateAlias;
 
-    // 기간별 설정
-    switch (period) {
-      case "hourly":
-        startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-        groupBy = `formatDateTime(timestamp, '%Y-%m-%d %H')`;
-        dateAlias = "hour";
-        break;
-      case "daily":
-        startDate = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000);
-        groupBy = `formatDateTime(timestamp, '%Y-%m-%d')`;
-        dateAlias = "day";
-        break;
-      case "weekly":
-        startDate = new Date(
-          now.getTime() - 6 * 7 * 24 * 60 * 60 * 1000
-        );
-        groupBy = `concat(toString(toISOYear(timestamp)), '-', lpad(toString(toISOWeek(timestamp)), 2, '0'))`;
-        dateAlias = "week";
-        break;
-      case "monthly":
-        startDate = new Date(now.getFullYear(), now.getMonth() - 11, 1);
-        groupBy = `formatDateTime(timestamp, '%Y-%m')`;
-        dateAlias = "month";
-        break;
-      default:
-        startDate = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000);
-        groupBy = `formatDateTime(timestamp, '%Y-%m-%d')`;
-        dateAlias = "day";
-    }
-    const startDateStr = startDate
-      .toISOString()
-      .slice(0, 19)
-      .replace("T", " ");
+    // // 기간별 설정
+    // switch (period) {
+    //   case "hourly":
+    //     startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    //     groupBy = `formatDateTime(timestamp, '%Y-%m-%d %H')`;
+    //     dateAlias = "hour";
+    //     break;
+    //   case "daily":
+    //     startDate = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000);
+    //     groupBy = `formatDateTime(timestamp, '%Y-%m-%d')`;
+    //     dateAlias = "day";
+    //     break;
+    //   case "weekly":
+    //     startDate = new Date(
+    //       now.getTime() - 6 * 7 * 24 * 60 * 60 * 1000
+    //     );
+    //     groupBy = `concat(toString(toISOYear(timestamp)), '-', lpad(toString(toISOWeek(timestamp)), 2, '0'))`;
+    //     dateAlias = "week";
+    //     break;
+    //   case "monthly":
+    //     startDate = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+    //     groupBy = `formatDateTime(timestamp, '%Y-%m')`;
+    //     dateAlias = "month";
+    //     break;
+    //   default:
+    //     startDate = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000);
+    //     groupBy = `formatDateTime(timestamp, '%Y-%m-%d')`;
+    //     dateAlias = "day";
+    // }
+    // const startDateStr = startDate
+    //   .toISOString()
+    //   .slice(0, 19)
+    //   .replace("T", " ");
+
+    const startDate = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000);
+    const startDateStr = startDate.toISOString().slice(0, 19).replace("T", " ");
+
     const endDateStr = now.toISOString().slice(0, 19).replace("T", " ");
 
     // 필터 WHERE 조건 생성
@@ -76,12 +80,24 @@ router.get("/", async (req, res) => {
     const whereClause = where.join(" AND ");
 
     const todayStr = now.toISOString().slice(0, 10); // 'YYYY-MM-DD'
+    const formatExpr = {
+      daily: "formatDateTime(date, '%Y-%m-%d')",
+      hourly: "formatDateTime(date, '%Y-%m-%d')",
+      weekly: "formatDateTime(date, '%Y-%m-%d')",
+      monthly: "formatDateTime(date, '%Y-%m-%d')",
+    }[period];
+    const eventFormatExpr = {
+      daily: "formatDateTime(timestamp, '%Y-%m-%d')",
+      hourly: "formatDateTime(timestamp, '%Y-%m-%d %H:00')",
+      weekly: "concat(toString(toISOYear(timestamp)), '-', lpad(toString(toISOWeek(timestamp)), 2, '0'))",
+      monthly: "formatDateTime(timestamp, '%Y-%m')",
+    }[period];
     
     // 방문자 추이 쿼리 (unique user_id, total count)
     const visitorTrendQuery = `
       WITH toDate('${todayStr}') AS today
       SELECT
-        formatDateTime(date, '%Y-%m-%d') AS date_str,
+        ${formatExpr} AS date_str,
         visitors,
         new_visitors AS newVisitors,
         visitors - new_visitors AS returningVisitors
@@ -90,7 +106,7 @@ router.get("/", async (req, res) => {
         AND date >= toDate('${startDateStr}')
       UNION ALL
       SELECT
-        formatDateTime(timestamp, '%Y-%m-%d') AS date_str,
+        ${eventFormatExpr} AS date_str,
         count() AS visitors,
         uniq(user_id) AS newVisitors,
         count() - uniq(user_id) AS returningVisitors
