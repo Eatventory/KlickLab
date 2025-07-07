@@ -69,7 +69,7 @@ app.use((req, res, next) => {
   // 2. 이 요청에 대한 응답(res)이 완전히 끝나면('finish' 이벤트) 아래 함수를 실행.
   res.on('finish', () => {
     // 3. 경로를 깔끔하게 정리. (e.g., /users/123 -> /users/:id)
-    const route = req.route ? req.route.path : req.path;
+    const route = req.route?.path || req.originalUrl.split('?')[0] || req.path;
     // 4. HTTP 요청 카운터(Counter)의 값을 1 증가.
     // 어떤 요청이었는지 라벨(method, route, status_code)과 함께 기록.
     httpRequestCounter.inc({
