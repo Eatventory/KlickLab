@@ -225,4 +225,48 @@ router.get('/os-type-summary', async (req, res) => {
   }
 });
 
+router.get('/browser-type-summary', async (req, res) => {
+  const query = `
+    SELECT 
+      browser,
+      device_type,
+      count(DISTINCT user_id) AS users
+    FROM events
+    WHERE toDate(timestamp) = today()
+      AND user_id IS NOT NULL
+    GROUP BY browser, device_type
+  `;
+
+  try {
+    const resultRes = await clickhouse.query({ query, format: 'JSON' });
+    const result = await resultRes.json();
+
+    const convertBrowser = (browser, deviceType) => {
+      if (browser === 'Chrome' && deviceType === 'mobile') return { name: 'Chrome Mobile', category: 'mobile' };
+      if (browser === 'Safari' && deviceType === 'mobile') return { name: 'Safari Mobile', category: 'mobile' };
+      if (browser === 'Chrome') return { name: 'Chrome', category: 'desktop' };
+      if (browser === 'Safari') return { name: 'Safari', category: 'desktop' };
+      if (browser === 'Edge') return { name: 'Edge', category: 'desktop' };
+      if (browser === 'Firefox') return { name: 'Firefox', category: 'desktop' };
+      if (browser === 'Samsung Internet') return { name: 'Samsung Internet', category: 'mobile' };
+      return { name: '기타', category: deviceType === 'mobile' ? 'mobile' : 'desktop' };
+    };
+
+    const grouped = {};
+
+    for (const row of result.data) {
+      const { name, category } = convertBrowser(row.browser, row.device_type);
+      if (!grouped[name]) {
+        grouped[name] = { browser: name, users: 0, category };
+      }
+      grouped[name].users += Number(row.users);
+    }
+
+    res.status(200).json({ data: Object.values(grouped) });
+  } catch (err) {
+    console.error('Device Type API ERROR:', err);
+    res.status(500).json({ error: 'Failed to get device type data' });
+  }
+});
+
 module.exports = router;
