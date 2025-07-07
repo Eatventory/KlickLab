@@ -7,19 +7,19 @@ const PORT = 3000;
 const clickhouse = require("./src/config/clickhouse");
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
-// app.use(cors());
-app.use(cors({
-  origin: '*',
-  methods: ['POST'],
-}));
+app.use(cors());
+// app.use(cors({
+//   origin: '*',
+//   methods: ['POST'],
+// }));
 
 /* stats 라우팅 */
 const statsRoutes = require('./routes/stats');
 app.use('/api/stats', statsRoutes);
 
 /* users 라우팅 */
-const statsRoutes = require('./routes/users');
-app.use('/api/users', statsRoutes);
+const usersRoutes = require('./routes/users');
+app.use('/api/users', usersRoutes);
 
 /* ▼ 메트릭 연결 */
 const metricsPort = 9091; // 메트릭 전용 포트
