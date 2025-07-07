@@ -4,7 +4,13 @@ const clickhouse = require('../src/config/clickhouse');
 
 router.get('/top-clicks', async (req, res) => {
   try {
-    const segment = 'user_gender'; // 현재는 성별 고정, 확장 가능
+    let segment = req.query.filter;
+    const validSegments = ['user_gender', 'user_age', 'traffic_source', 'device_type'];
+
+    if (segment === 'gender') segment = 'user_gender';
+    if (!validSegments.includes(segment)) {
+      return res.status(400).json({ error: 'Invalid user segment' });
+    }
 
     // 1. 세그먼트별 총 클릭 수, 유저 수, 평균 클릭 수
     const summaryQuery = `
@@ -137,6 +143,5 @@ router.get('/top-clicks', async (req, res) => {
     res.status(500).json({ error: 'Failed to get top clicks data' });
   }
 });
-
 
 module.exports = router;
