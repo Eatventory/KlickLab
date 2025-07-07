@@ -137,10 +137,55 @@ router.get('/top-clicks', async (req, res) => {
       });
     }
 
-    res.json({data: result});
+    res.status(200).json({ data: result });
   } catch (err) {
     console.error('Top Clicks API ERROR:', err);
     res.status(500).json({ error: 'Failed to get top clicks data' });
+  }
+});
+
+router.get('/user-type-summary', async (req, res) => {
+  try {
+    const todayUserQuery = `
+      SELECT DISTINCT user_id
+      FROM events
+      WHERE toDate(timestamp) = today()
+        AND user_id IS NOT NULL
+    `;
+
+    const everUserQuery = `
+      SELECT DISTINCT user_id
+      FROM events
+      WHERE toDate(timestamp) < today()
+        AND user_id IS NOT NULL
+    `;
+
+    const [todayRes, everRes] = await Promise.all([
+      clickhouse.query({ query: todayUserQuery, format: 'JSON' }).then(r => r.json()),
+      clickhouse.query({ query: everUserQuery, format: 'JSON' }).then(r => r.json()),
+    ]);
+
+    const todayUsers = new Set(todayRes.data.map(row => row.user_id));
+    const everUsers = new Set(everRes.data.map(row => row.user_id));
+
+    let newUser = 0, oldUser = 0;
+    for (const user of todayUsers) {
+      if (everUsers.has(user)) {
+        oldUser++;
+      } else {
+        newUser++;
+      }
+    }
+
+    res.status(200).json({
+      data: [
+        { type: '신규 유저', value: newUser },
+        { type: '기존 유저', value: oldUser }
+      ]
+    });
+  } catch (err) {
+    console.error('User Type API ERROR:', err);
+    res.status(500).json({ error: 'Failed to get user type data' });
   }
 });
 
