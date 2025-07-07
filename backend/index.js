@@ -1,11 +1,34 @@
+// =========================
+// KlickLab API 목록 및 설명
+// =========================
+//
+// 1. 트래픽 대시보드 통합 API
+//    GET /api/dashboard/traffic
+//    - 방문자 추이(시간/일/주/월), 메인페이지 클릭 랭킹 등 대시보드용 데이터 제공
+//    - 쿼리 파라미터: period, gender, ageGroup
+//    - 예시: /api/dashboard/traffic?period=hourly&gender=all&ageGroup=all
+//
+// 2. 버튼 클릭 통계 API (데모)
+//    GET /api/button-clicks
+//    - 버튼별 클릭 수, 클릭 이벤트 목록 제공
+//    - 쿼리 파라미터: platform (선택)
+//    - 예시: /api/button-clicks?platform=mobile
+//
+// 3. 이벤트 수집 API
+//    POST /api/analytics/collect
+//    - 클라이언트에서 사용자 행동 데이터 수집용
+//    - body: { event_name, timestamp, ... }
+//
+// (필요시 추가 분석 API: /api/dashboard/channel, /api/dashboard/timezone 등)
+//
+// =========================
 const express = require('express');
 const cors = require('cors');
 const app = express();
 const path = require("path");
 const PORT = 3000;
 
-// const pool = require('./src/config/postgre');
-const connectMongo = require("./src/config/mongo");
+const clickhouse = require("./src/config/clickhouse");
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 // app.use(cors());
@@ -14,284 +37,232 @@ app.use(cors({
   methods: ['POST'],
 }));
 
-app.post('/api/analytics/collect', async (req, res) => {
-  const data = req.body;
+/* stats 라우팅 */
+const statsRoutes = require('./routes/stats');
+app.use('/api/stats', statsRoutes);
+
+/* 데모용 테스트 API */
+app.get('/api/button-clicks', async (req, res) => {
+  const query = req.query;
 
   try {
-    const db = await connectMongo();
-    const logs = db.collection('logs');
+    const where = [
+      `event_name = 'auto_click'`,
+      `is_button = 1`,
+      `target_text REGEXP '^button [1-7]$'`,
+      query.platform ? `(device_type = '${query.platform}' OR device_os = '${query.platform}')` : null
+    ].filter(Boolean).join(' AND ');
 
-    const utcDate = new Date(data.timestamp);
-    const kstDate = new Date(utcDate.getTime() + 9 * 60 * 60 * 1000);
-
-    await logs.insertOne({
-      event_name: data.event_name,
-      timestamp: kstDate.toISOString(),
-      client_id: data.client_id,
-      user_id: data.user_id,
-      session_id: data.session_id,
-
-      // flatten properties
-      page_path: data.properties?.page_path ?? null,
-      page_title: data.properties?.page_title ?? null,
-      referrer: data.properties?.referrer ?? null,
-
-      // flatten device context
-      device_type: data.context?.device?.device_type ?? null,
-      os: data.context?.device?.os ?? null,
-      browser: data.context?.device?.browser ?? null,
-      language: data.context?.device?.language ?? null,
-
-      // flatten geo context
-      timezone: data.context?.geo?.timezone ?? null,
-
-      // flatten traffic_source
-      traffic_medium: data.context?.traffic_source?.traffic_medium ?? null,
-      traffic_source: data.context?.traffic_source?.traffic_source ?? null,
-      traffic_campaign: data.context?.traffic_source?.campaign ?? null,
-
-      // flatten user meta
-      user_gender: data.user_gender,
-      user_age: data.user_age,
-
-      // 원본도 같이 저장 (optional)
-      properties: data.properties,
-      context: data.context
+    const result = await clickhouse.query({
+      query: `
+        SELECT element_path, target_text
+        FROM events
+        WHERE ${where}
+      `,
+      format: 'JSON',
     });
 
-    res.status(200).json({ status: 'ok' });
-  } catch (err) {
-    console.error('MongoDB INSERT ERROR:', err);
-    res.status(500).json({ error: 'MongoDB insert failed' });
-  }
-});
-
-app.get('/api/button-clicks', async (req, res) => {
-  // const data = req.body;
-  const query = req.query;
-  // console.log(query);
-  try {
-    const db = await connectMongo();
-    const logs = db.collection('logs');
-
-    const andConditions = [
-      { event_name: "auto_click" },
-      { "properties.target_text": /^button [1-7]$/ },
-      { "properties.is_button": true },
-    ];
-    
-    const orConditions = [];
-    if (Object.keys(query).length > 0) {
-      // console.log(query.platform);
-      orConditions.push({ device_type: query.platform });
-      orConditions.push({ os: query.platform });
-      andConditions.push({ $or: orConditions });
-    }
-    // console.log(JSON.stringify(andConditions, null, 2));
-    const queries = await logs.find({ $and: andConditions }).toArray();
+    const json = await result.json();
+    const { data } = json;
 
     let clicks = [0, 0, 0, 0, 0, 0, 0, 0];
-    for (let i = 0; i < queries.length; i++) {
-      const tmp = queries[i].properties.target_text;
+    for (let i = 0; i < data.length; i++) {
+      const tmp = data[i].target_text;
       clicks[Number(tmp.charAt(tmp.length - 1))]++;
     }
 
     const buttonClicks = Object.fromEntries(
       Array.from({ length: 7 }, (_, i) => {
-        const index = i + 1; // 1부터 시작
+        const index = i + 1;
         return [`button${index}`, clicks[index]];
       })
     );
 
-    const clickEvents = queries.map(q => ({
-      element_path: q.properties?.element_path ?? '',
-      target_text: q.properties?.target_text ?? '',
+    const clickEvents = data.map(q => ({
+      element_path: q.element_path ?? '',
+      target_text: q.target_text ?? '',
     }));
 
-    res.status(200).json({ buttonClicks: buttonClicks, clickEvents: clickEvents });
+    res.status(200).json({ buttonClicks, clickEvents });
   } catch (err) {
-    console.error('MongoDB FIND ERROR:', err);
-    res.status(500).json({ error: 'MongoDB find failed' });
+    console.error('ClickHouse SELECT ERROR:', err);
+    res.status(500).json({ error: 'ClickHouse query failed' });
   }
 });
 
-// 오버뷰 탭 API들
-app.get('/api/stats/visitors', async (req, res) => {
+// Traffic 탭 통합 API
+app.get('/api/dashboard/traffic', async (req, res) => {
   try {
-    const db = await connectMongo();
-    const logs = db.collection('logs');
-    
-    const date = req.query.date || new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-    const yesterday = new Date(date);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split('T')[0];
-    
-    // 오늘 방문자 수 (유니크 userId)
-    const todayVisitors = await logs.distinct('user_id', {
-      timestamp: {
-        $gte: new Date(date + 'T00:00:00.000Z'),
-        $lt: new Date(date + 'T23:59:59.999Z')
-      },
-      event_name: 'auto_click'
-    });
-    
-    // 어제 방문자 수 (유니크 userId)
-    const yesterdayVisitors = await logs.distinct('user_id', {
-      timestamp: {
-        $gte: new Date(yesterdayStr + 'T00:00:00.000Z'),
-        $lt: new Date(yesterdayStr + 'T23:59:59.999Z')
-      },
-      event_name: 'auto_click'
-    });
-    
-    res.status(200).json({
-      today: todayVisitors.length,
-      yesterday: yesterdayVisitors.length
-    });
-  } catch (err) {
-    console.error('Visitors API ERROR:', err);
-    res.status(500).json({ error: 'Failed to get visitors data' });
-  }
-});
+    const { period = 'daily', gender = 'all', ageGroup = 'all' } = req.query;
+    const now = new Date();
+    let startDate, groupBy, dateFormat, dateAlias;
 
-app.get('/api/stats/clicks', async (req, res) => {
-  try {
-    const db = await connectMongo();
-    const logs = db.collection('logs');
-    
-    const date = req.query.date || new Date().toISOString().split('T')[0];
-    const yesterday = new Date(date);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split('T')[0];
-    
-    // 오늘 클릭 수
-    const todayClicks = await logs.countDocuments({
-      timestamp: {
-        $gte: new Date(date + 'T00:00:00.000Z'),
-        $lt: new Date(date + 'T23:59:59.999Z')
-      },
-      event_name: 'auto_click'
-    });
-    
-    // 어제 클릭 수
-    const yesterdayClicks = await logs.countDocuments({
-      timestamp: {
-        $gte: new Date(yesterdayStr + 'T00:00:00.000Z'),
-        $lt: new Date(yesterdayStr + 'T23:59:59.999Z')
-      },
-      event_name: 'auto_click'
-    });
-    
-    res.status(200).json({
-      today: todayClicks,
-      yesterday: yesterdayClicks
-    });
-  } catch (err) {
-    console.error('Clicks API ERROR:', err);
-    res.status(500).json({ error: 'Failed to get clicks data' });
-  }
-});
+    // 기간별 설정
+    switch (period) {
+      case 'hourly':
+        startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        groupBy = `formatDateTime(timestamp, '%Y-%m-%d %H')`;
+        dateAlias = 'hour';
+        break;
+      case 'daily':
+        startDate = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000);
+        groupBy = `formatDateTime(timestamp, '%Y-%m-%d')`;
+        dateAlias = 'day';
+        break;
+      case 'weekly':
+        startDate = new Date(now.getTime() - 6 * 7 * 24 * 60 * 60 * 1000);
+        groupBy = `concat(toString(toISOYear(timestamp)), '-', lpad(toString(toISOWeek(timestamp)), 2, '0'))`;
+        dateAlias = 'week';
+        break;
+      case 'monthly':
+        startDate = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+        groupBy = `formatDateTime(timestamp, '%Y-%m')`;
+        dateAlias = 'month';
+        break;
+      default:
+        startDate = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000);
+        groupBy = `formatDateTime(timestamp, '%Y-%m-%d')`;
+        dateAlias = 'day';
+    }
+    const startDateStr = startDate.toISOString().slice(0, 19).replace('T', ' ');
+    const endDateStr = now.toISOString().slice(0, 19).replace('T', ' ');
 
-app.get('/api/stats/top-clicks', async (req, res) => {
-  try {
-    const db = await connectMongo();
-    const logs = db.collection('logs');
-    
-    const date = req.query.date || new Date().toISOString().split('T')[0];
-    
-    // Top 5 클릭 요소 집계
-    const topClicks = await logs.aggregate([
-      {
-        $match: {
-          timestamp: {
-            $gte: new Date(date + 'T00:00:00.000Z'),
-            $lt: new Date(date + 'T23:59:59.999Z')
-          },
-          event_name: 'auto_click'
-        }
-      },
-      {
-        $group: {
-          _id: '$properties.target_text',
-          count: { $sum: 1 }
-        }
-      },
-      {
-        $sort: { count: -1 }
-      },
-      {
-        $limit: 5
-      },
-      {
-        $project: {
-          label: '$_id',
-          count: 1,
-          _id: 0
-        }
+    // 필터 WHERE 조건 생성
+    let where = [
+      `timestamp >= toDateTime('${startDateStr}')`,
+      `timestamp <= toDateTime('${endDateStr}')`,
+      `event_name = 'auto_click'`
+    ];
+    if (gender !== 'all') {
+      where.push(`user_gender = '${gender}'`);
+    }
+    if (ageGroup !== 'all') {
+      let ageCond = '';
+      switch (ageGroup) {
+        case '10s': ageCond = 'user_age >= 10 AND user_age < 20'; break;
+        case '20s': ageCond = 'user_age >= 20 AND user_age < 30'; break;
+        case '30s': ageCond = 'user_age >= 30 AND user_age < 40'; break;
+        case '40s': ageCond = 'user_age >= 40 AND user_age < 50'; break;
+        case '50s': ageCond = 'user_age >= 50 AND user_age < 60'; break;
+        case '60s+': ageCond = 'user_age >= 60'; break;
       }
-    ]).toArray();
-    
-    res.status(200).json({ items: topClicks });
+      if (ageCond) where.push(ageCond);
+    }
+    const whereClause = where.join(' AND ');
+
+    // 방문자 추이 쿼리 (unique user_id, total count)
+    const visitorTrendQuery = `
+      SELECT
+        ${groupBy} AS date,
+        count() AS visitors,
+        uniq(user_id) AS newVisitors,
+        (count() - uniq(user_id)) AS returningVisitors
+      FROM events
+      WHERE ${whereClause}
+      GROUP BY date
+      ORDER BY date ASC
+    `;
+    const visitorTrendResult = await clickhouse.query({ query: visitorTrendQuery, format: 'JSON' });
+    const visitorTrendJson = await visitorTrendResult.json();
+    const visitorTrend = visitorTrendJson.data.map(row => ({
+      date: row.date,
+      visitors: Number(row.visitors),
+      newVisitors: Number(row.newVisitors),
+      returningVisitors: Number(row.returningVisitors)
+    }));
+
+    // 메인 페이지에서 이동하는 페이지 Top 10 쿼리
+    const mainPageNavQuery = `
+      SELECT
+        properties_page_path AS page,
+        count() AS clicks,
+        uniq(user_id) AS uniqueClicks
+      FROM events
+      WHERE ${whereClause} AND properties_page_path != '/'
+      GROUP BY page
+      ORDER BY clicks DESC
+      LIMIT 10
+    `;
+    const mainPageNavResult = await clickhouse.query({ query: mainPageNavQuery, format: 'JSON' });
+    const mainPageNavJson = await mainPageNavResult.json();
+    const mainPageNavigation = mainPageNavJson.data.map((row, idx) => ({
+      name: row.page,
+      page: row.page,
+      clicks: Number(row.clicks),
+      uniqueClicks: Number(row.uniqueClicks),
+      clickRate: 0, // 필요시 계산
+      avgTimeToClick: 0, // 필요시 계산
+      rank: idx + 1,
+      id: (idx + 1).toString()
+    }));
+
+    res.status(200).json({
+      visitorTrend,
+      mainPageNavigation,
+      filters: { period, gender, ageGroup }
+    });
   } catch (err) {
-    console.error('Top Clicks API ERROR:', err);
-    res.status(500).json({ error: 'Failed to get top clicks data' });
+    console.error('ClickHouse Dashboard API ERROR:', err);
+    res.status(500).json({ error: 'Failed to get traffic dashboard data' });
   }
 });
 
-app.get('/api/stats/click-trend', async (req, res) => {
+// 이벤트 데이터 수집을 위한 POST API 엔드포인트를 ClickHouse 기반으로 리팩토링
+app.post('/api/analytics/collect', async (req, res) => {
+  const data = req.body;
   try {
-    const db = await connectMongo();
-    const logs = db.collection('logs');
-    
-    const date = req.query.date || new Date().toISOString().split('T')[0];
-    
-    // 5분 단위 클릭 트렌드 집계
-    const clickTrend = await logs.aggregate([
-      {
-        $match: {
-          timestamp: {
-            $gte: new Date(date + 'T00:00:00.000Z'),
-            $lt: new Date(date + 'T23:59:59.999Z')
-          },
-          event_name: 'auto_click'
-        }
-      },
-      {
-        $group: {
-          _id: {
-            $dateToString: {
-              format: '%H:%M',
-              date: {
-                $dateTrunc: {
-                  date: '$timestamp',
-                  unit: 'minute',
-                  binSize: 5
-                }
-              }
-            }
-          },
-          count: { $sum: 1 }
-        }
-      },
-      {
-        $sort: { '_id': 1 }
-      },
-      {
-        $project: {
-          time: '$_id',
-          count: 1,
-          _id: 0
-        }
-      }
-    ]).toArray();
-    
-    res.status(200).json({ data: clickTrend });
+    // UTC → KST 변환
+    const utcDate = new Date(data.timestamp);
+    const kstDate = new Date(utcDate.getTime() + 9 * 60 * 60 * 1000);
+    // ClickHouse INSERT 쿼리 작성 (컬럼명은 events 테이블 구조에 맞게 조정 필요)
+    const insertQuery = `
+      INSERT INTO events (
+        event_name, timestamp, client_id, user_id, session_id,
+        page_path, page_title, referrer,
+        device_type, os, browser, language,
+        timezone, traffic_medium, traffic_source, traffic_campaign,
+        user_gender, user_age,
+        properties, context
+      ) VALUES
+    `;
+    // JSON 컬럼은 문자열로 변환
+    const values = [
+      data.event_name,
+      kstDate.toISOString().replace('T', ' ').slice(0, 19),
+      data.client_id,
+      data.user_id,
+      data.session_id,
+      data.properties?.page_path ?? null,
+      data.properties?.page_title ?? null,
+      data.properties?.referrer ?? null,
+      data.context?.device?.device_type ?? null,
+      data.context?.device?.os ?? null,
+      data.context?.device?.browser ?? null,
+      data.context?.device?.language ?? null,
+      data.context?.geo?.timezone ?? null,
+      data.context?.traffic_source?.traffic_medium ?? null,
+      data.context?.traffic_source?.traffic_source ?? null,
+      data.context?.traffic_source?.campaign ?? null,
+      data.user_gender,
+      data.user_age,
+      JSON.stringify(data.properties ?? {}),
+      JSON.stringify(data.context ?? {})
+    ];
+    // ClickHouse는 VALUES (...) 형식의 다중 행 삽입 지원
+    const valuesStr = `(${values.map(v => v === null ? 'NULL' : `'${String(v).replace(/'/g, "''")}'`).join(', ')})`;
+    const fullQuery = insertQuery + valuesStr;
+    await clickhouse.query({ query: fullQuery, format: 'JSON' });
+    res.status(200).json({ status: 'ok' });
   } catch (err) {
-    console.error('Click Trend API ERROR:', err);
-    res.status(500).json({ error: 'Failed to get click trend data' });
+    console.error('ClickHouse INSERT ERROR:', err);
+    res.status(500).json({ error: 'ClickHouse insert failed' });
   }
 });
 
 app.listen(PORT, () => {
   console.log(`KlickLab 서버 실행 중: http://localhost:${PORT}`);
+});
+
+app.get('/', (req, res) => {
+  res.send('Welcome to the KlickLab!');
 });

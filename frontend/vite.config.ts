@@ -1,4 +1,3 @@
-
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
@@ -8,6 +7,9 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',  // 모든 인터페이스 바인딩
     port: 5173,       // 기본 포트
+    proxy: {
+      '/api': 'http://localhost:3000',
+    },
   },
 })
 

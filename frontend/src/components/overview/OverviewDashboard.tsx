@@ -3,6 +3,8 @@ import { StatCard } from './StatCard';
 import { Summary } from './Summary';
 import { TopClicks } from './TopClicks';
 import { ClickTrend } from './ClickTrend';
+import { UserPathSankeyChart } from '../user/UserPathSankeyChart';
+import { DropoffInsightsCard } from '../engagement/DropoffInsightsCard';
 
 interface VisitorsData {
   today: number;
@@ -22,12 +24,9 @@ export const OverviewDashboard: React.FC = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const today = new Date().toISOString().split('T')[0];
-        
-        // 방문자 수와 클릭 수 데이터를 동시에 가져오기
         const [visitorsResponse, clicksResponse] = await Promise.all([
-          fetch(`http://localhost:3000/api/stats/visitors?date=${today}`),
-          fetch(`http://localhost:3000/api/stats/clicks?date=${today}`)
+          fetch(`/api/stats/visitors`),
+          fetch(`/api/stats/clicks`)
         ]);
         
         const visitors = await visitorsResponse.json();
@@ -37,7 +36,6 @@ export const OverviewDashboard: React.FC = () => {
         setClicksData(clicks);
       } catch (error) {
         console.error('Failed to fetch stats:', error);
-        // Fallback 데이터
         setVisitorsData({ today: 1234, yesterday: 1096 });
         setClicksData({ today: 9874, yesterday: 9124 });
       } finally {
@@ -47,7 +45,6 @@ export const OverviewDashboard: React.FC = () => {
 
     fetchStats();
     
-    // 30초마다 통계 갱신
     const interval = setInterval(fetchStats, 30000);
     return () => clearInterval(interval);
   }, []);
@@ -76,40 +73,70 @@ export const OverviewDashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* 요약 문장 */}
-      <Summary />
-      
-      {/* 통계 카드들 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <StatCard
-          data={{
-            title: "일일 방문자 수",
-            value: visitorsData?.today || 0,
-            change: visitorsChange,
-            changeType: getChangeType(visitorsChange),
-            icon: "Users",
-            color: "blue"
-          }}
-        />
-        <StatCard
-          data={{
-            title: "일일 총 클릭 수",
-            value: clicksData?.today || 0,
-            change: clicksChange,
-            changeType: getChangeType(clicksChange),
-            icon: "MousePointer",
-            color: "green"
-          }}
-        />
+      <div className="mb-2">
+        <div className="bg-white p-4 rounded-lg shadow-sm flex flex-col justify-center">
+          <Summary />
+        </div>
       </div>
-      
-      {/* 차트들 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white p-6 rounded-lg shadow-sm flex flex-col justify-center">
+          <StatCard
+            data={{
+              title: "일일 방문자 수",
+              value: visitorsData?.today || 0,
+              change: visitorsChange,
+              changeType: getChangeType(visitorsChange),
+              icon: "Users",
+              color: "blue"
+            }}
+          />
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow-sm flex flex-col justify-center">
+          <StatCard
+            data={{
+              title: "일일 총 클릭 수",
+              value: clicksData?.today || 0,
+              change: clicksChange,
+              changeType: getChangeType(clicksChange),
+              icon: "MousePointer",
+              color: "green"
+            }}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white p-6 rounded-lg shadow-sm flex flex-col justify-center">
           <TopClicks />
         </div>
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="bg-white p-6 rounded-lg shadow-sm flex flex-col justify-center">
+          <DropoffInsightsCard />
+        </div>
+      </div>
+
+      <div className="w-full">
+        <div className="bg-white p-6 rounded-lg shadow-sm w-full h-[500px] flex flex-col">
+          <div className="text-lg font-bold mb-0">클릭 트렌드</div>
           <ClickTrend />
+        </div>
+      </div>
+
+      <div className="w-full">
+        <div className="bg-white p-6 rounded-lg shadow-sm w-full">
+          <div className="text-lg font-bold mb-2">사용자 방문 경로</div>
+          <UserPathSankeyChart />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white p-6 rounded-lg shadow-sm flex flex-col items-center justify-center min-h-[120px]">
+          <div className="animate-pulse bg-gray-200 rounded w-16 h-6 mb-2" />
+          <div className="text-gray-400 text-sm">평균 세션 길이<br/>준비 중입니다</div>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow-sm flex flex-col items-center justify-center min-h-[120px]">
+          <div className="animate-pulse bg-gray-200 rounded w-16 h-6 mb-2" />
+          <div className="text-gray-400 text-sm">전환율 카드<br/>준비 중입니다</div>
         </div>
       </div>
     </div>

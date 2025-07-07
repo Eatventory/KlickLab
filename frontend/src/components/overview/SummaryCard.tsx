@@ -23,7 +23,6 @@ export const SummaryCard: React.FC = () => {
   });
 
   const [isGenerating, setIsGenerating] = useState(false);
-
   // 템플릿 기반 요약 문장 생성
   const generateSummary = (data: SummaryData): string[] => {
     const summaries: string[] = [];
