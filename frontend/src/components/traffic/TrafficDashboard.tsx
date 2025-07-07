@@ -81,7 +81,7 @@ export const TrafficDashboard: React.FC = () => {
           ageGroup: filters.ageGroup
         });
         
-        const response = await fetch(`http://localhost:3000/api/dashboard/traffic?${queryParams}`);
+        const response = await fetch(`/api/traffic?${queryParams}`);
         const data: TrafficData = await response.json();
         setTrafficData(data);
       } catch (error) {
