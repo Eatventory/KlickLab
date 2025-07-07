@@ -3,6 +3,7 @@ const cors = require('cors');
 const app = express();
 const path = require("path");
 const PORT = 3000;
+const metricsPort = 9091; // 메트릭 전용 포트
 const client = require('prom-client');
 
 // Prometheus 메트릭을 담을 전용 공간(레지스트리)을 생성
@@ -239,7 +240,11 @@ app.get('/api/dashboard/traffic', async (req, res) => {
 /* ▲ 다른 라우팅 파일로 분리해야 함 */
 
 app.listen(PORT, () => {
-  console.log(`KlickLab 서버 실행 중: http://localhost:${PORT}`);
+   console.log(`KlickLab API server listening on port ${mainPort}`);
+});
+
+app.listen(metricsPort, () => {
+  console.log(`Metrics server listening on port ${metricsPort}`);
 });
 
 app.get('/', (req, res) => {
