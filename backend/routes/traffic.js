@@ -71,7 +71,7 @@ router.get("/", async (req, res) => {
         toUInt64(visitors) AS visitors,
         toUInt64(new_visitors) AS newVisitors,
         toUInt64(visitors - new_visitors) AS returningVisitors
-      FROM klicklab.daily_metrics
+      FROM daily_metrics
       WHERE date < today
         AND date >= toDate('${startDateStr}')
       UNION ALL
@@ -80,7 +80,7 @@ router.get("/", async (req, res) => {
         toUInt64(countDistinct(client_id)) AS visitors,
         toUInt64(countDistinctIf(client_id, client_id NOT IN past_clients)) AS newVisitors,
         toUInt64(countDistinct(client_id) - countDistinctIf(client_id, client_id NOT IN past_clients)) AS returningVisitors
-      FROM klicklab.events
+      FROM events
       WHERE 
         toDate(timestamp) = today
         AND event_name = 'auto_click'

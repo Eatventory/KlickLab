@@ -8,12 +8,18 @@ router.get('/visitors', async (req, res) => {
     const trendRes = await clickhouse.query({
       query: `
         SELECT
-          formatDateTime(timestamp, '%Y-%m-%d') AS date,
-          countDistinct(client_id) AS visitors
+          formatDateTime(date, '%Y-%m-%d') AS date_str,
+          toUInt64(visitors) AS visitors
+        FROM klicklab.daily_metrics
+        WHERE date >= today() - 6 AND date < today()
+        UNION ALL
+        SELECT
+          formatDateTime(toDate(timestamp), '%Y-%m-%d') AS date_str,
+          toUInt64(countDistinct(client_id)) AS visitors
         FROM events
-        WHERE timestamp >= today() - 6
-        GROUP BY date
-        ORDER BY date ASC
+        WHERE toDate(timestamp) = today()
+        GROUP BY toDate(timestamp)
+        ORDER BY date_str ASC
       `,
       format: 'JSON'
     });
@@ -163,7 +169,7 @@ router.get('/dropoff-summary', async (req, res) => {
       SELECT
         page_path as page,
         round(countIf(event_name = 'page_exit') / count() * 100, 1) AS dropRate
-      FROM klicklab.events
+      FROM events
       WHERE date(timestamp) >= today() AND page != ''
       GROUP BY page
       ORDER BY dropRate DESC
@@ -193,7 +199,7 @@ router.get('/userpath-summary', async (req, res) => {
           SELECT 
             user_id,
             page_path
-          FROM klicklab.events
+          FROM events
           WHERE event_name IN ('page_view', 'auto_click')
             AND date(timestamp) = today()
           ORDER BY user_id, timestamp
@@ -230,7 +236,7 @@ router.get('/average-session-duration', async (req, res) => {
           min(timestamp) AS session_start,
           max(timestamp) AS session_end,
           dateDiff('second', min(timestamp), max(timestamp)) AS session_duration
-        FROM klicklab.events
+        FROM events
         GROUP BY session_id
       )
       GROUP BY date
@@ -255,7 +261,7 @@ router.get('/conversion-rate', async (req, res) => {
     WITH
       a_sessions AS (
         SELECT session_id, min(timestamp) AS a_time
-        FROM klicklab.events
+        FROM events
         WHERE page_path = '${fromPage}'
         GROUP BY session_id
       ),
@@ -264,7 +270,7 @@ router.get('/conversion-rate', async (req, res) => {
         FROM a_sessions a
         JOIN (
           SELECT session_id, min(timestamp) AS b_time
-          FROM klicklab.events
+          FROM events
           WHERE page_path = '${toPage}'
           GROUP BY session_id
         ) b ON a.session_id = b.session_id AND a.a_time < b.b_time

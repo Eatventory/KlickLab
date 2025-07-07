@@ -27,8 +27,8 @@ export const OverviewDashboard: React.FC = () => {
     const fetchStats = async () => {
       try {
         const [visitorsResponse, clicksResponse] = await Promise.all([
-          fetch(`http://localhost:3000/api/stats/visitors`),
-          fetch(`http://localhost:3000/api/stats/clicks`)
+          fetch(`/api/stats/visitors`),
+          fetch(`/api/stats/clicks`)
         ]);
         
         const visitors = await visitorsResponse.json();

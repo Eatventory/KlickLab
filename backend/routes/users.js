@@ -20,7 +20,7 @@ router.get('/top-clicks', async (req, res) => {
         count(*) AS totalClicks,
         count(DISTINCT user_id) AS totalUsers,
         round(count() / countDistinct(user_id), 1) AS avgClicksPerUser
-      FROM klicklab.events
+      FROM events
       WHERE event_name = 'auto_click'
         AND timestamp >= now() - interval 7 day
         AND ${segment} IS NOT NULL
@@ -34,7 +34,7 @@ router.get('/top-clicks', async (req, res) => {
         element_path AS element,
         count(*) AS totalClicks,
         count(DISTINCT user_id) AS userCount
-      FROM klicklab.events
+      FROM events
       WHERE event_name = 'auto_click'
         AND timestamp >= now() - interval 7 day
         AND ${segment} IS NOT NULL
@@ -56,7 +56,7 @@ router.get('/top-clicks', async (req, res) => {
           ELSE '60s+'
         END AS ageGroup,
         count(DISTINCT user_id) AS count
-      FROM klicklab.events
+      FROM events
       WHERE event_name = 'auto_click'
         AND timestamp >= now() - interval 7 day
         AND ${segment} IS NOT NULL
@@ -70,7 +70,7 @@ router.get('/top-clicks', async (req, res) => {
         ${segment} AS segment,
         device_type,
         count(DISTINCT user_id) AS count
-      FROM klicklab.events
+      FROM events
       WHERE event_name = 'auto_click'
         AND timestamp >= now() - interval 7 day
         AND ${segment} IS NOT NULL
