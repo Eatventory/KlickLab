@@ -189,4 +189,40 @@ router.get('/user-type-summary', async (req, res) => {
   }
 });
 
+router.get('/os-type-summary', async (req, res) => {
+  const query = `
+    SELECT 
+      device_os AS os, 
+      count(DISTINCT user_id) AS users
+    FROM events
+    WHERE toDate(timestamp) = today() 
+      AND user_id IS NOT NULL
+    GROUP BY device_os
+  `;
+
+  try {
+    const resultRes = await clickhouse.query({ query, format: 'JSON' });
+    const result = await resultRes.json();
+
+    const osCategoryMap = {
+      'Android': 'mobile',
+      'iOS': 'mobile',
+      'Windows': 'desktop',
+      'macOS': 'desktop',
+      'Linux': 'desktop',
+    };
+
+    const data = result.data.map(item => ({
+      os: item.os,
+      users: Number(item.users),
+      category: osCategoryMap[item.os] || 'unknown',
+    }));
+
+    res.status(200).json({ data });
+  } catch (err) {
+    console.error('OS Type API ERROR:', err);
+    res.status(500).json({ error: 'Failed to get os type data' });
+  }
+});
+
 module.exports = router;
