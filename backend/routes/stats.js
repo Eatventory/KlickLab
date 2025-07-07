@@ -178,7 +178,7 @@ router.get('/userpath-summary', async (req, res) => {
       format: "JSON"
     }).toPromise();
 
-    const allowedPages = topPagesRes.data.map((row: any) => `'${row.page_path}'`).join(", ");
+    const allowedPages = topPagesRes.data.map(row => `'${row.page_path}'`).join(", ");
 
     // 2. 이동 경로 분석
     const pathQuery = `
@@ -206,7 +206,10 @@ router.get('/userpath-summary', async (req, res) => {
       ORDER BY value DESC
     `;
 
-    const result = await clickhouse.query({ query: pathQuery, format: "JSON" }).toPromise();
+    const result = await clickhouse.query({
+      query: pathQuery,
+      format: "JSON"
+    }).toPromise();
 
     res.status(200).json(result.data);
   } catch (err) {
