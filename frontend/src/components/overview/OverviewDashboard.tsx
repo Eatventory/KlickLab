@@ -116,7 +116,7 @@ export const OverviewDashboard: React.FC = () => {
       </div>
 
       <div className="w-full">
-        <div className="bg-white p-6 rounded-lg shadow-sm w-full h-[500px] flex flex-col">
+        <div className="bg-white p-6 rounded-lg shadow-sm w-full min-h-[580px] flex flex-col">
           <div className="text-lg font-bold mb-0">클릭 트렌드</div>
           <ClickTrend />
         </div>
