@@ -32,11 +32,11 @@ register.registerMetric(httpRequestDurationMicroseconds);
 const clickhouse = require("./src/config/clickhouse");
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
-// app.use(cors());
-app.use(cors({
-  origin: '*',
-  methods: ['POST'],
-}));
+app.use(cors());
+// app.use(cors({
+//   origin: '*',
+//   methods: ['POST'],
+// }));
 
 // 메트릭 수집 미들웨어
 app.use((req, res, next) => {
@@ -202,6 +202,41 @@ app.get('/api/dashboard/traffic', async (req, res) => {
       returningVisitors: Number(row.returningVisitors)
     }));
 
+    // 시간대별 유입 분포 쿼리 (hourlyTraffic)
+    const hourlyTrafficQuery = `
+      SELECT
+        formatDateTime(timestamp, '%H') AS hour,
+        count() AS visitors
+      FROM events
+      WHERE ${whereClause}
+      GROUP BY hour
+      ORDER BY hour ASC
+    `;
+    const hourlyTrafficResult = await clickhouse.query({ query: hourlyTrafficQuery, format: 'JSON' });
+    const hourlyTrafficJson = await hourlyTrafficResult.json();
+    const hourlyTraffic = hourlyTrafficJson.data.map(row => ({
+      hour: row.hour,
+      visitors: Number(row.visitors)
+    }));
+
+    // 임시 유입 채널 분포 쿼리 (entryPageDistribution)
+    const entryPageQuery = `
+      SELECT
+        splitByChar('/', properties_page_path)[2] AS entry,
+        count() AS visitors
+      FROM events
+      WHERE ${whereClause} AND properties_page_path != '/'
+      GROUP BY entry
+      ORDER BY visitors DESC
+      LIMIT 10
+    `;
+    const entryPageResult = await clickhouse.query({ query: entryPageQuery, format: 'JSON' });
+    const entryPageJson = await entryPageResult.json();
+    const entryPageDistribution = entryPageJson.data.map(row => ({
+      entry: row.entry || '/',
+      visitors: Number(row.visitors)
+    }));
+
     // 메인 페이지에서 이동하는 페이지 Top 10 쿼리
     const mainPageNavQuery = `
       SELECT
@@ -230,7 +265,9 @@ app.get('/api/dashboard/traffic', async (req, res) => {
     res.status(200).json({
       visitorTrend,
       mainPageNavigation,
-      filters: { period, gender, ageGroup }
+      filters: { period, gender, ageGroup },
+      hourlyTraffic,
+      entryPageDistribution
     });
   } catch (err) {
     console.error('ClickHouse Dashboard API ERROR:', err);
