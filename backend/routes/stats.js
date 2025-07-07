@@ -164,54 +164,38 @@ router.get('/dropoff-summary', async (req, res) => {
 
 router.get('/userpath-summary', async (req, res) => {
   try {
-    // 1. 상위 페이지 추출
-    const topPagesRes = await clickhouse.query({
-      query: `
-        SELECT page_path
-        FROM klicklab.events
-        WHERE event_name = 'page_view'
-          AND timestamp >= now() - interval 7 day
-        GROUP BY page_path
-        ORDER BY count(*) DESC
-        LIMIT 20
-      `,
-      format: "JSON"
-    }).toPromise();
-
-    const allowedPages = topPagesRes.data.map(row => `'${row.page_path}'`).join(", ");
-
-    // 2. 이동 경로 분석
     const pathQuery = `
       SELECT 
-        from,
-        to,
+        tuple.1 AS from,
+        tuple.2 AS to,
         count(*) AS value
       FROM (
         SELECT 
           user_id,
-          groupArray(path_order)(page_path) AS path
+          groupArray(page_path) AS path
         FROM (
           SELECT 
             user_id,
-            page_path,
-            row_number() OVER (PARTITION BY user_id ORDER BY timestamp) AS path_order
+            page_path
           FROM klicklab.events
-          WHERE event_name = 'page_view'
-            AND page_path IN (${allowedPages})
+          WHERE event_name IN ('page_view', 'auto_click')
+            AND date(timestamp) = today()
+          ORDER BY user_id, timestamp
         )
         GROUP BY user_id
       )
-      ARRAY JOIN arrayZip(arraySlice(path, 1, length(path)-1), arraySlice(path, 2)) AS (from, to)
+      ARRAY JOIN arrayZip(arraySlice(path, 1, length(path) - 1), arraySlice(path, 2)) AS tuple
       GROUP BY from, to
       ORDER BY value DESC
     `;
 
-    const result = await clickhouse.query({
+    const resultSet = await clickhouse.query({
       query: pathQuery,
       format: "JSON"
-    }).toPromise();
+    });
 
-    res.status(200).json(result.data);
+    const result = await resultSet.json();
+    res.status(200).json({ data: result.data });
   } catch (err) {
     console.error('User Path Summary API ERROR:', err);
     res.status(500).json({ error: 'Failed to get userpath summary data' });
