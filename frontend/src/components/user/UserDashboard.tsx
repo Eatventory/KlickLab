@@ -129,6 +129,11 @@ export const UserDashboard: React.FC = () => {
   };
 
   const currentSegmentData = getSegmentData(activeSegment);
+  const testAPI = async () => {
+    const response = await fetch(`/api/users/top-clicks?filter=gender`);
+    const result = await(response.json());
+    console.log(result.data);
+  };
 
   return (
     <div className="space-y-8">
@@ -159,6 +164,7 @@ export const UserDashboard: React.FC = () => {
             />
           ))}
         </div>
+        <button className='btn btn-primary mt-2' onClick={testAPI}>API Test</button>
       </div>
 
       {/* 기존 필터 */}
