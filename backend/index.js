@@ -240,7 +240,7 @@ app.get('/api/dashboard/traffic', async (req, res) => {
 /* ▲ 다른 라우팅 파일로 분리해야 함 */
 
 app.listen(PORT, () => {
-   console.log(`KlickLab API server listening on port ${mainPort}`);
+  console.log(`KlickLab API server listening on port ${PORT}`);
 });
 
 app.listen(metricsPort, () => {
