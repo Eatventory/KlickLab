@@ -4,34 +4,50 @@ const clickhouse = require('../src/config/clickhouse');
 
 router.get('/visitors', async (req, res) => {
   try {
-		const yesterdayRes = await clickhouse.query({
-			query: `
-				SELECT visitors
-				FROM daily_metrics
-				WHERE date = yesterday();
-			`,
-			format: 'JSON'
-		});
-		const yesterdayVisitors = (await yesterdayRes.json()).data[0]?.visitors ?? 0;
+    // 최근 7일간 방문자 추이 쿼리
+    const trendRes = await clickhouse.query({
+      query: `
+        SELECT
+          formatDateTime(timestamp, '%Y-%m-%d') AS date,
+          countDistinct(client_id) AS visitors
+        FROM events
+        WHERE timestamp >= today() - 6
+        GROUP BY date
+        ORDER BY date ASC
+      `,
+      format: 'JSON'
+    });
+    const trendData = (await trendRes.json()).data || [];
+    const trend = trendData.map(row => ({
+      date: row.date,
+      visitors: Number(row.visitors)
+    }));
 
-		// 오늘 방문자 수
-		const visitorRes = await clickhouse.query({
-			query: `
-				SELECT countDistinct(client_id) AS visitors
-				FROM events
-				WHERE date(timestamp) = today()
-			`,
-			format: 'JSON'
-		});
-		const todayVisitors = +(await visitorRes.json()).data[0]?.visitors || 0;
-	
-		// const visitorsRate = yesterday.visitors
-		// 	? +(((visitors - yesterday.visitors) / yesterday.visitors) * 100).toFixed(1)
-		// 	: 0;
-    
+    // 기존 today/yesterday 로직 유지
+    const yesterdayRes = await clickhouse.query({
+      query: `
+        SELECT visitors
+        FROM daily_metrics
+        WHERE date = yesterday();
+      `,
+      format: 'JSON'
+    });
+    const yesterdayVisitors = (await yesterdayRes.json()).data[0]?.visitors ?? 0;
+
+    const visitorRes = await clickhouse.query({
+      query: `
+        SELECT countDistinct(client_id) AS visitors
+        FROM events
+        WHERE date(timestamp) = today()
+      `,
+      format: 'JSON'
+    });
+    const todayVisitors = +(await visitorRes.json()).data[0]?.visitors || 0;
+
     res.status(200).json({
       today: todayVisitors,
-      yesterday: yesterdayVisitors
+      yesterday: yesterdayVisitors,
+      trend
     });
   } catch (err) {
     console.error('Visitors API ERROR:', err);

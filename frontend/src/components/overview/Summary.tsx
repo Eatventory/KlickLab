@@ -20,8 +20,8 @@ export const Summary: React.FC = () => {
       try {
         // Top 클릭 요소와 전체 클릭 수를 동시에 가져오기
         const [topClicksResponse, clicksResponse] = await Promise.all([
-          fetch(`/api/stats/top-clicks`),
-          fetch(`/api/stats/clicks`)
+          fetch(`http://localhost:3000/api/stats/top-clicks`),
+          fetch(`http://localhost:3000/api/stats/clicks`)
         ]);
         
         const topClicksData = await topClicksResponse.json();

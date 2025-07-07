@@ -5,10 +5,12 @@ import { TopClicks } from './TopClicks';
 import { ClickTrend } from './ClickTrend';
 import { UserPathSankeyChart } from '../user/UserPathSankeyChart';
 import { DropoffInsightsCard } from '../engagement/DropoffInsightsCard';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 interface VisitorsData {
   today: number;
   yesterday: number;
+  trend?: { date: string; visitors: number }[];
 }
 
 interface ClicksData {
@@ -25,8 +27,8 @@ export const OverviewDashboard: React.FC = () => {
     const fetchStats = async () => {
       try {
         const [visitorsResponse, clicksResponse] = await Promise.all([
-          fetch(`/api/stats/visitors`),
-          fetch(`/api/stats/clicks`)
+          fetch(`http://localhost:3000/api/stats/visitors`),
+          fetch(`http://localhost:3000/api/stats/clicks`)
         ]);
         
         const visitors = await visitorsResponse.json();
@@ -128,6 +130,22 @@ export const OverviewDashboard: React.FC = () => {
           <UserPathSankeyChart />
         </div>
       </div>
+
+      {/* 최근 7일 방문자 추이 차트 */}
+      {visitorsData?.trend && visitorsData.trend.length > 0 && (
+        <div className="bg-white p-6 rounded-lg shadow-sm w-full h-[300px] flex flex-col">
+          <div className="text-lg font-bold mb-2">최근 7일 방문자 추이</div>
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={visitorsData.trend}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" />
+              <YAxis />
+              <Tooltip />
+              <Line type="monotone" dataKey="visitors" stroke="#3b82f6" name="방문자 수" />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-lg shadow-sm flex flex-col items-center justify-center min-h-[120px]">
