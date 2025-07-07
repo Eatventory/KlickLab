@@ -3,6 +3,25 @@ const cors = require('cors');
 const app = express();
 const path = require("path");
 const PORT = 3000;
+
+const clickhouse = require("./src/config/clickhouse");
+app.use(express.json());
+app.use(express.static(path.join(__dirname, "public")));
+app.use(cors());
+// app.use(cors({
+//   origin: '*',
+//   methods: ['POST'],
+// }));
+
+/* stats 라우팅 */
+const statsRoutes = require('./routes/stats');
+app.use('/api/stats', statsRoutes);
+
+/* users 라우팅 */
+const usersRoutes = require('./routes/users');
+app.use('/api/users', usersRoutes);
+
+/* ▼ 메트릭 연결 */
 const metricsPort = 9091; // 메트릭 전용 포트
 const client = require('prom-client');
 
@@ -29,15 +48,6 @@ const httpRequestDurationMicroseconds = new client.Histogram({
 });
 register.registerMetric(httpRequestDurationMicroseconds);
 
-const clickhouse = require("./src/config/clickhouse");
-app.use(express.json());
-app.use(express.static(path.join(__dirname, "public")));
-app.use(cors());
-// app.use(cors({
-//   origin: '*',
-//   methods: ['POST'],
-// }));
-
 // 메트릭 수집 미들웨어
 app.use((req, res, next) => {
   // 1. 요청이 들어오는 순간, 타이머를 시작하고 '종료 함수(end)'를 받아둔다.
@@ -61,15 +71,12 @@ app.use((req, res, next) => {
   next();
 });
 
-/* stats 라우팅 */
-const statsRoutes = require('./routes/stats');
-app.use('/api/stats', statsRoutes);
-
 // Prometheus 메트릭 엔드포인트
 app.get('/metrics', async (req, res) => {
   res.set('Content-Type', register.contentType);
   res.end(await register.metrics());
 });
+/* ▲ 메트릭 연결 */
 
 /* 데모용 테스트 API */
 app.get('/api/button-clicks', async (req, res) => {
@@ -219,21 +226,75 @@ app.get('/api/dashboard/traffic', async (req, res) => {
       visitors: Number(row.visitors)
     }));
 
-    // 임시 유입 채널 분포 쿼리 (entryPageDistribution)
-    const entryPageQuery = `
+    // 유입 채널 분포 쿼리 (traffic_source 기준)
+    const sourceDistQuery = `
       SELECT
-        splitByChar('/', properties_page_path)[2] AS entry,
+        traffic_source AS source,
         count() AS visitors
       FROM events
-      WHERE ${whereClause} AND properties_page_path != '/'
-      GROUP BY entry
+      WHERE ${whereClause}
+      GROUP BY source
       ORDER BY visitors DESC
       LIMIT 10
     `;
-    const entryPageResult = await clickhouse.query({ query: entryPageQuery, format: 'JSON' });
-    const entryPageJson = await entryPageResult.json();
-    const entryPageDistribution = entryPageJson.data.map(row => ({
-      entry: row.entry || '/',
+    const sourceDistResult = await clickhouse.query({ query: sourceDistQuery, format: 'JSON' });
+    const sourceDistJson = await sourceDistResult.json();
+    const sourceDistribution = sourceDistJson.data.map(row => ({
+      source: row.source || '(없음)',
+      visitors: Number(row.visitors)
+    }));
+
+    // 유입 매체 분포 쿼리 (traffic_medium 기준)
+    const mediumDistQuery = `
+      SELECT
+        traffic_medium AS medium,
+        count() AS visitors
+      FROM events
+      WHERE ${whereClause}
+      GROUP BY medium
+      ORDER BY visitors DESC
+      LIMIT 10
+    `;
+    const mediumDistResult = await clickhouse.query({ query: mediumDistQuery, format: 'JSON' });
+    const mediumDistJson = await mediumDistResult.json();
+    const mediumDistribution = mediumDistJson.data.map(row => ({
+      medium: row.medium || '(없음)',
+      visitors: Number(row.visitors)
+    }));
+
+    // 캠페인 분포 쿼리 (traffic_campaign 기준)
+    const campaignDistQuery = `
+      SELECT
+        traffic_campaign AS campaign,
+        count() AS visitors
+      FROM events
+      WHERE ${whereClause}
+      GROUP BY campaign
+      ORDER BY visitors DESC
+      LIMIT 10
+    `;
+    const campaignDistResult = await clickhouse.query({ query: campaignDistQuery, format: 'JSON' });
+    const campaignDistJson = await campaignDistResult.json();
+    const campaignDistribution = campaignDistJson.data.map(row => ({
+      campaign: row.campaign || '(없음)',
+      visitors: Number(row.visitors)
+    }));
+
+    // 리퍼러 분포 쿼리 (referrer 기준)
+    const referrerDistQuery = `
+      SELECT
+        referrer,
+        count() AS visitors
+      FROM events
+      WHERE ${whereClause}
+      GROUP BY referrer
+      ORDER BY visitors DESC
+      LIMIT 10
+    `;
+    const referrerDistResult = await clickhouse.query({ query: referrerDistQuery, format: 'JSON' });
+    const referrerDistJson = await referrerDistResult.json();
+    const referrerDistribution = referrerDistJson.data.map(row => ({
+      referrer: row.referrer || '(없음)',
       visitors: Number(row.visitors)
     }));
 
@@ -267,7 +328,11 @@ app.get('/api/dashboard/traffic', async (req, res) => {
       mainPageNavigation,
       filters: { period, gender, ageGroup },
       hourlyTraffic,
-      entryPageDistribution
+      // entryPageDistribution은 traffic_source 기준으로 변경
+      entryPageDistribution: sourceDistribution,
+      mediumDistribution,
+      campaignDistribution,
+      referrerDistribution
     });
   } catch (err) {
     console.error('ClickHouse Dashboard API ERROR:', err);
