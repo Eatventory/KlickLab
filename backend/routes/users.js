@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const clickhouse = require('../src/config/clickhouse');
+const { buildFilterCondition } = require('../utils/filter');
 
 router.get('/top-clicks', async (req, res) => {
   try {
@@ -190,13 +191,15 @@ router.get('/user-type-summary', async (req, res) => {
 });
 
 router.get('/os-type-summary', async (req, res) => {
+  const { period, userType, device } = req.query;
+  const condition = buildFilterCondition({ period, userType, device });
+
   const query = `
     SELECT 
       device_os AS os, 
       count(DISTINCT user_id) AS users
     FROM events
-    WHERE toDate(timestamp) = today() 
-      AND user_id IS NOT NULL
+    WHERE user_id IS NOT NULL AND ${condition}
     GROUP BY device_os
   `;
 
@@ -226,6 +229,9 @@ router.get('/os-type-summary', async (req, res) => {
 });
 
 router.get('/browser-type-summary', async (req, res) => {
+  const { period, userType, device } = req.query;
+  const condition = buildFilterCondition({ period, userType, device });
+
   const query = `
     SELECT 
       browser,
@@ -233,7 +239,7 @@ router.get('/browser-type-summary', async (req, res) => {
       count(DISTINCT user_id) AS users
     FROM events
     WHERE toDate(timestamp) = today()
-      AND user_id IS NOT NULL
+      AND user_id IS NOT NULL AND ${condition}
     GROUP BY browser, device_type
   `;
 
@@ -269,19 +275,40 @@ router.get('/browser-type-summary', async (req, res) => {
   }
 });
 
+// 기간 계산을 위한 헬퍼 함수
+function getPeriodDateRange(period = '1day') {
+  const ranges = {
+    '5min': 1, // 최소 1일 유지
+    '1hour': 1,
+    '1day': 1,
+    '1week': 7
+  };
+  return ranges[period] || 1;
+}
+
 // 재방문율 = 최근 7일 중 2일 이상 방문한 user_id 수 ÷ 전체 방문 user_id 수
-router.get('/revisit', async (req, res) => {
+router.get('/returning', async (req, res) => {
+  const { period, userType, device } = req.query;
+  const dayRange = getPeriodDateRange(period); // 예: '1week' → 7
+
+  const deviceFilter = device !== 'all' ? `AND device_type = '${device}'` : '';
+  
+  const condition = `
+    user_id IS NOT NULL
+    ${deviceFilter}
+  `;
+
   const query = `
     SELECT
-      countIf(days_visited > 1) AS revisit_users,
+      countIf(days_visited > 1) AS returning_users,
       count() AS total_users
     FROM (
       SELECT
         user_id,
         count(DISTINCT toDate(timestamp)) AS days_visited
       FROM events
-      WHERE user_id IS NOT NULL
-        AND toDate(timestamp) BETWEEN today() - 6 AND today()
+      WHERE ${condition}
+        AND toDate(timestamp) BETWEEN today() - interval ${dayRange - 1} day AND today()
       GROUP BY user_id
     )
   `;
@@ -289,22 +316,22 @@ router.get('/revisit', async (req, res) => {
   try {
     const resultRes = await clickhouse.query({ query, format: 'JSON' });
     const result = await resultRes.json();
-    const row = result.data[0] || { revisit_users: 0, total_users: 0 };
+    const row = result.data[0] || { returning_users: 0, total_users: 0 };
 
     const rate = row.total_users > 0
-      ? Math.round((row.revisit_users / row.total_users) * 1000) / 10
+      ? Math.round((row.returning_users / row.total_users) * 1000) / 10
       : 0;
 
     res.status(200).json({
       data: {
-        revisitUsers: Number(row.revisit_users),
+        returningUsers: Number(row.returning_users),
         totalUsers: Number(row.total_users),
         returnRatePercent: rate
       }
     });
   } catch (err) {
-    console.error('Revisit Rate API ERROR:', err);
-    res.status(500).json({ error: 'Failed to get revisit rate data' });
+    console.error('returning Rate API ERROR:', err);
+    res.status(500).json({ error: 'Failed to get returning rate data' });
   }
 });
 
