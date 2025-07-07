@@ -24,7 +24,17 @@ npm install
 node index.js
 ```
 
-### 3. 프론트엔드 설치
+### 3. 환경변수 설정
+backend 디렉토리에 `.env` 파일을 생성하고 아래와 같이 설정해 주세요:
+
+```bash
+CLICKHOUSE_URL=http://localhost:8123
+CLICKHOUSE_USER=default
+CLICKHOUSE_DB=klicklab
+CLICKHOUSE_PASSWORD=비밀번호를-입력해주세요
+```
+
+### 4. 프론트엔드 설치
 
 ```bash
 cd frontend

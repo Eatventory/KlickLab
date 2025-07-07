@@ -63,3 +63,6 @@ frontend/.env
 # .next/ 혹은 .vercel 등 배포 도구 쓸 경우
 .next/
 .vercel/
+
+# pem 키
+*.pem

@@ -30,7 +30,7 @@ export const PageTimeChart: React.FC<PageTimeChartProps> = ({ data }) => {
             평균 체류시간: {formatTime(data.averageTime)}
           </p>
           <p className="text-sm text-gray-600">
-            방문 수: {data.visitCount.toLocaleString()}회
+            방문 수: {data.visitCount}회
           </p>
         </div>
       );

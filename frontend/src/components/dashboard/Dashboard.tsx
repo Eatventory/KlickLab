@@ -1,37 +1,20 @@
 import React, { useState } from 'react';
-import { StatCard } from '../ui/StatCard';
 import { Sidebar } from '../ui/Sidebar';
-import { VisitorChart } from './VisitorChart';
-import { FilterTabs } from './FilterTabs';
-import { ExitPageChart } from './ExitPageChart';
-import { PageTimeChart } from './PageTimeChart';
+import { FilterTabs } from '../ui/FilterTabs';
 import Test from './Test';
-import { mockDashboardData } from '../../data/mockData';
-import { BarChart3, Users, TrendingUp, Clock } from 'lucide-react';
+import { BarChart3 } from 'lucide-react';
 
-// 타입 정의를 직접 포함
-interface FilterOptions {
-  period: 'today' | 'week' | 'month' | 'year';
-  gender: 'all' | 'male' | 'female';
-  ageGroup: 'all' | '10s' | '20s' | '30s' | '40s' | '50s+';
-}
+// 새로운 탭별 대시보드 컴포넌트들
+import { OverviewDashboard } from '../overview/OverviewDashboard';
+import { UserDashboard } from '../user/UserDashboard';
+import { TrafficDashboard } from '../traffic/TrafficDashboard';
+import { EngagementDashboard } from '../engagement/EngagementDashboard';
+import { ReportDashboard } from '../report/ReportDashboard';
+import { SettingsDashboard } from '../settings/SettingsDashboard';
 
 export const Dashboard: React.FC = () => {
-  const [filters, setFilters] = useState<FilterOptions>({
-    period: 'week',
-    gender: 'all',
-    ageGroup: 'all'
-  });
-
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-
-  const handleFilterChange = (key: keyof FilterOptions, value: string) => {
-    setFilters(prev => ({
-      ...prev,
-      [key]: value
-    }));
-  };
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
@@ -39,6 +22,28 @@ export const Dashboard: React.FC = () => {
 
   const toggleSidebar = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
+  };
+
+  // 탭별 컴포넌트 렌더링
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'dashboard':
+        return <OverviewDashboard />;
+      case 'users':
+        return <UserDashboard />;
+      case 'traffic':
+        return <TrafficDashboard />;
+      case 'engagement':
+        return <EngagementDashboard />;
+      case 'reports':
+        return <ReportDashboard />;
+      case 'settings':
+        return <SettingsDashboard />;
+      case 'test':
+        return <Test />;
+      default:
+        return <OverviewDashboard />;
+    }
   };
 
   return (
@@ -92,80 +97,7 @@ export const Dashboard: React.FC = () => {
 
         {/* 메인 콘텐츠 영역 */}
         <main className="flex-1 p-6">
-          {/* 현재는 대시보드 탭만 구현 */}
-          {activeTab === 'dashboard' && (
-            <>
-              {/* 필터 */}
-              <div className="mb-8">
-                <FilterTabs filters={filters} onFilterChange={handleFilterChange} />
-              </div>
-
-              {/* 통계 카드 */}
-              <div className="mb-8">
-                <div className="flex items-center gap-2 mb-4">
-                  <Users className="w-5 h-5 text-gray-600" />
-                  <h2 className="text-lg font-semibold text-gray-900">주요 통계</h2>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {mockDashboardData.stats.map((stat, index) => (
-                    <StatCard key={index} data={stat} />
-                  ))}
-                </div>
-              </div>
-
-              {/* 방문자 추이 차트 */}
-              <div className="mb-8">
-                <div className="flex items-center gap-2 mb-4">
-                  <TrendingUp className="w-5 h-5 text-gray-600" />
-                  <h2 className="text-lg font-semibold text-gray-900">방문자 추이</h2>
-                </div>
-                <VisitorChart data={mockDashboardData.visitorTrend} />
-              </div>
-
-              {/* 차트 섹션 */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* 이탈 페이지 분석 */}
-                <div>
-                  <div className="flex items-center gap-2 mb-4">
-                    <Clock className="w-5 h-5 text-gray-600" />
-                    <h2 className="text-lg font-semibold text-gray-900">이탈 페이지 분석</h2>
-                  </div>
-                  <ExitPageChart data={mockDashboardData.exitPages} />
-                </div>
-
-                {/* 페이지별 체류시간 */}
-                <div>
-                  <div className="flex items-center gap-2 mb-4">
-                    <Clock className="w-5 h-5 text-gray-600" />
-                    <h2 className="text-lg font-semibold text-gray-900">페이지별 체류시간</h2>
-                  </div>
-                  <PageTimeChart data={mockDashboardData.pageTimes} />
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Test 탭 */}
-          {activeTab === 'test' && <Test />}
-
-          {/* 다른 탭들은 향후 구현 예정 */}
-          {activeTab !== 'dashboard' && activeTab !== 'test' && (
-            <div className="flex items-center justify-center h-64">
-              <div className="text-center">
-                <BarChart3 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  {activeTab === 'users' && '사용자 분석'}
-                  {activeTab === 'traffic' && '트래픽 분석'}
-                  {activeTab === 'engagement' && '참여도 분석'}
-                  {activeTab === 'reports' && '리포트'}
-                  {activeTab === 'settings' && '설정'}
-                </h3>
-                <p className="text-gray-500">
-                  이 기능은 현재 개발 중입니다.
-                </p>
-              </div>
-            </div>
-          )}
+          {renderTabContent()}
         </main>
       </div>
     </div>

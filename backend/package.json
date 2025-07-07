@@ -10,9 +10,9 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@clickhouse/client": "^1.11.2",
     "cors": "^2.8.5",
-    "express": "^5.1.0",
-    "mongodb": "^6.17.0",
-    "pg": "^8.16.3"
+    "dotenv": "^17.0.1",
+    "express": "^5.1.0"
   }
 }

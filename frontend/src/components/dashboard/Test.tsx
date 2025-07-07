@@ -130,15 +130,15 @@ const Test: React.FC = () => {
     const pollData = async () => {
       try {
         // 필터에 따라 다른 API 엔드포인트 호출
-        let apiUrl = 'http://3.39.230.90:3000/api/button-clicks';
+        let apiUrl = `/api/button-clicks`;
         
         if (filters.mainCategory !== 'all') {
           if (filters.subCategory === 'all') {
             // 카테고리 전체 (모바일 전체, 데스크탑 전체)
-            apiUrl = `http://3.39.230.90:3000/api/button-clicks?platform=${filters.mainCategory}`;
+            apiUrl = `/api/button-clicks?platform=${filters.mainCategory}`;
           } else {
             // 특정 플랫폼
-            apiUrl = `http://3.39.230.90:3000/api/button-clicks?platform=${filters.subCategory}`;
+            apiUrl = `/api/button-clicks?platform=${filters.subCategory}`;
           }
         }
         
@@ -184,21 +184,21 @@ const Test: React.FC = () => {
               }
             }
             
-            // target_text로도 확인 (Button 1, Button 2, ...)
-            const textMatch = event.target_text?.match(/button (\d+)/);
-            if (textMatch) {
-              const buttonNumber = parseInt(textMatch[1]);
-              if (buttonNumber >= 1 && buttonNumber <= 7) {
-                const buttonKey = `button${buttonNumber}`;
-                buttonCounts[buttonKey as keyof typeof buttonCounts]++;
-              }
-            }
+            // 또는 target_text로도 확인 (button 1, button 2, ...)
+            // const textMatch = event.target_text?.match(/button (\d+)/);
+            // if (textMatch) {
+            //   const buttonNumber = parseInt(textMatch[1]);
+            //   if (buttonNumber >= 1 && buttonNumber <= 7) {
+            //     const buttonKey = `button${buttonNumber}`;
+            //     buttonCounts[buttonKey as keyof typeof buttonCounts]++;
+            //   }
+            // }
           });
           
           // 차트 업데이트
           updateChartsFromData(buttonCounts);
         }
-        
+
         setIsConnected(true);
       } catch (error) {
         console.error('API 호출 오류:', error);
@@ -206,8 +206,8 @@ const Test: React.FC = () => {
       }
     };
     
-    // 0.1초마다 데이터 확인
-    const interval = setInterval(pollData, 100);
+    const pollingInterval = 500;
+    const interval = setInterval(pollData, pollingInterval);
     pollData(); // 즉시 첫 번째 호출
     
     return () => clearInterval(interval);
@@ -362,8 +362,6 @@ const Test: React.FC = () => {
               {/* 중앙 텍스트 */}
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center">
-                  {/* <div className="text-2xl font-bold text-gray-900">100%</div>
-                  <div className="text-sm text-gray-600">전체</div> */}
                 </div>
               </div>
             </div>
