@@ -269,4 +269,43 @@ router.get('/browser-type-summary', async (req, res) => {
   }
 });
 
+// 재방문율 = 최근 7일 중 2일 이상 방문한 user_id 수 ÷ 전체 방문 user_id 수
+router.get('/revisit', async (req, res) => {
+  const query = `
+    SELECT
+      countIf(days_visited > 1) AS revisit_users,
+      count() AS total_users
+    FROM (
+      SELECT
+        user_id,
+        count(DISTINCT toDate(timestamp)) AS days_visited
+      FROM events
+      WHERE user_id IS NOT NULL
+        AND toDate(timestamp) BETWEEN today() - 6 AND today()
+      GROUP BY user_id
+    )
+  `;
+
+  try {
+    const resultRes = await clickhouse.query({ query, format: 'JSON' });
+    const result = await resultRes.json();
+    const row = result.data[0] || { revisit_users: 0, total_users: 0 };
+
+    const rate = row.total_users > 0
+      ? Math.round((row.revisit_users / row.total_users) * 1000) / 10
+      : 0;
+
+    res.status(200).json({
+      data: {
+        revisitUsers: Number(row.revisit_users),
+        totalUsers: Number(row.total_users),
+        returnRatePercent: rate
+      }
+    });
+  } catch (err) {
+    console.error('Revisit Rate API ERROR:', err);
+    res.status(500).json({ error: 'Failed to get revisit rate data' });
+  }
+});
+
 module.exports = router;
