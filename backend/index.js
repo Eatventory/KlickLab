@@ -17,6 +17,14 @@ app.use(cors());
 const statsRoutes = require('./routes/stats');
 app.use('/api/stats', statsRoutes);
 
+/* metrics 라우팅 */
+const metricsRoutes = require('./routes/metrics');
+app.use('/api/metrics', metricsRoutes);
+
+/* overview 라우팅 */
+const overviewRoutes = require('./routes/overview');
+app.use('/api/overview', overviewRoutes);
+
 /* users 라우팅 */
 const usersRoutes = require('./routes/users');
 app.use('/api/users', usersRoutes);
@@ -79,10 +87,6 @@ app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
   next();
 });
-
-/* metrics 라우팅 */
-const metricsRoutes = require('./routes/metrics');
-app.use('/api/metrics', metricsRoutes);
 
 // Prometheus 메트릭 엔드포인트
 app.get('/metrics', async (req, res) => {
