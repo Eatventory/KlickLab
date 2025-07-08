@@ -5,12 +5,14 @@ import { TopClicks } from './TopClicks';
 import { ClickTrend } from './ClickTrend';
 import { UserPathSankeyChart } from '../user/UserPathSankeyChart';
 import { DropoffInsightsCard } from '../engagement/DropoffInsightsCard';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { AverageSessionDurationCard } from './AverageSessionDurationCard';
 import { ConversionSummaryCard } from './ConversionSummaryCard';
 
 interface VisitorsData {
   today: number;
   yesterday: number;
+  trend?: { date: string; visitors: number }[];
 }
 
 interface ClicksData {
@@ -124,6 +126,32 @@ export const OverviewDashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* 최근 7일 방문자 추이 차트 */}
+      {visitorsData?.trend && visitorsData.trend.length > 0 && (
+        <div className="bg-white p-6 rounded-lg shadow-sm w-full h-[300px] flex flex-col">
+          <div className="text-lg font-bold mb-2">최근 7일 방문자 추이</div>
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={visitorsData.trend}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" />
+              <YAxis />
+              <Tooltip />
+              <Line type="monotone" dataKey="visitors" stroke="#3b82f6" name="방문자 수" />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white p-6 rounded-lg shadow-sm flex flex-col items-center justify-center min-h-[120px]">
+          <div className="animate-pulse bg-gray-200 rounded w-16 h-6 mb-2" />
+          <div className="text-gray-400 text-sm">평균 세션 길이<br/>준비 중입니다</div>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow-sm flex flex-col items-center justify-center min-h-[120px]">
+          <div className="animate-pulse bg-gray-200 rounded w-16 h-6 mb-2" />
+          <div className="text-gray-400 text-sm">전환율 카드<br/>준비 중입니다</div>
+        </div>
+      </div>
     </div>
   );
 }; 
