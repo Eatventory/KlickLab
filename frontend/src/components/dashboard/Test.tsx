@@ -175,24 +175,24 @@ const Test: React.FC = () => {
           
           data.clickEvents.forEach((event: any) => {
             // element_path에서 버튼 번호 추출
-            // const match = event.element_path?.match(/button:nth-child\((\d+)\)/);
-            // if (match) {
-            //   const buttonNumber = parseInt(match[1]);
-            //   if (buttonNumber >= 1 && buttonNumber <= 7) {
-            //     const buttonKey = `button${buttonNumber}`;
-            //     buttonCounts[buttonKey as keyof typeof buttonCounts]++;
-            //   }
-            // }
-            
-            // 또는 target_text로도 확인 (button 1, button 2, ...)
-            const textMatch = event.target_text?.match(/button (\d+)/);
-            if (textMatch) {
-              const buttonNumber = parseInt(textMatch[1]);
+            const match = event.element_path?.match(/button:nth-child\((\d+)\)/);
+            if (match) {
+              const buttonNumber = parseInt(match[1]);
               if (buttonNumber >= 1 && buttonNumber <= 7) {
                 const buttonKey = `button${buttonNumber}`;
                 buttonCounts[buttonKey as keyof typeof buttonCounts]++;
               }
             }
+            
+            // 또는 target_text로도 확인 (button 1, button 2, ...)
+            // const textMatch = event.target_text?.match(/button (\d+)/);
+            // if (textMatch) {
+            //   const buttonNumber = parseInt(textMatch[1]);
+            //   if (buttonNumber >= 1 && buttonNumber <= 7) {
+            //     const buttonKey = `button${buttonNumber}`;
+            //     buttonCounts[buttonKey as keyof typeof buttonCounts]++;
+            //   }
+            // }
           });
           
           // 차트 업데이트
