@@ -154,18 +154,21 @@ router.get('/top-clicks', async (req, res) => {
 });
 
 router.get('/user-type-summary', async (req, res) => {
+  const { period, userType, device } = req.query;
+  const condition = buildFilterCondition({ period, userType, device });
+
   try {
     const query = `
       WITH
         today_users AS (
           SELECT DISTINCT user_id
           FROM events
-          WHERE toDate(timestamp) = today() AND user_id IS NOT NULL
+          WHERE toDate(timestamp) = today() AND user_id IS NOT NULL AND ${condition}
         ),
         ever_users AS (
           SELECT DISTINCT user_id
           FROM events
-          WHERE toDate(timestamp) < today() AND user_id IS NOT NULL
+          WHERE toDate(timestamp) < today() AND user_id IS NOT NULL AND ${condition}
         )
       SELECT
         countIf(u IN (SELECT user_id FROM ever_users)) AS old_users,
@@ -197,7 +200,7 @@ router.get('/os-type-summary', async (req, res) => {
       device_os AS os, 
       count(DISTINCT user_id) AS users
     FROM events
-    WHERE user_id IS NOT NULL AND ${condition}
+    WHERE user_id IS NOT NULL AND length(device_os) > 0 AND ${condition}
     GROUP BY device_os
   `;
 
@@ -235,6 +238,7 @@ router.get('/browser-type-summary', async (req, res) => {
     FROM events
     WHERE toDate(timestamp) = today()
       AND user_id IS NOT NULL AND ${condition}
+      AND length(browser) > 0 AND length(device_type) > 0
     GROUP BY browser, device_type
   `;
 
