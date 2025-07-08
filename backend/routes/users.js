@@ -14,6 +14,7 @@ router.get('/top-clicks', async (req, res) => {
     }
 
     // 1. 세그먼트별 총 클릭 수, 유저 수, 평균 클릭 수
+    const baseFilter = `event_name = 'auto_click' AND toDate(timestamp) >= today() - 6 AND ${segment} IS NOT NULL`;
     const summaryQuery = `
       SELECT 
         ${segment} AS segment,
@@ -21,9 +22,7 @@ router.get('/top-clicks', async (req, res) => {
         count(DISTINCT user_id) AS totalUsers,
         round(count() / countDistinct(user_id), 1) AS avgClicksPerUser
       FROM events
-      WHERE event_name = 'auto_click'
-        AND timestamp >= now() - interval 7 day
-        AND ${segment} IS NOT NULL
+      WHERE ${baseFilter}
       GROUP BY segment
     `;
 
@@ -35,10 +34,7 @@ router.get('/top-clicks', async (req, res) => {
         count(*) AS totalClicks,
         count(DISTINCT user_id) AS userCount
       FROM events
-      WHERE event_name = 'auto_click'
-        AND timestamp >= now() - interval 7 day
-        AND ${segment} IS NOT NULL
-        AND element_path != ''
+      WHERE ${baseFilter} AND element_path != ''
       GROUP BY segment, element
       ORDER BY segment, totalClicks DESC
     `;
@@ -57,10 +53,7 @@ router.get('/top-clicks', async (req, res) => {
         END AS ageGroup,
         count(DISTINCT user_id) AS count
       FROM events
-      WHERE event_name = 'auto_click'
-        AND timestamp >= now() - interval 7 day
-        AND ${segment} IS NOT NULL
-        AND user_age IS NOT NULL
+      WHERE ${baseFilter} AND user_age IS NOT NULL
       GROUP BY segment, ageGroup
     `;
 
@@ -71,10 +64,7 @@ router.get('/top-clicks', async (req, res) => {
         device_type,
         count(DISTINCT user_id) AS count
       FROM events
-      WHERE event_name = 'auto_click'
-        AND timestamp >= now() - interval 7 day
-        AND ${segment} IS NOT NULL
-        AND device_type != ''
+      WHERE ${baseFilter} AND device_type != ''
       GROUP BY segment, device_type
     `;
 
@@ -147,41 +137,31 @@ router.get('/top-clicks', async (req, res) => {
 
 router.get('/user-type-summary', async (req, res) => {
   try {
-    const todayUserQuery = `
-      SELECT DISTINCT user_id
-      FROM events
-      WHERE toDate(timestamp) = today()
-        AND user_id IS NOT NULL
+    const query = `
+      WITH
+        today_users AS (
+          SELECT DISTINCT user_id
+          FROM events
+          WHERE toDate(timestamp) = today() AND user_id IS NOT NULL
+        ),
+        ever_users AS (
+          SELECT DISTINCT user_id
+          FROM events
+          WHERE toDate(timestamp) < today() AND user_id IS NOT NULL
+        )
+      SELECT
+        countIf(u IN (SELECT user_id FROM ever_users)) AS old_users,
+        countIf(u NOT IN (SELECT user_id FROM ever_users)) AS new_users
+      FROM today_users ARRAY JOIN [user_id] AS u
     `;
 
-    const everUserQuery = `
-      SELECT DISTINCT user_id
-      FROM events
-      WHERE toDate(timestamp) < today()
-        AND user_id IS NOT NULL
-    `;
-
-    const [todayRes, everRes] = await Promise.all([
-      clickhouse.query({ query: todayUserQuery, format: 'JSON' }).then(r => r.json()),
-      clickhouse.query({ query: everUserQuery, format: 'JSON' }).then(r => r.json()),
-    ]);
-
-    const todayUsers = new Set(todayRes.data.map(row => row.user_id));
-    const everUsers = new Set(everRes.data.map(row => row.user_id));
-
-    let newUser = 0, oldUser = 0;
-    for (const user of todayUsers) {
-      if (everUsers.has(user)) {
-        oldUser++;
-      } else {
-        newUser++;
-      }
-    }
+    const result = await clickhouse.query({ query, format: 'JSON' }).then(r => r.json());
+    const row = result.data[0] || { new_users: 0, old_users: 0 };
 
     res.status(200).json({
       data: [
-        { type: '신규 유저', value: newUser },
-        { type: '기존 유저', value: oldUser }
+        { type: '신규 유저', value: Number(row.new_users) },
+        { type: '기존 유저', value: Number(row.old_users) }
       ]
     });
   } catch (err) {
@@ -208,11 +188,8 @@ router.get('/os-type-summary', async (req, res) => {
     const result = await resultRes.json();
 
     const osCategoryMap = {
-      'Android': 'mobile',
-      'iOS': 'mobile',
-      'Windows': 'desktop',
-      'macOS': 'desktop',
-      'Linux': 'desktop',
+      'Android': 'mobile', 'iOS': 'mobile',
+      'Windows': 'desktop', 'macOS': 'desktop', 'Linux': 'desktop',
     };
 
     const data = result.data.map(item => ({
@@ -248,14 +225,16 @@ router.get('/browser-type-summary', async (req, res) => {
     const result = await resultRes.json();
 
     const convertBrowser = (browser, deviceType) => {
-      if (browser === 'Chrome' && deviceType === 'mobile') return { name: 'Chrome Mobile', category: 'mobile' };
-      if (browser === 'Safari' && deviceType === 'mobile') return { name: 'Safari Mobile', category: 'mobile' };
-      if (browser === 'Chrome') return { name: 'Chrome', category: 'desktop' };
-      if (browser === 'Safari') return { name: 'Safari', category: 'desktop' };
-      if (browser === 'Edge') return { name: 'Edge', category: 'desktop' };
-      if (browser === 'Firefox') return { name: 'Firefox', category: 'desktop' };
-      if (browser === 'Samsung Internet') return { name: 'Samsung Internet', category: 'mobile' };
-      return { name: '기타', category: deviceType === 'mobile' ? 'mobile' : 'desktop' };
+      const mapping = {
+        'Chrome': { desktop: 'Chrome', mobile: 'Chrome Mobile' },
+        'Safari': { desktop: 'Safari', mobile: 'Safari Mobile' },
+        'Edge': { desktop: 'Edge' },
+        'Firefox': { desktop: 'Firefox' },
+        'Samsung Internet': { mobile: 'Samsung Internet' },
+      };
+      const name = mapping[browser]?.[deviceType] || '기타';
+      const category = deviceType === 'mobile' ? 'mobile' : 'desktop';
+      return { name, category };
     };
 
     const grouped = {};
@@ -275,28 +254,14 @@ router.get('/browser-type-summary', async (req, res) => {
   }
 });
 
-// 기간 계산을 위한 헬퍼 함수
-function getPeriodDateRange(period = '1day') {
-  const ranges = {
-    '5min': 1, // 최소 1일 유지
-    '1hour': 1,
-    '1day': 1,
-    '1week': 7
-  };
-  return ranges[period] || 1;
-}
-
 // 재방문율 = 최근 7일 중 2일 이상 방문한 user_id 수 ÷ 전체 방문 user_id 수
 router.get('/returning', async (req, res) => {
   const { period, userType, device } = req.query;
-  const dayRange = getPeriodDateRange(period); // 예: '1week' → 7
-
+  const periodDays = { '5min': 1, '1hour': 1, '1day': 1, '1week': 7 };
+  const dayRange = periodDays[period] || 1;
   const deviceFilter = device !== 'all' ? `AND device_type = '${device}'` : '';
-  
-  const condition = `
-    user_id IS NOT NULL
-    ${deviceFilter}
-  `;
+
+  const condition = `user_id IS NOT NULL ${deviceFilter}`;
 
   const query = `
     SELECT
