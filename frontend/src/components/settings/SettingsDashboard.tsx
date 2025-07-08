@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Settings, Code, Globe, Users, Bell } from 'lucide-react';
+import Toast from "../ui/Toast";
 
 // 타입 정의
 interface DomainData {
@@ -28,27 +29,31 @@ export const SettingsDashboard: React.FC = () => {
     }
   ]);
 
-  const sdkCode = `
-<script>
-  (function() {
-    var script = document.createElement('script');
-    script.src = 'https://your-domain.com/analytics-sdk.js';
-    script.async = true;
-    document.head.appendChild(script);
+//   const sdkCode = `
+// <script>
+//   (function() {
+//     var script = document.createElement('script');
+//     script.src = 'https://your-domain.com/analytics-sdk.js';
+//     script.async = true;
+//     document.head.appendChild(script);
     
-    script.onload = function() {
-      window.KlickLab.init({
-        projectId: 'your-project-id',
-        endpoint: 'https://your-api-endpoint.com'
-      });
-    };
-  })();
-</script>`;
+//     script.onload = function() {
+//       window.KlickLab.init({
+//         projectId: 'your-project-id',
+//         endpoint: 'https://your-api-endpoint.com'
+//       });
+//     };
+//   })();
+// </script>`;
+  const sdkCode = `<script src="https://klicklab-sdk.pages.dev/klicklab_sdk.js"></script>`;
+
+  const [showToast, setShowToast] = useState(false);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     // 실제로는 토스트 메시지 표시
-    console.log('Copied to clipboard');
+    // console.log('Copied to clipboard');
+    setShowToast(true);
   };
 
   return (
@@ -65,7 +70,7 @@ export const SettingsDashboard: React.FC = () => {
           </p>
           <div className="relative">
             <pre className="bg-gray-50 p-4 rounded-lg text-sm overflow-x-auto">
-              <code>{sdkCode}</code>
+              <code className="block text-left">{sdkCode}</code>
             </pre>
             <button
               onClick={() => copyToClipboard(sdkCode)}
@@ -73,6 +78,9 @@ export const SettingsDashboard: React.FC = () => {
             >
               복사
             </button>
+            {showToast && (
+              <Toast message="클립보드에 복사되었습니다!" onClose={() => setShowToast(false)} />
+            )}
           </div>
         </div>
       </div>
