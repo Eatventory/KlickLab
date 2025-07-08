@@ -55,26 +55,27 @@ router.get('/visitors', async (req, res) => {
 
 router.get('/clicks', async (req, res) => {
 	try {
-		const yesterdayRes = await clickhouse.query({
-			query: `
-				SELECT clicks
-				FROM daily_metrics
-				WHERE date = toDate(toTimeZone(now() - INTERVAL 1 DAY, 'Asia/Seoul'));
-			`,
-			format: 'JSON'
-		});
-		const yesterdayClicks = (await yesterdayRes.json()).data[0]?.clicks ?? 0;
+    const yesterdayRes = await clickhouse.query({
+      query: `
+        SELECT clicks
+        FROM daily_metrics
+        WHERE date = toDate(toTimeZone(now() - INTERVAL 1 DAY, 'Asia/Seoul'));
+      `,
+      format: 'JSON'
+    });
+    const yesterdayClicks = (await yesterdayRes.json()).data[0]?.clicks ?? 0;
 
-		const clickRes = await clickhouse.query({
-			query: `
-				SELECT count() AS clicks
-				FROM events
-				WHERE date(timestamp) >= toDate(toTimeZone(now(), 'Asia/Seoul')) AND event_name = 'auto_click'
-			`,
-			format: 'JSON'
-		});
-		const todayClicks = +(await clickRes.json()).data[0]?.clicks || 0;
-    
+    const clickRes = await clickhouse.query({
+      query: `
+        SELECT count() AS clicks
+        FROM events
+        WHERE toDate(timestamp) = toDate(toTimeZone(now(), 'Asia/Seoul'))
+          AND event_name = 'auto_click'
+      `,
+      format: 'JSON'
+    });
+    const todayClicks = +(await clickRes.json()).data[0]?.clicks || 0;
+
     res.status(200).json({
       today: todayClicks,
       yesterday: yesterdayClicks
@@ -87,22 +88,23 @@ router.get('/clicks', async (req, res) => {
 
 router.get('/top-clicks', async (req, res) => {
   try {
-		const topClicksRes = await clickhouse.query({
-			query: `
-				SELECT target_text, count() AS cnt
-				FROM events
-				WHERE date(timestamp) >= toDate(toTimeZone(now(), 'Asia/Seoul')) AND event_name = 'auto_click' AND target_text != ''
-				GROUP BY target_text
-				ORDER BY cnt DESC
-				LIMIT 5
-			`,
-			format: 'JSONEachRow'
-		});
-		const topClicks = (await topClicksRes.json()).map(row => ({
-			label: row.target_text,
-			count: Number(row.cnt)
-		}));
-		res.status(200).json({ items: topClicks });
+    const topClicksRes = await clickhouse.query({
+      query: `
+        SELECT target_text, count() AS cnt
+        FROM events
+        WHERE toDate(timestamp) = toDate(toTimeZone(now(), 'Asia/Seoul'))
+          AND event_name = 'auto_click' AND target_text != ''
+        GROUP BY target_text
+        ORDER BY cnt DESC
+        LIMIT 5
+      `,
+      format: 'JSONEachRow'
+    });
+    const topClicks = (await topClicksRes.json()).map(row => ({
+      label: row.target_text,
+      count: Number(row.cnt)
+    }));
+    res.status(200).json({ items: topClicks });
   } catch (err) {
     console.error('Top Clicks API ERROR:', err);
     res.status(500).json({ error: 'Failed to get top clicks data' });
@@ -118,25 +120,25 @@ router.get('/click-trend', async (req, res) => {
     const clickTrendRes = await clickhouse.query({
       query: `
         WITH 
-					parseDateTimeBestEffortOrNull(${baseTime}) AS base,
-					toRelativeMinuteNum(base) AS base_min,
-					${step} AS step_minute,
-					${period} AS period_minute
-				SELECT 
-					formatDateTime(
-						toDateTime(base_min * 60) 
-							+ toIntervalMinute(
-									intDiv(toRelativeMinuteNum(timestamp) - base_min, step_minute) * step_minute
-								),
-						'%H:%i'
-					) AS time,
-					count() AS count
-				FROM events
-				WHERE 
-					event_name = 'auto_click'
-					AND timestamp >= base - toIntervalMinute(period_minute)
-				GROUP BY time
-				ORDER BY time
+          parseDateTimeBestEffortOrNull(${baseTime}) AS base,
+          toRelativeMinuteNum(base) AS base_min,
+          ${step} AS step_minute,
+          ${period} AS period_minute
+        SELECT 
+          formatDateTime(
+            toDateTime(base_min * 60) 
+              + toIntervalMinute(
+                  intDiv(toRelativeMinuteNum(timestamp) - base_min, step_minute) * step_minute
+                ),
+            '%H:%i'
+          ) AS time,
+          count() AS count
+        FROM events
+        WHERE 
+          event_name = 'auto_click'
+          AND timestamp >= base - toIntervalMinute(period_minute)
+        GROUP BY time
+        ORDER BY time
       `,
       format: 'JSONEachRow'
     });
@@ -157,12 +159,19 @@ router.get('/click-trend', async (req, res) => {
 router.get('/dropoff-summary', async (req, res) => {
   try {
     const query = `
-      SELECT
-        page_path as page,
-        round(countIf(event_name = 'page_exit') / count() * 100, 1) AS dropRate
-      FROM events
-      WHERE date(timestamp) >= toDate(toTimeZone(now(), 'Asia/Seoul')) AND page != ''
-      GROUP BY page
+      WITH t AS (
+        SELECT
+          page_path,
+          countIf(event_name = 'page_exit') AS exit_count,
+          count(*) AS total_count
+        FROM events
+        WHERE toDate(timestamp) = toDate(toTimeZone(now(), 'Asia/Seoul')) AND page_path != ''
+        GROUP BY page_path
+      )
+      SELECT 
+        page_path AS page,
+        round(exit_count / total_count * 100, 1) AS dropRate
+      FROM t
       ORDER BY dropRate DESC
       LIMIT 5
     `;
@@ -192,21 +201,18 @@ router.get('/userpath-summary', async (req, res) => {
             page_path
           FROM events
           WHERE event_name IN ('page_view', 'auto_click')
-            AND date(timestamp) = toDate(toTimeZone(now(), 'Asia/Seoul'))
+            AND toDate(timestamp) = toDate(toTimeZone(now(), 'Asia/Seoul'))
           ORDER BY user_id, timestamp
         )
         GROUP BY user_id
+        LIMIT 1000
       )
       ARRAY JOIN arrayZip(arraySlice(path, 1, length(path) - 1), arraySlice(path, 2)) AS tuple
       GROUP BY from, to
       ORDER BY value DESC
     `;
 
-    const resultSet = await clickhouse.query({
-      query: pathQuery,
-      format: "JSON"
-    });
-
+    const resultSet = await clickhouse.query({ query: pathQuery, format: "JSON" });
     const result = await resultSet.json();
     res.status(200).json({ data: result.data });
   } catch (err) {
@@ -256,21 +262,22 @@ router.get('/conversion-rate', async (req, res) => {
         WHERE page_path = '${fromPage}'
         GROUP BY session_id
       ),
-      ab_sessions AS (
+      b_sessions AS (
+        SELECT session_id, min(timestamp) AS b_time
+        FROM events
+        WHERE page_path = '${toPage}'
+        GROUP BY session_id
+      ),
+      joined_sessions AS (
         SELECT a.session_id
         FROM a_sessions a
-        JOIN (
-          SELECT session_id, min(timestamp) AS b_time
-          FROM events
-          WHERE page_path = '${toPage}'
-          GROUP BY session_id
-        ) b ON a.session_id = b.session_id AND a.a_time < b.b_time
+        INNER JOIN b_sessions b ON a.session_id = b.session_id AND a.a_time < b.b_time
       )
-
     SELECT 
-      (SELECT count(*) FROM ab_sessions) AS converted,
-      (SELECT count(*) FROM a_sessions) AS total,
-      round((converted / total) * 100, 1) AS conversion_rate
+      count() AS converted,
+      (SELECT count() FROM a_sessions) AS total,
+      round(converted / total * 100, 1) AS conversion_rate
+    FROM joined_sessions;
   `;
 
   try {
