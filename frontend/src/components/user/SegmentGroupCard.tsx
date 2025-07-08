@@ -108,24 +108,19 @@ const ageGroupLabelMap: Record<string, string> = {
   '30s': '30대',
   '40s': '40대',
   '50s': '50대',
-  '60s+': '60대+',
+  '60s+': '60대 이상',
 };
 
 // segmentValue 변환 함수
 function getDisplaySegmentValue(segmentType: string, segmentValue: string) {
   if (!segmentValue || segmentValue.trim() === '') return '불명';
 
+  if (/^\d+대$/.test(segmentValue) || segmentValue === '60대 이상') {
+    return segmentValue;
+  }
+
   if (segmentType === 'age') {
     if (ageGroupLabelMap[segmentValue]) return ageGroupLabelMap[segmentValue];
-    const age = Number(segmentValue);
-    if (!isNaN(age)) {
-      if (age >= 10 && age < 20) return '10대';
-      if (age >= 20 && age < 30) return '20대';
-      if (age >= 30 && age < 40) return '30대';
-      if (age >= 40 && age < 50) return '40대';
-      if (age >= 50 && age < 60) return '50대';
-      if (age >= 60) return '60대+';
-    }
     return '불명';
   }
 

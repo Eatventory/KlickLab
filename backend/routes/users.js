@@ -12,151 +12,115 @@ router.get('/top-clicks', async (req, res) => {
       return res.status(400).json({ error: 'Invalid user segment' });
     }
 
-    const isUserAge = segment === 'user_age';
-    const segmentExpr = isUserAge
-      ? `CASE
-        WHEN user_age BETWEEN 10 AND 19 THEN '10s'
-        WHEN user_age BETWEEN 20 AND 29 THEN '20s'
-        WHEN user_age BETWEEN 30 AND 39 THEN '30s'
-        WHEN user_age BETWEEN 40 AND 49 THEN '40s'
-        WHEN user_age BETWEEN 50 AND 59 THEN '50s'
-        WHEN user_age >= 60 THEN '60s+'
-        ELSE 'unknown'
-      END`
-      : segment;
+    const today = new Date();
+    const fromDate = new Date(today);
+    fromDate.setDate(today.getDate() - 6);
+    const fromDateStr = fromDate.toISOString().slice(0, 10);  // 'YYYY-MM-DD'
 
-    // 1. 세그먼트별 총 클릭 수, 유저 수, 평균 클릭 수
-    const baseFilter = `event_name = 'auto_click' AND timestamp >= toDateTime(now(), 'Asia/Seoul') - INTERVAL 6 DAY`;
+    // 1. 클릭 요약
     const summaryQuery = `
-      SELECT 
-        ${segmentExpr} AS segment,
-        count(*) AS totalClicks,
-        count(DISTINCT client_id) AS totalUsers,
-        round(count() / count(DISTINCT client_id), 1) AS avgClicksPerUser
-      FROM events
-      WHERE ${baseFilter}
-      GROUP BY ${segmentExpr}
+      SELECT
+        segment_value AS segment,
+        sum(total_clicks) AS totalClicks,
+        sum(total_users) AS totalUsers,
+        round(sum(total_clicks) / sum(total_users), 1) AS avgClicksPerUser
+      FROM daily_click_summary
+      WHERE segment_type = '${segment}' AND date >= toDate('${fromDateStr}')
+      GROUP BY segment
     `;
 
-    // 2. 세그먼트별 Top 요소 (상위 3개)
-    const topElementsQuery = `
-      SELECT *
-      FROM (
-        SELECT 
-          ${segmentExpr} AS segment,
-          target_text AS element,
-          count(*) AS totalClicks,
-          count(DISTINCT client_id) AS userCount,
-          row_number() OVER (PARTITION BY ${segmentExpr} ORDER BY count(*) DESC) AS rn
-        FROM events
-        WHERE ${baseFilter} AND length(target_text) > 0
-        GROUP BY ${segmentExpr}, element
-      )
-      WHERE rn <= 3
+    // 2. Top 클릭 요소
+    const topQuery = `
+      SELECT
+        segment_value AS segment,
+        element,
+        sum(total_clicks) AS totalClicks,
+        sum(user_count) AS userCount
+      FROM daily_top_elements
+      WHERE segment_type = '${segment}' AND date >= toDate('${fromDateStr}')
+      GROUP BY segment, element
       ORDER BY segment, totalClicks DESC
     `;
 
-    // 3. 연령 분포
-    const ageGroupQuery = `
-      SELECT 
-        ${segmentExpr} AS segment,
-        CASE
-          WHEN user_age BETWEEN 10 AND 19 THEN '10s'
-          WHEN user_age BETWEEN 20 AND 29 THEN '20s'
-          WHEN user_age BETWEEN 30 AND 39 THEN '30s'
-          WHEN user_age BETWEEN 40 AND 49 THEN '40s'
-          WHEN user_age BETWEEN 50 AND 59 THEN '50s'
-          WHEN user_age >= 60 THEN '60s+'
-          ELSE 'unknown'
-        END AS ageGroup,
-        count(DISTINCT client_id) AS count
-      FROM events
-      WHERE ${baseFilter}
-      GROUP BY ${segmentExpr}, ageGroup
+    // 3. 유저 분포
+    const distQuery = `
+      SELECT
+        segment_value AS segment,
+        dist_type,
+        dist_value,
+        sum(user_count) AS count
+      FROM daily_user_distribution
+      WHERE segment_type = '${segment}' AND date >= toDate('${fromDateStr}')
+      GROUP BY segment, dist_type, dist_value
     `;
 
-    // 4. 디바이스 분포
-    const deviceQuery = `
-      SELECT 
-        ${segmentExpr} AS segment,
-        device_type,
-        count(DISTINCT client_id) AS count
-      FROM events
-      WHERE ${baseFilter} AND device_type != ''
-      GROUP BY ${segmentExpr}, device_type
-    `;
-
-    // 병렬 실행
-    const [summaryRes, topElementsRes, ageGroupRes, deviceRes] = await Promise.all([
+    const [summaryRes, topRes, distRes] = await Promise.all([
       clickhouse.query({ query: summaryQuery, format: 'JSON' }).then(r => r.json()),
-      clickhouse.query({ query: topElementsQuery, format: 'JSON' }).then(r => r.json()),
-      clickhouse.query({ query: ageGroupQuery, format: 'JSON' }).then(r => r.json()),
-      clickhouse.query({ query: deviceQuery, format: 'JSON' }).then(r => r.json())
+      clickhouse.query({ query: topQuery, format: 'JSON' }).then(r => r.json()),
+      clickhouse.query({ query: distQuery, format: 'JSON' }).then(r => r.json())
     ]);
 
-    // console.time('summaryQuery');
-    // const summaryResPromise = clickhouse.query({ query: summaryQuery, format: 'JSON' }).then(r => r.json()).then((res) => {
-    //   console.timeEnd('summaryQuery');
-    //   return res;
-    // });
+    // console.time("summaryQuery");
+    // const summaryResPromise = clickhouse
+    //     .query({ query: summaryQuery, format: "JSON" })
+    //     .then((r) => r.json())
+    //     .then((res) => {
+    //         console.timeEnd("summaryQuery");
+    //         return res;
+    //     });
 
-    // console.time('topElementsQuery');
-    // const topElementsResPromise = clickhouse.query({ query: topElementsQuery, format: 'JSON' }).then(r => r.json()).then((res) => {
-    //   console.timeEnd('topElementsQuery');
-    //   return res;
-    // });
+    // console.time("topQuery");
+    // const topResPromise = clickhouse
+    //     .query({ query: topQuery, format: "JSON" })
+    //     .then((r) => r.json())
+    //     .then((res) => {
+    //         console.timeEnd("topQuery");
+    //         return res;
+    //     });
 
-    // console.time('ageGroupQuery');
-    // const ageGroupResPromise = clickhouse.query({ query: ageGroupQuery, format: 'JSON' }).then(r => r.json()).then((res) => {
-    //   console.timeEnd('ageGroupQuery');
-    //   return res;
-    // });
+    // console.time("distQuery");
+    // const distResPromise = clickhouse
+    //     .query({ query: distQuery, format: "JSON" })
+    //     .then((r) => r.json())
+    //     .then((res) => {
+    //         console.timeEnd("distQuery");
+    //         return res;
+    //     });
 
-    // console.time('deviceQuery');
-    // const deviceResPromise = clickhouse.query({ query: deviceQuery, format: 'JSON' }).then(r => r.json()).then((res) => {
-    //   console.timeEnd('deviceQuery');
-    //   return res;
-    // });
-
-    // const [summaryRes, topElementsRes, ageGroupRes, deviceRes] = await Promise.all([
-    //   summaryResPromise,
-    //   topElementsResPromise,
-    //   ageGroupResPromise,
-    //   deviceResPromise,
+    // const [summaryRes, topRes, distRes] = await Promise.all([
+    //     summaryResPromise,
+    //     topResPromise,
+    //     distResPromise,
     // ]);
 
-    // console.log("summaryRes: ", summaryRes.data);
-    // console.log("topElementsRes: ", topElementsRes.data);
-    // console.log("ageGroupRes: ", ageGroupRes.data);
-    // console.log("deviceRes: ", deviceRes.data);
-
-    const result = [];
-    const topElementsBySegment = {};
+    // 분포 가공
     const ageDistBySegment = {};
     const deviceDistBySegment = {};
+    for (const row of distRes.data) {
+      const seg = row.segment;
+      const distType = row.dist_type;
+      const value = row.dist_value;
+      const count = row.count;
+
+      if (distType === 'ageGroup') {
+        if (!ageDistBySegment[seg]) ageDistBySegment[seg] = {};
+        ageDistBySegment[seg][value] = count;
+      } else if (distType === 'device') {
+        if (!deviceDistBySegment[seg]) deviceDistBySegment[seg] = {};
+        deviceDistBySegment[seg][value] = count;
+      }
+    }
 
     // Top 요소 가공
-    for (const row of topElementsRes.data) {
+    const topElementsBySegment = {};
+    for (const row of topRes.data) {
       const seg = row.segment;
       if (!topElementsBySegment[seg]) topElementsBySegment[seg] = [];
       topElementsBySegment[seg].push(row);
     }
 
-    // 연령 분포 가공
-    for (const row of ageGroupRes.data) {
-      const seg = row.segment;
-      if (!ageDistBySegment[seg]) ageDistBySegment[seg] = {};
-      ageDistBySegment[seg][row.ageGroup] = row.count;
-    }
-
-    // 디바이스 분포 가공
-    for (const row of deviceRes.data) {
-      const seg = row.segment;
-      if (!deviceDistBySegment[seg]) deviceDistBySegment[seg] = {};
-      deviceDistBySegment[seg][row.device_type] = row.count;
-    }
-
     // 종합 조립
+    const result = [];
     for (const row of summaryRes.data) {
       const seg = row.segment;
       const topList = (topElementsBySegment[seg] || []).slice(0, 3);
@@ -165,7 +129,7 @@ router.get('/top-clicks', async (req, res) => {
       const topElements = topList.map(el => ({
         element: el.element,
         totalClicks: el.totalClicks,
-        percentage: Math.round((el.totalClicks / total) * 1000) / 10,
+        percentage: total > 0 ? Math.round((el.totalClicks / total) * 1000) / 10 : 0,
         userCount: el.userCount
       }));
 
@@ -181,6 +145,7 @@ router.get('/top-clicks', async (req, res) => {
         }
       });
     }
+
     res.status(200).json({ data: result });
   } catch (err) {
     console.error('Top Clicks API ERROR:', err);
