@@ -89,7 +89,9 @@ export const EngagementDashboard: React.FC = () => {
 
       {/* 이탈률 요약 & 세션 길이 분포 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <DropoffInsightsCard />
+        <div className="bg-white p-6 rounded-lg shadow-sm flex flex-col justify-center">
+          <DropoffInsightsCard />
+        </div>
 
         {/* 세션 길이 분포 */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
