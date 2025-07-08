@@ -186,28 +186,25 @@ export const UserDashboard: React.FC = () => {
 
   const isFirstOsInit = useRef(true);
   useEffect(() => {
-    if (isFirstOsInit.current && osPieData.length > 0) {
+    if (osPieData.length === 0) return;
+    if (isFirstOsInit.current) {
       setOsActiveLegends(osPieData.map(d => d.label));
       isFirstOsInit.current = false;
     }
-  }, [osPieData]);
+  }, [osPieData, osFilter]);
+
   const isFirstBrowserInit = useRef(true);
   useEffect(() => {
-    if (isFirstBrowserInit.current && browserPieData.length > 0) {
+    if (browserPieData.length === 0) return;
+    if (isFirstBrowserInit.current) {
       setBrowserActiveLegends(browserPieData.map(d => d.label));
       isFirstBrowserInit.current = false;
     }
-  }, [browserPieData]);
+  }, [browserPieData, browserFilter]);
 
-  // useEffect(() => {
-  //   setOsActiveLegends(osPieData.map(d => d.label));
-  // }, [osPieData.length]);
   useEffect(() => {
     setOsActiveLegends(osPieData.map(d => d.label));
   }, [osFilter]);
-  // useEffect(() => {
-  //   setBrowserActiveLegends(browserPieData.map(d => d.label));
-  // }, [browserPieData.length]);
   useEffect(() => {
     setBrowserActiveLegends(browserPieData.map(d => d.label));
   }, [browserFilter]);
