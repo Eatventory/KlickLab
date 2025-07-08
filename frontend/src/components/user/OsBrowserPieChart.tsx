@@ -35,26 +35,32 @@ const renderCustomLabel = (props: PieLabelRenderProps) => {
 
 export const OsBrowserPieChart: React.FC<Props> = ({ data, legendType }) => {
   return (
-    <div className="flex flex-col items-center w-full">
-      <ResponsiveContainer width={400} height={400}>
-        <PieChart>
-          <Pie
-            data={data}
-            cx="50%"
-            cy="50%"
-            outerRadius={110}
-            dataKey="value"
-            label={renderCustomLabel}
-            isAnimationActive={true}
-            animationDuration={900}
-          >
-            {data.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-            ))}
-          </Pie>
-          <Tooltip formatter={(value: any) => value.toLocaleString()} />
-        </PieChart>
-      </ResponsiveContainer>
+    <div className="flex flex-col items-center w-full" style={{ minHeight: 400 }}>
+      {data.length === 0 ? (
+        <div className="text-gray-400 text-center" style={{ height: 400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          데이터 없음
+        </div>
+      ) : (
+        <ResponsiveContainer width="100%" height={400}>
+          <PieChart>
+            <Pie
+              data={data}
+              cx="50%"
+              cy="50%"
+              outerRadius={110}
+              dataKey="value"
+              label={renderCustomLabel}
+              isAnimationActive={true}
+              animationDuration={900}
+            >
+              {data.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip formatter={(value: any) => value.toLocaleString()} />
+          </PieChart>
+        </ResponsiveContainer>
+      )}
     </div>
   );
 }; 

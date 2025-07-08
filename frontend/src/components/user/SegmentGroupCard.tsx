@@ -30,7 +30,7 @@ const getRankIcon = (rank: number) => {
     case 3:
       return '🥉';
     default:
-      return `${rank}`;
+      return null;
   }
 };
 
@@ -101,12 +101,61 @@ const UserDistributionItem = memo<{
 
 UserDistributionItem.displayName = 'UserDistributionItem';
 
+// 연령대 영문 → 한글 변환 함수
+const ageGroupLabelMap: Record<string, string> = {
+  '10s': '10대',
+  '20s': '20대',
+  '30s': '30대',
+  '40s': '40대',
+  '50s': '50대',
+  '60s+': '60대+',
+};
+
+// segmentValue 변환 함수
+function getDisplaySegmentValue(segmentType: string, segmentValue: string) {
+  if (segmentType === 'age') {
+    if (ageGroupLabelMap[segmentValue]) return ageGroupLabelMap[segmentValue];
+    const age = Number(segmentValue);
+    if (!isNaN(age)) {
+      if (age >= 10 && age < 20) return '10대';
+      if (age >= 20 && age < 30) return '20대';
+      if (age >= 30 && age < 40) return '30대';
+      if (age >= 40 && age < 50) return '40대';
+      if (age >= 50 && age < 60) return '50대';
+      if (age >= 60) return '60대+';
+    }
+  }
+  return segmentValue;
+}
+
+// 연령대별 그룹 합산 함수
+function mergeAgeSegmentsIfNeeded(segmentType: string, segment: SegmentGroupData, allSegments: SegmentGroupData[]) {
+  if (segmentType !== 'age') return segment;
+  // 변환된 연령대 그룹
+  const group = getDisplaySegmentValue('age', segment.segmentValue);
+  // 이미 변환된 그룹이면 합산
+  const merged = allSegments.reduce((acc, cur) => {
+    if (getDisplaySegmentValue('age', cur.segmentValue) === group) {
+      acc.totalUsers += cur.totalUsers;
+      acc.totalClicks += cur.totalClicks;
+      acc.averageClicksPerUser += cur.averageClicksPerUser; // 평균은 단순 합산이 아니라 가중평균이 맞지만, 간단히 합산
+      // topElements, userDistribution 등은 첫 번째 것만 사용(혹은 합산 필요시 추가 구현)
+    }
+    return acc;
+  }, { ...segment });
+  // 평균 클릭수는 합산된 유저수로 다시 계산
+  merged.averageClicksPerUser = merged.totalUsers > 0 ? merged.totalClicks / merged.totalUsers : 0;
+  return merged;
+}
+
 // 메모이제이션된 SegmentGroupCard 컴포넌트
 export const SegmentGroupCard = memo<SegmentGroupCardProps>(({ 
   segment, 
   rank, 
   segmentType 
 }) => {
+  // 연령대 세그먼트면 같은 그룹끼리 합산
+  const mergedSegment = mergeAgeSegmentsIfNeeded(segmentType, segment, (segment as any).allSegments || [segment]);
   const getDistributionData = () => {
     const distribution = segment.userDistribution;
     switch (segmentType) {
@@ -131,11 +180,16 @@ export const SegmentGroupCard = memo<SegmentGroupCardProps>(({
       {/* 랭킹 배지 */}
       <div className="flex items-center justify-between mb-4">
         <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getRankColor(rank)}`}>
-          <span className="mr-1">{getRankIcon(rank)}</span>
-          {rank}위
+          {getRankIcon(rank) ? (
+            <>
+              <span className="mr-1">{getRankIcon(rank)}</span>{rank}위
+            </>
+          ) : (
+            <>{rank}위</>
+          )}
         </div>
         <div className="text-sm text-gray-500">
-          {segment.totalClicks.toLocaleString()}회 클릭
+          {mergedSegment.totalClicks.toLocaleString()}회 클릭
         </div>
       </div>
 
@@ -146,36 +200,36 @@ export const SegmentGroupCard = memo<SegmentGroupCardProps>(({
         </div>
         <div className="flex-1">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-gray-900 text-lg">{segment.segmentValue}</span>
+            <span className="font-semibold text-gray-900 text-lg">{getDisplaySegmentValue(segmentType, mergedSegment.segmentValue)}</span>
           </div>
           <div className="text-sm text-gray-600">
-            {segment.totalUsers.toLocaleString()}명의 사용자
+            {mergedSegment.totalUsers.toLocaleString()}명의 사용자
           </div>
         </div>
       </div>
 
       {/* 통계 정보 */}
-      <div className="grid grid-cols-3 gap-4 mb-4">
-        <div className="text-center">
-          <div className="flex items-center justify-center gap-1 text-gray-600 mb-1">
+      <div className="flex flex-col gap-2 mb-4 items-center">
+        <div className="flex flex-col items-center">
+          <div className="flex items-center gap-1 text-gray-600 mb-1">
             <Users className="w-4 h-4" />
             <span className="text-xs">사용자</span>
           </div>
-          <div className="font-bold text-gray-900">{segment.totalUsers.toLocaleString()}</div>
+          <div className="font-bold text-gray-900">{mergedSegment.totalUsers.toLocaleString()}</div>
         </div>
-        <div className="text-center">
-          <div className="flex items-center justify-center gap-1 text-gray-600 mb-1">
+        <div className="flex flex-col items-center">
+          <div className="flex items-center gap-1 text-gray-600 mb-1">
             <MousePointer className="w-4 h-4" />
             <span className="text-xs">클릭</span>
           </div>
-          <div className="font-bold text-gray-900">{segment.totalClicks.toLocaleString()}</div>
+          <div className="font-bold text-gray-900">{mergedSegment.totalClicks.toLocaleString()}</div>
         </div>
-        <div className="text-center">
-          <div className="flex items-center justify-center gap-1 text-gray-600 mb-1">
+        <div className="flex flex-col items-center">
+          <div className="flex items-center gap-1 text-gray-600 mb-1">
             <TrendingUp className="w-4 h-4" />
             <span className="text-xs">평균</span>
           </div>
-          <div className="font-bold text-gray-900">{segment.averageClicksPerUser.toFixed(1)}</div>
+          <div className="font-bold text-gray-900">{mergedSegment.averageClicksPerUser != null ? mergedSegment.averageClicksPerUser.toFixed(1) : '-'}</div>
         </div>
       </div>
 
@@ -198,11 +252,11 @@ export const SegmentGroupCard = memo<SegmentGroupCardProps>(({
           <div className="text-sm font-medium text-gray-900 mb-3">사용자 분포</div>
           <div className="space-y-2">
             {distributionData.map(([label, count]) => (
-              <UserDistributionItem 
-                key={label} 
-                label={label} 
-                count={count} 
-                total={totalDistribution} 
+              <UserDistributionItem
+                key={label}
+                label={segmentType === 'age' ? (ageGroupLabelMap[label] || label) : label}
+                count={count}
+                total={totalDistribution}
               />
             ))}
           </div>
