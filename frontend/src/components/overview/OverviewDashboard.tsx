@@ -5,10 +5,24 @@ import { TopClicks } from './TopClicks';
 import { ClickTrend } from './ClickTrend';
 import { UserPathSankeyChart } from '../user/UserPathSankeyChart';
 import { DropoffInsightsCard } from '../engagement/DropoffInsightsCard';
+import { getPageLabel } from '../../utils/getPageLabel';
+
+
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+
+import { AverageSessionDurationCard } from './AverageSessionDurationCard';
+import { ConversionSummaryCard } from './ConversionSummaryCard';
+
+interface PathData {
+  from: string;
+  to: string;
+  value: number;
+}
 
 interface VisitorsData {
   today: number;
   yesterday: number;
+  trend?: { date: string; visitors: number }[];
 }
 
 interface ClicksData {
@@ -19,25 +33,43 @@ interface ClicksData {
 export const OverviewDashboard: React.FC = () => {
   const [visitorsData, setVisitorsData] = useState<VisitorsData | null>(null);
   const [clicksData, setClicksData] = useState<ClicksData | null>(null);
+  const [userPathData, setUserPathData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const mapPathData = (paths: any[]): PathData[] =>
+    paths
+      .filter(p => p.from !== p.to)
+      .map(p => ({
+        from: getPageLabel(p.from),
+        to: getPageLabel(p.to),
+        value: Number(p.value),
+    }));
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const [visitorsResponse, clicksResponse] = await Promise.all([
+        const [visitorsResponse, clicksResponse, userPathResponse] = await Promise.all([
           fetch(`/api/stats/visitors`),
-          fetch(`/api/stats/clicks`)
+          fetch(`/api/stats/clicks`),
+          fetch(`/api/stats/userpath-summary`)
         ]);
         
         const visitors = await visitorsResponse.json();
         const clicks = await clicksResponse.json();
-        
+        const userPath = await userPathResponse.json();
+
+        visitors.trend?.sort((a: { date: string }, b: { date: string }) => 
+          new Date(a.date).getTime() - new Date(b.date).getTime()
+        );
+
         setVisitorsData(visitors);
         setClicksData(clicks);
+        setUserPathData(mapPathData(userPath.data || []));
       } catch (error) {
         console.error('Failed to fetch stats:', error);
         setVisitorsData({ today: 1234, yesterday: 1096 });
         setClicksData({ today: 9874, yesterday: 9124 });
+        setUserPathData([]);
       } finally {
         setLoading(false);
       }
@@ -74,69 +106,51 @@ export const OverviewDashboard: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="mb-2">
-        <div className="bg-white p-4 rounded-lg shadow-sm flex flex-col justify-center">
-          <Summary />
-        </div>
+        <Summary />
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard
+          data={{
+            title: "일일 방문자 수",
+            value: visitorsData?.today || 0,
+            change: visitorsChange,
+            changeType: getChangeType(visitorsChange),
+            icon: "Users",
+            color: "blue"
+          }}
+        />
+        <StatCard
+          data={{
+            title: "일일 총 클릭 수",
+            value: clicksData?.today || 0,
+            change: clicksChange,
+            changeType: getChangeType(clicksChange),
+            icon: "MousePointer",
+            color: "green"
+          }}
+        />
+        <AverageSessionDurationCard />
+        <ConversionSummaryCard />
+      </div>
+
+      <div className="w-full">
+        <ClickTrend />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm flex flex-col justify-center">
-          <StatCard
-            data={{
-              title: "일일 방문자 수",
-              value: visitorsData?.today || 0,
-              change: visitorsChange,
-              changeType: getChangeType(visitorsChange),
-              icon: "Users",
-              color: "blue"
-            }}
-          />
-        </div>
-        <div className="bg-white p-6 rounded-lg shadow-sm flex flex-col justify-center">
-          <StatCard
-            data={{
-              title: "일일 총 클릭 수",
-              value: clicksData?.today || 0,
-              change: clicksChange,
-              changeType: getChangeType(clicksChange),
-              icon: "MousePointer",
-              color: "green"
-            }}
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm flex flex-col justify-center">
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
           <TopClicks />
         </div>
-        <div className="bg-white p-6 rounded-lg shadow-sm flex flex-col justify-center">
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
           <DropoffInsightsCard />
         </div>
       </div>
 
       <div className="w-full">
-        <div className="bg-white p-6 rounded-lg shadow-sm w-full h-[500px] flex flex-col">
-          <div className="text-lg font-bold mb-0">클릭 트렌드</div>
-          <ClickTrend />
-        </div>
-      </div>
-
-      <div className="w-full">
-        <div className="bg-white p-6 rounded-lg shadow-sm w-full">
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 w-full">
           <div className="text-lg font-bold mb-2">사용자 방문 경로</div>
-          <UserPathSankeyChart />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm flex flex-col items-center justify-center min-h-[120px]">
-          <div className="animate-pulse bg-gray-200 rounded w-16 h-6 mb-2" />
-          <div className="text-gray-400 text-sm">평균 세션 길이<br/>준비 중입니다</div>
-        </div>
-        <div className="bg-white p-6 rounded-lg shadow-sm flex flex-col items-center justify-center min-h-[120px]">
-          <div className="animate-pulse bg-gray-200 rounded w-16 h-6 mb-2" />
-          <div className="text-gray-400 text-sm">전환율 카드<br/>준비 중입니다</div>
+          <UserPathSankeyChart data={userPathData} />
         </div>
       </div>
     </div>

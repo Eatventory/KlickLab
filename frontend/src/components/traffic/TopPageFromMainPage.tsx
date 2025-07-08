@@ -14,14 +14,12 @@ interface PageClickData {
 
 interface TopPageFromMainPageProps {
   data?: PageClickData[];
-  filters?: {
-    period: string;
-    gender: string;
-    ageGroup: string;
-  };
+  period?: string;
+  gender?: string;
+  ageGroup?: string;
 }
 
-export const TopPageFromMainPage: React.FC<TopPageFromMainPageProps> = ({ data, filters }) => {
+export const TopPageFromMainPage: React.FC<TopPageFromMainPageProps> = ({ data, period = 'daily', gender = 'all', ageGroup = 'all' }) => {
   const [clickData, setClickData] = useState<PageClickData[]>([]);
   const [loading, setLoading] = useState(true);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
@@ -155,20 +153,17 @@ export const TopPageFromMainPage: React.FC<TopPageFromMainPageProps> = ({ data, 
 
   // 필터 정보에 따른 제목 생성
   const getFilterTitle = () => {
-    if (!filters) return '실시간';
-    
     const periodMap: { [key: string]: string } = {
       'daily': '일별',
       'weekly': '주별',
-      'monthly': '월별'
+      'monthly': '월별',
+      'hourly': '시간별'
     };
-    
     const genderMap: { [key: string]: string } = {
       'all': '전체',
       'male': '남성',
       'female': '여성'
     };
-    
     const ageMap: { [key: string]: string } = {
       'all': '전체',
       '10s': '10대',
@@ -178,12 +173,10 @@ export const TopPageFromMainPage: React.FC<TopPageFromMainPageProps> = ({ data, 
       '50s': '50대',
       '60s+': '60대+'
     };
-    
-    const period = periodMap[filters.period] || '일별';
-    const gender = genderMap[filters.gender] || '전체';
-    const age = ageMap[filters.ageGroup] || '전체';
-    
-    return `${period} · ${gender} · ${age}`;
+    const periodLabel = periodMap[period] || '일별';
+    const genderLabel = genderMap[gender] || '전체';
+    const ageLabel = ageMap[ageGroup] || '전체';
+    return `${periodLabel} · ${genderLabel} · ${ageLabel}`;
   };
 
   return (

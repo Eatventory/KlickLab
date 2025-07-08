@@ -6,47 +6,48 @@ interface PathData {
   value: number;
 }
 
-const mockData: PathData[] = [
-  { from: '메인페이지', to: '상품목록', value: 120 },
-  { from: '메인페이지', to: '검색', value: 85 },
-  { from: '메인페이지', to: '로그인', value: 45 },
-  { from: '상품목록', to: '상품상세', value: 95 },
-  { from: '상품목록', to: '장바구니', value: 25 },
-  { from: '검색', to: '상품상세', value: 65 },
-  { from: '검색', to: '상품목록', value: 20 },
-  { from: '상품상세', to: '장바구니', value: 78 },
-  { from: '상품상세', to: '결제', value: 32 },
-  { from: '장바구니', to: '결제', value: 45 },
-  { from: '로그인', to: '마이페이지', value: 38 },
-  { from: '로그인', to: '상품목록', value: 7 }
-];
+interface Props {
+  data?: PathData[];
+}
 
-function computeNodeDepths(paths: PathData[]): Map<string, number> {
+function computeNodeDepths(paths?: PathData[]): Map<string, number> {
+  const safePaths = Array.isArray(paths) ? paths : [];
   const nodeDepths = new Map<string, number>();
-  const allFrom = new Set(paths.map(p => p.from));
-  const allTo = new Set(paths.map(p => p.to));
-  const roots = Array.from(allFrom).filter(f => !allTo.has(f));
+  const allFrom = new Set(safePaths.map(p => p.from));
+  const allTo = new Set(safePaths.map(p => p.to));
+  // const roots = Array.from(allFrom).filter(f => !allTo.has(f));
+  let roots = Array.from(allFrom).filter(f => !allTo.has(f));
+  if (roots.length === 0 && allFrom.size > 0) {
+    // fallback: 가장 많이 등장한 from을 루트로 설정
+    const freqMap = new Map<string, number>();
+    for (const p of safePaths) {
+      freqMap.set(p.from, (freqMap.get(p.from) || 0) + p.value);
+    }
+    const [mostCommonFrom] = Array.from(freqMap.entries()).sort((a, b) => b[1] - a[1])[0] || [];
+    if (mostCommonFrom) roots = [mostCommonFrom];
+  }
   const queue: { name: string; depth: number }[] = roots.map(r => ({ name: r, depth: 0 }));
   while (queue.length > 0) {
     const { name, depth } = queue.shift()!;
     if (nodeDepths.has(name)) continue;
     nodeDepths.set(name, depth);
-    paths.filter(p => p.from === name).forEach(p => {
+    safePaths.filter(p => p.from === name).forEach(p => {
       queue.push({ name: p.to, depth: depth + 1 });
     });
   }
-  paths.forEach(p => {
+  safePaths.forEach(p => {
     if (!nodeDepths.has(p.to)) nodeDepths.set(p.to, 0);
     if (!nodeDepths.has(p.from)) nodeDepths.set(p.from, 0);
   });
   return nodeDepths;
 }
 
-export const UserPathSankeyChart: React.FC = () => {
+export const UserPathSankeyChart: React.FC<Props> = ({ data }) => {
+  const safeData = Array.isArray(data) ? data : [];
   const [hoverLinkIdx, setHoverLinkIdx] = useState<number | null>(null);
-  const nodeDepths = computeNodeDepths(mockData);
+  const nodeDepths = computeNodeDepths(safeData);
   const nodeMap = new Map<string, { name: string; depth: number; totalIn: number; totalOut: number }>();
-  mockData.forEach(path => {
+  safeData.forEach(path => {
     if (!nodeMap.has(path.from)) nodeMap.set(path.from, { name: path.from, depth: nodeDepths.get(path.from)!, totalIn: 0, totalOut: 0 });
     if (!nodeMap.has(path.to)) nodeMap.set(path.to, { name: path.to, depth: nodeDepths.get(path.to)!, totalIn: 0, totalOut: 0 });
     nodeMap.get(path.from)!.totalOut += path.value;
@@ -76,8 +77,8 @@ export const UserPathSankeyChart: React.FC = () => {
       });
     });
   });
-  const maxValue = Math.max(...mockData.map(d => d.value));
-  const totalValue = mockData.reduce((sum, d) => sum + d.value, 0);
+  const maxValue = safeData.length > 0 ? Math.max(...safeData.map(d => d.value)) : 0;
+  const totalValue = safeData.reduce((sum, d) => sum + d.value, 0);
 
   let tooltip: null | {
     x: number;
@@ -87,8 +88,8 @@ export const UserPathSankeyChart: React.FC = () => {
     value: number;
     percent: string;
   } = null;
-  if (hoverLinkIdx !== null) {
-    const path = mockData[hoverLinkIdx];
+  if (hoverLinkIdx !== null && safeData[hoverLinkIdx]) {
+    const path = safeData[hoverLinkIdx];
     const from = nodePositions.get(path.from)!;
     const to = nodePositions.get(path.to)!;
     const x1 = from.x + nodeWidth;
@@ -119,7 +120,7 @@ export const UserPathSankeyChart: React.FC = () => {
             <feDropShadow dx="0" dy="2" stdDeviation="4" floodColor="#2563eb22" />
           </filter>
         </defs>
-        {mockData.map((path, idx) => {
+        {safeData.map((path, idx) => {
           const from = nodePositions.get(path.from);
           const to = nodePositions.get(path.to);
           if (!from || !to) return null;
@@ -154,7 +155,7 @@ export const UserPathSankeyChart: React.FC = () => {
           const pos = nodePositions.get(node.name)!;
           const isStart = node.depth === 0;
           const isEnd = node.totalOut === 0;
-          const isActive = hoverLinkIdx !== null && (mockData[hoverLinkIdx].from === node.name || mockData[hoverLinkIdx].to === node.name);
+          const isActive = hoverLinkIdx !== null && safeData[hoverLinkIdx] && (safeData[hoverLinkIdx].from === node.name || safeData[hoverLinkIdx].to === node.name);
           return (
             <g key={node.name} transform={`translate(${pos.x},${pos.y})`} style={{ zIndex: isActive ? 2 : 1 }}>
               <rect
