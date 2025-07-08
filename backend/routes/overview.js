@@ -51,26 +51,26 @@ router.get('/session-duration', async (req, res) => {
     const deltaMs = deltaSec * 1000;
     const averageSessionTimeMs = todayAvgSec * 1000;
 
-    const formatSeconds = (sec) => {
-      if (sec <= 0) return '0초';
-      const h = Math.floor(sec / 3600);
-      const m = Math.floor((sec % 3600) / 60);
-      const s = Math.floor(sec % 60);
-      return [
-        h > 0 ? `${String(h).padStart(2, '0')}` : '00',
-        String(m).padStart(2, '0'),
-        String(s).padStart(2, '0')
-      ].join(':');
-    };
+    // const formatSeconds = (sec) => {
+    //   if (sec <= 0) return '0초';
+    //   const h = Math.floor(sec / 3600);
+    //   const m = Math.floor((sec % 3600) / 60);
+    //   const s = Math.floor(sec % 60);
+    //   return [
+    //     h > 0 ? `${String(h).padStart(2, '0')}` : '00',
+    //     String(m).padStart(2, '0'),
+    //     String(s).padStart(2, '0')
+    //   ].join(':');
+    // };
 
-    const formatDelta = (sec) => {
-      if (sec === 0) return '변화 없음';
-      const sign = sec > 0 ? '+' : '-';
-      const abs = Math.abs(sec);
-      const m = Math.floor(abs / 60);
-      const s = Math.round(abs % 60);
-      return `${sign}${m > 0 ? `${m}분 ` : ''}${s > 0 ? `${s}초` : ''}`.trim();
-    };
+    // const formatDelta = (sec) => {
+    //   if (sec === 0) return '변화 없음';
+    //   const sign = sec > 0 ? '+' : '-';
+    //   const abs = Math.abs(sec);
+    //   const m = Math.floor(abs / 60);
+    //   const s = Math.round(abs % 60);
+    //   return `${sign}${m > 0 ? `${m}분 ` : ''}${s > 0 ? `${s}초` : ''}`.trim();
+    // };
 
     // const data = {
     //   averageSessionTimeMs,
@@ -81,6 +81,7 @@ router.get('/session-duration', async (req, res) => {
     //   period: '24h',
     //   periodLabel: '최근 24시간'
     // };
+
     const data = {
       averageDuration: averageSessionTimeMs,
       deltaDuration: deltaMs,
@@ -88,19 +89,19 @@ router.get('/session-duration', async (req, res) => {
       period: '24h',
       periodLabel: '최근 24시간'
     }
-    // console.log(data);
     res.status(200).json(data);
   } catch (err) {
     console.error('Session Duration API ERROR:', err);
-    res.status(500).json({
-      averageSessionTimeMs: 0,
-      deltaMs: 0,
-      formattedDuration: '0초',
-      deltaFormatted: '변화 없음',
-      trend: 'flat',
-      period: '24h',
-      periodLabel: '최근 24시간'
-    });
+    res.status(500).json({ error: 'Failed to get session duration data' });
+    // res.status(500).json({
+    //   averageSessionTimeMs: 0,
+    //   deltaMs: 0,
+    //   formattedDuration: '0초',
+    //   deltaFormatted: '변화 없음',
+    //   trend: 'flat',
+    //   period: '24h',
+    //   periodLabel: '최근 24시간'
+    // });
   }
 });
 
@@ -182,19 +183,19 @@ router.get('/conversion-summary', async (req, res) => {
       period,
       periodLabel,
     };
-
     res.status(200).json(response);
   } catch (err) {
     console.error('Conversion Rate API ERROR:', err);
-    res.status(200).json({
-      conversionRate: 0,
-      convertedSessions: 0,
-      totalSessions: 0,
-      deltaRate: 0,
-      trend: 'flat',
-      period,
-      periodLabel,
-    });
+    res.status(500).json({ error: 'Failed to get conversion rate data' });
+    // res.status(500).json({
+    //   conversionRate: 0,
+    //   convertedSessions: 0,
+    //   totalSessions: 0,
+    //   deltaRate: 0,
+    //   trend: 'flat',
+    //   period,
+    //   periodLabel,
+    // });
   }
 });
 
