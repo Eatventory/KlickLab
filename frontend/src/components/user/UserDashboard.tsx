@@ -39,50 +39,6 @@ const renderLegendButtons = (
 
 const COLORS = ['#4F46E5', '#F59E42', '#10B981', '#6366F1', '#F43F5E', '#FACC15', '#A3A3A3'];
 
-// 연령대별 그룹 합산 함수
-function mergeAgeSegments(segments: any[]) {
-  const ageGroupLabelMap: Record<string, string> = {
-    '10s': '10대',
-    '20s': '20대',
-    '30s': '30대',
-    '40s': '40대',
-    '50s': '50대',
-    '60s+': '60대+',
-  };
-  const result: Record<string, any> = {};
-  for (const seg of segments) {
-    let group = ageGroupLabelMap[seg.segmentValue];
-    if (!group) {
-      const age = Number(seg.segmentValue);
-      if (!isNaN(age)) {
-        if (age >= 10 && age < 20) group = '10대';
-        else if (age >= 20 && age < 30) group = '20대';
-        else if (age >= 30 && age < 40) group = '30대';
-        else if (age >= 40 && age < 50) group = '40대';
-        else if (age >= 50 && age < 60) group = '50대';
-        else if (age >= 60) group = '60대+';
-      }
-    }
-    if (!group) group = seg.segmentValue;
-    if (!result[group]) {
-      result[group] = { ...seg, segmentValue: group };
-      // 숫자 필드 강제 변환
-      result[group].totalUsers = Number(seg.totalUsers) || 0;
-      result[group].totalClicks = Number(seg.totalClicks) || 0;
-      result[group].averageClicksPerUser = Number(seg.averageClicksPerUser) || 0;
-    } else {
-      result[group].totalUsers = Number(result[group].totalUsers) + Number(seg.totalUsers);
-      result[group].totalClicks = Number(result[group].totalClicks) + Number(seg.totalClicks);
-      // 평균 클릭수는 가중평균으로
-      const prevUsers = Number(result[group].totalUsers) - Number(seg.totalUsers);
-      result[group].averageClicksPerUser =
-        (Number(result[group].averageClicksPerUser) * prevUsers + Number(seg.averageClicksPerUser) * Number(seg.totalUsers)) /
-        (Number(result[group].totalUsers) || 1);
-    }
-  }
-  return Object.values(result);
-}
-
 // 재방문률 도넛차트 컴포넌트
 const ReturningRateDonutChart: React.FC<{ percent: number }> = ({ percent }) => {
   const radius = 60;
@@ -259,9 +215,7 @@ export const UserDashboard: React.FC = () => {
           </h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {(activeSegment === 'age'
-            ? mergeAgeSegments(segmentGroupData)
-            : segmentGroupData)
+          {segmentGroupData
             .slice()
             .sort((a, b) => b.totalClicks - a.totalClicks)
             .map((segment, index) => (

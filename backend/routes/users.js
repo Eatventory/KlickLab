@@ -14,14 +14,7 @@ router.get('/top-clicks', async (req, res) => {
     }
 
     let segmentCase = segment;
-    if (segment === 'user_gender') {
-      segmentCase = `CASE
-        WHEN user_gender = 'male' THEN 'male'
-        WHEN user_gender = 'female' THEN 'female'
-        ELSE 'unknown'
-      END`;
-    }
-    else if (segment === 'user_age') {
+    if (segment === 'user_age') {
       segmentCase = `CASE
         WHEN user_age BETWEEN 10 AND 19 THEN '10s'
         WHEN user_age BETWEEN 20 AND 29 THEN '20s'
@@ -44,7 +37,7 @@ router.get('/top-clicks', async (req, res) => {
         round(count() / count(DISTINCT client_id), 1) AS avgClicksPerUser
       FROM events
       WHERE ${baseFilter}
-      GROUP BY segment
+      GROUP BY ${segmentCase}
     `;
 
     // 2. 세그먼트별 Top 요소 (상위 3개)
@@ -59,7 +52,7 @@ router.get('/top-clicks', async (req, res) => {
           row_number() OVER (PARTITION BY ${segmentCase} ORDER BY count(*) DESC) AS rn
         FROM events
         WHERE ${baseFilter} AND target_text != ''
-        GROUP BY segment, element
+        GROUP BY ${segmentCase}, element
       )
       WHERE rn <= 3
       ORDER BY segment, totalClicks DESC
@@ -81,7 +74,7 @@ router.get('/top-clicks', async (req, res) => {
         count(DISTINCT client_id) AS count
       FROM events
       WHERE ${baseFilter} AND user_age IS NOT NULL
-      GROUP BY segment, ageGroup
+      GROUP BY ${segmentCase}, ageGroup
     `;
 
     // 4. 디바이스 분포
@@ -92,7 +85,7 @@ router.get('/top-clicks', async (req, res) => {
         count(DISTINCT client_id) AS count
       FROM events
       WHERE ${baseFilter} AND device_type != ''
-      GROUP BY segment, device_type
+      GROUP BY ${segmentCase}, device_type
     `;
 
     // 병렬 실행
@@ -102,10 +95,11 @@ router.get('/top-clicks', async (req, res) => {
       clickhouse.query({ query: ageGroupQuery, format: 'JSON' }).then(r => r.json()),
       clickhouse.query({ query: deviceQuery, format: 'JSON' }).then(r => r.json())
     ]);
-    console.log("summaryRes: ", summaryRes.data);
-    console.log("topElementsRes: ", topElementsRes.data);
-    console.log("ageGroupRes: ", ageGroupRes.data);
-    console.log("deviceRes: ", deviceRes.data);
+
+    // console.log("summaryRes: ", summaryRes.data);
+    // console.log("topElementsRes: ", topElementsRes.data);
+    // console.log("ageGroupRes: ", ageGroupRes.data);
+    // console.log("deviceRes: ", deviceRes.data);
 
     const result = [];
     const topElementsBySegment = {};
@@ -158,7 +152,6 @@ router.get('/top-clicks', async (req, res) => {
         }
       });
     }
-    // console.log(result);
     res.status(200).json({ data: result });
   } catch (err) {
     console.error('Top Clicks API ERROR:', err);

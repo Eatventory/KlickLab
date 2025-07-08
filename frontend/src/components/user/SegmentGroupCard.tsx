@@ -113,6 +113,8 @@ const ageGroupLabelMap: Record<string, string> = {
 
 // segmentValue 변환 함수
 function getDisplaySegmentValue(segmentType: string, segmentValue: string) {
+  if (!segmentValue || segmentValue.trim() === '') return '불명';
+
   if (segmentType === 'age') {
     if (ageGroupLabelMap[segmentValue]) return ageGroupLabelMap[segmentValue];
     const age = Number(segmentValue);
@@ -124,7 +126,21 @@ function getDisplaySegmentValue(segmentType: string, segmentValue: string) {
       if (age >= 50 && age < 60) return '50대';
       if (age >= 60) return '60대+';
     }
+    return '불명';
   }
+
+  if (segmentType === 'gender') {
+    if (segmentValue === 'male') return '남성';
+    if (segmentValue === 'female') return '여성';
+    return '불명';
+  }
+
+  if (segmentType === 'device') {
+    if (segmentValue === 'mobile') return '모바일';
+    if (segmentValue === 'desktop') return '데스크탑';
+    return '불명';
+  }
+
   return segmentValue;
 }
 
@@ -148,6 +164,20 @@ function mergeAgeSegmentsIfNeeded(segmentType: string, segment: SegmentGroupData
   return merged;
 }
 
+function getLabelText(segmentType: string, label: string | null): string {
+  if (!label || label.trim() === '') return '불명';
+  if (ageGroupLabelMap[label]) return ageGroupLabelMap[label];
+  if (segmentType === 'gender') {
+    if (label === 'male') return '남성';
+    if (label === 'female') return '여성';
+  }
+  if (segmentType === 'device') {
+    if (label === 'mobile') return '모바일';
+    if (label === 'desktop') return '데스크탑';
+  }
+  return '불명';
+}
+
 // 메모이제이션된 SegmentGroupCard 컴포넌트
 export const SegmentGroupCard = memo<SegmentGroupCardProps>(({ 
   segment, 
@@ -166,7 +196,7 @@ export const SegmentGroupCard = memo<SegmentGroupCardProps>(({
       case 'signupPath':
         return distribution.gender ? Object.entries(distribution.gender) : [];
       case 'device':
-        return distribution.gender ? Object.entries(distribution.gender) : [];
+        return distribution.device ? Object.entries(distribution.device) : [];
       default:
         return [];
     }
@@ -254,7 +284,7 @@ export const SegmentGroupCard = memo<SegmentGroupCardProps>(({
             {distributionData.map(([label, count]) => (
               <UserDistributionItem
                 key={label}
-                label={segmentType === 'age' ? (ageGroupLabelMap[label] || label) : label}
+                label={getLabelText(segmentType, label)}
                 count={count}
                 total={totalDistribution}
               />
