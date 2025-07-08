@@ -5,11 +5,19 @@ import { TopClicks } from './TopClicks';
 import { ClickTrend } from './ClickTrend';
 import { UserPathSankeyChart } from '../user/UserPathSankeyChart';
 import { DropoffInsightsCard } from '../engagement/DropoffInsightsCard';
+import { getPageLabel } from '../../utils/getPageLabel';
+
 
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 import { AverageSessionDurationCard } from './AverageSessionDurationCard';
 import { ConversionSummaryCard } from './ConversionSummaryCard';
+
+interface PathData {
+  from: string;
+  to: string;
+  value: number;
+}
 
 interface VisitorsData {
   today: number;
@@ -27,6 +35,15 @@ export const OverviewDashboard: React.FC = () => {
   const [clicksData, setClicksData] = useState<ClicksData | null>(null);
   const [userPathData, setUserPathData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const mapPathData = (paths: any[]): PathData[] =>
+    paths
+      .filter(p => p.from !== p.to)
+      .map(p => ({
+        from: getPageLabel(p.from),
+        to: getPageLabel(p.to),
+        value: Number(p.value),
+    }));
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -47,7 +64,7 @@ export const OverviewDashboard: React.FC = () => {
 
         setVisitorsData(visitors);
         setClicksData(clicks);
-        setUserPathData(userPath.data || []);
+        setUserPathData(mapPathData(userPath.data || []));
       } catch (error) {
         console.error('Failed to fetch stats:', error);
         setVisitorsData({ today: 1234, yesterday: 1096 });
