@@ -29,30 +29,28 @@ export const SettingsDashboard: React.FC = () => {
     }
   ]);
 
-//   const sdkCode = `
-// <script>
-//   (function() {
-//     var script = document.createElement('script');
-//     script.src = 'https://your-domain.com/analytics-sdk.js';
-//     script.async = true;
-//     document.head.appendChild(script);
-    
-//     script.onload = function() {
-//       window.KlickLab.init({
-//         projectId: 'your-project-id',
-//         endpoint: 'https://your-api-endpoint.com'
-//       });
-//     };
-//   })();
-// </script>`;
-  const sdkCode = `<script src="https://klicklab-sdk.pages.dev/klicklab_sdk.js"></script>`;
+  const sdkCode = `
+    <script>
+      (function() {
+        var script = document.createElement('script');
+        script.src = 'https://klicklab-sdk.pages.dev/klicklab_sdk.js';
+        script.async = true;
+        document.head.appendChild(script);
+        
+        script.onload = function() {
+          window.KlickLab.init({
+            projectId: 'your-project-id',
+            endpoint: 'https://your-api-endpoint.com'
+          });
+        };
+      })();
+    </script>
+  `;
 
   const [showToast, setShowToast] = useState(false);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    // 실제로는 토스트 메시지 표시
-    // console.log('Copied to clipboard');
     setShowToast(true);
   };
 
@@ -117,8 +115,7 @@ export const SettingsDashboard: React.FC = () => {
                       domain.status === 'inactive' ? 'bg-red-100 text-red-800' :
                       'bg-yellow-100 text-yellow-800'
                     }`}>
-                      {domain.status === 'active' ? '활성' : 
-                       domain.status === 'inactive' ? '비활성' : '대기중'}
+                      {domain.status === 'active' ? '활성' : domain.status === 'inactive' ? '비활성' : '대기중'}
                     </span>
                   </td>
                   <td className="py-3 px-4 text-center text-gray-600">{domain.lastEvent}</td>
@@ -134,8 +131,8 @@ export const SettingsDashboard: React.FC = () => {
       </div>
 
       {/* 향후 구현 예정 컴포넌트들 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* 사용자 권한 관리 */}
+      <>
+      {/* <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center gap-2 mb-4">
             <Users className="w-5 h-5 text-gray-600" />
@@ -146,7 +143,6 @@ export const SettingsDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* 알림 설정 */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center gap-2 mb-4">
             <Bell className="w-5 h-5 text-gray-600" />
@@ -156,7 +152,8 @@ export const SettingsDashboard: React.FC = () => {
             개발 중...
           </div>
         </div>
-      </div>
+      </div> */}
+      </>
     </div>
   );
 }; 
