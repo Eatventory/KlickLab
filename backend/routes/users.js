@@ -8,14 +8,13 @@ router.get('/top-clicks', async (req, res) => {
     const segment = req.query.filter;
     const validSegments = ['user_gender', 'user_age', 'traffic_source', 'device_type'];
 
-    // if (segment === 'gender') segment = 'user_gender';
     if (!validSegments.includes(segment)) {
       return res.status(400).json({ error: 'Invalid user segment' });
     }
 
-    let segmentCase = segment;
-    if (segment === 'user_age') {
-      segmentCase = `CASE
+    const isUserAge = segment === 'user_age';
+    const segmentExpr = isUserAge
+      ? `CASE
         WHEN user_age BETWEEN 10 AND 19 THEN '10s'
         WHEN user_age BETWEEN 20 AND 29 THEN '20s'
         WHEN user_age BETWEEN 30 AND 39 THEN '30s'
@@ -23,21 +22,20 @@ router.get('/top-clicks', async (req, res) => {
         WHEN user_age BETWEEN 50 AND 59 THEN '50s'
         WHEN user_age >= 60 THEN '60s+'
         ELSE 'unknown'
-      END`;
-    }
+      END`
+      : segment;
 
     // 1. 세그먼트별 총 클릭 수, 유저 수, 평균 클릭 수
-    // const baseFilter = `event_name = 'auto_click' AND toDate(timestamp) >= today() - 6 AND ${segment} IS NOT NULL`;
-    const baseFilter = `event_name = 'auto_click' AND toDate(toTimeZone(timestamp, 'Asia/Seoul')) >= toDate(toTimeZone(now(), 'Asia/Seoul')) - 6`;
+    const baseFilter = `event_name = 'auto_click' AND timestamp >= toDateTime(now(), 'Asia/Seoul') - INTERVAL 6 DAY`;
     const summaryQuery = `
       SELECT 
-        ${segmentCase} AS segment,
+        ${segmentExpr} AS segment,
         count(*) AS totalClicks,
         count(DISTINCT client_id) AS totalUsers,
         round(count() / count(DISTINCT client_id), 1) AS avgClicksPerUser
       FROM events
       WHERE ${baseFilter}
-      GROUP BY ${segmentCase}
+      GROUP BY ${segmentExpr}
     `;
 
     // 2. 세그먼트별 Top 요소 (상위 3개)
@@ -45,14 +43,14 @@ router.get('/top-clicks', async (req, res) => {
       SELECT *
       FROM (
         SELECT 
-          ${segmentCase} AS segment,
+          ${segmentExpr} AS segment,
           target_text AS element,
           count(*) AS totalClicks,
           count(DISTINCT client_id) AS userCount,
-          row_number() OVER (PARTITION BY ${segmentCase} ORDER BY count(*) DESC) AS rn
+          row_number() OVER (PARTITION BY ${segmentExpr} ORDER BY count(*) DESC) AS rn
         FROM events
-        WHERE ${baseFilter} AND target_text != ''
-        GROUP BY ${segmentCase}, element
+        WHERE ${baseFilter} AND length(target_text) > 0
+        GROUP BY ${segmentExpr}, element
       )
       WHERE rn <= 3
       ORDER BY segment, totalClicks DESC
@@ -61,7 +59,7 @@ router.get('/top-clicks', async (req, res) => {
     // 3. 연령 분포
     const ageGroupQuery = `
       SELECT 
-        ${segmentCase} AS segment,
+        ${segmentExpr} AS segment,
         CASE
           WHEN user_age BETWEEN 10 AND 19 THEN '10s'
           WHEN user_age BETWEEN 20 AND 29 THEN '20s'
@@ -73,19 +71,19 @@ router.get('/top-clicks', async (req, res) => {
         END AS ageGroup,
         count(DISTINCT client_id) AS count
       FROM events
-      WHERE ${baseFilter} AND user_age IS NOT NULL
-      GROUP BY ${segmentCase}, ageGroup
+      WHERE ${baseFilter}
+      GROUP BY ${segmentExpr}, ageGroup
     `;
 
     // 4. 디바이스 분포
     const deviceQuery = `
       SELECT 
-        ${segmentCase} AS segment,
+        ${segmentExpr} AS segment,
         device_type,
         count(DISTINCT client_id) AS count
       FROM events
       WHERE ${baseFilter} AND device_type != ''
-      GROUP BY ${segmentCase}, device_type
+      GROUP BY ${segmentExpr}, device_type
     `;
 
     // 병렬 실행
