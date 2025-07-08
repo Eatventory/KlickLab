@@ -11,20 +11,19 @@ export default function LoginForm() {
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // refreshToken 쿠키 받기
         body: JSON.stringify({ email, password }),
       });
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.message || '로그인에 실패했습니다.');
       }
-      const { token } = await res.json();
+      const { accessToken } = await res.json();
       if (remember) {
-        localStorage.setItem('klicklab_token', token);
+        localStorage.setItem('klicklab_token', accessToken);
       } else {
-        sessionStorage.setItem('klicklab_token', token);
+        sessionStorage.setItem('klicklab_token', accessToken);
       }
       window.location.href = '/';
     } catch (err: any) {
@@ -39,10 +38,10 @@ export default function LoginForm() {
       </h2>
       {error && <p className="text-red-500 mb-4">{error}</p>}
       <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="flex justify-between items-center">
+          <label className="block text-gray-700 mb-1">이메일</label>
+        </div>
         <div>
-          <label className="block text-gray-700 mb-1">
-            이메일:
-          </label>
           <input
             type="email"
             value={email}

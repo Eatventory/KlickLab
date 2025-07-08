@@ -13,6 +13,9 @@ app.use(cors({
   methods: ['POST'],
 }));
 
+const cookieParser = require('cookie-parser');
+app.use(cookieParser());
+
 /* auth 라우팅 */
 const authRoutes = require('./routes/auth');
 app.use('/api/auth', authRoutes);
