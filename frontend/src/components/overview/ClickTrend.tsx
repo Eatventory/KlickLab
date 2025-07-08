@@ -33,7 +33,7 @@ export const ClickTrend: React.FC<ClickTrendProps> = ({ period = 60, step = 5 })
         const bins = points.map((d: Date) => format(d, 'HH:mm'));
         setTimeBins(bins);
         const iso = now.toISOString();
-        const response = await fetch(`http://localhost:3000/api/stats/click-trend?period=${period}&step=${step}&baseTime=${encodeURIComponent(iso)}`);
+        const response = await fetch(`/api/stats/click-trend?period=${period}&step=${step}&baseTime=${encodeURIComponent(iso)}`);
         const result: ClickTrendData = await response.json();
         setData(result.data || []);
       } catch (error) {
@@ -153,14 +153,14 @@ export const ClickTrend: React.FC<ClickTrendProps> = ({ period = 60, step = 5 })
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="bg-white p-6 rounded-lg shadow-sm w-full flex flex-col">
       <div className="flex items-center justify-between mb-0">
         <div className="flex items-center gap-2">
           <Activity className="w-3 h-3 text-green-500 animate-pulse" />
           <span className="text-xs text-gray-500">실시간</span>
         </div>
       </div>
-      <div className="relative w-full flex-1">
+      <div className="relative w-full" style={{ paddingBottom: '48px' }}>
         <svg
           viewBox={`0 0 ${width} ${height}`}
           className="w-full h-full"
@@ -336,7 +336,7 @@ export const ClickTrend: React.FC<ClickTrendProps> = ({ period = 60, step = 5 })
           );
         })()}
       </div>
-      <div className="flex items-center justify-between text-xs text-gray-500 mt-auto pt-7">
+      <div className="flex items-center justify-between text-xs text-gray-500 mt-4 px-2">
         <span>{step}분 단위 집계</span>
         <span>총 {filledData.length}개 데이터 포인트</span>
       </div>
