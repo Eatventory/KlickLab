@@ -63,72 +63,67 @@ export const StatCard: React.FC<StatCardProps> = ({ data }) => {
   const getIconBg = (color: string) => {
     switch (color) {
       case 'blue':
-        return 'bg-gradient-to-br from-blue-100 to-blue-200';
+        return 'bg-blue-50';
       case 'green':
-        return 'bg-gradient-to-br from-green-100 to-green-200';
+        return 'bg-green-50';
       case 'purple':
-        return 'bg-gradient-to-br from-purple-100 to-purple-200';
+        return 'bg-purple-50';
       case 'red':
-        return 'bg-gradient-to-br from-red-100 to-red-200';
+        return 'bg-red-50';
       default:
-        return 'bg-gradient-to-br from-gray-100 to-gray-200';
+        return 'bg-gray-50';
     }
   };
 
   const getIconColor = (color: string) => {
     switch (color) {
       case 'blue':
-        return 'text-blue-600';
+        return 'text-blue-500';
       case 'green':
-        return 'text-green-600';
+        return 'text-green-500';
       case 'purple':
-        return 'text-purple-600';
+        return 'text-purple-500';
       case 'red':
-        return 'text-red-600';
+        return 'text-red-500';
       default:
-        return 'text-gray-600';
+        return 'text-gray-500';
     }
   };
 
   return (
     <div className={clsx(
-      'p-6 rounded-xl border border-gray-200 shadow-sm bg-white',
+      'p-3 rounded-xl border border-gray-200 shadow-sm bg-white aspect-square flex flex-col justify-center',
       getGradientBg(data.color)
     )}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className={clsx(
-            'p-3 rounded-xl shadow-md',
-            getIconBg(data.color)
-          )}>
-            <div className={getIconColor(data.color)}>
-              {getIcon(data.icon)}
-            </div>
-          </div>
-          <div>
-            <h3 className="text-sm font-medium text-gray-600 mb-1">{data.title}</h3>
-            <p className="text-3xl font-bold text-gray-900">
-              {data.title.includes('방문자') ? `${data.value.toLocaleString()}명` : `${data.value.toLocaleString()}회`}
-            </p>
-          </div>
-        </div>
-      </div>
-      
-      <div className="mt-5 flex items-center gap-2">
+      <div className="text-center">
         <div className={clsx(
-          'p-1 rounded-full',
-          data.changeType === 'increase' ? 'bg-green-100' : 
-          data.changeType === 'decrease' ? 'bg-red-100' : 'bg-gray-100'
+          'p-2 rounded-lg shadow-sm mx-auto mb-2 w-fit',
+          getIconBg(data.color)
         )}>
-          {getChangeIcon(data.changeType)}
+          <div className={getIconColor(data.color)}>
+            {getIcon(data.icon)}
+          </div>
         </div>
-        <span className={clsx(
-          'text-sm font-semibold',
-          getChangeColor(data.changeType)
-        )}>
-          {data.change > 0 ? '+' : ''}{data.change}%
-        </span>
-        <span className="text-sm text-gray-500">전일 대비</span>
+        <h3 className="text-sm font-medium text-gray-600 mb-2">{data.title}</h3>
+        <p className="text-2xl font-bold text-gray-900 mb-2">
+          {data.title.includes('방문자') ? `${data.value.toLocaleString()}명` : `${data.value.toLocaleString()}회`}
+        </p>
+        
+        <div className="flex items-center justify-center gap-1">
+          <div className={clsx(
+            'p-1 rounded-full',
+            data.changeType === 'increase' ? 'bg-green-100' : 
+            data.changeType === 'decrease' ? 'bg-red-100' : 'bg-gray-100'
+          )}>
+            {getChangeIcon(data.changeType)}
+          </div>
+          <span className={clsx(
+            'text-sm font-semibold',
+            getChangeColor(data.changeType)
+          )}>
+            {data.change > 0 ? '+' : ''}{data.change}%
+          </span>
+        </div>
       </div>
     </div>
   );

@@ -18,7 +18,7 @@ export const DropoffInsightsCard: React.FC = () => {
   useEffect(() => {
     const fetchDropoffData = async () => {
       try {
-        const response = await fetch('/api/stats/dropoff-summary');
+        const response = await fetch('http://localhost:3000/api/stats/dropoff-summary');
         const result: DropoffSummaryData = await response.json();
         setData(result.data || []);
       } catch (error) {
@@ -88,7 +88,7 @@ export const DropoffInsightsCard: React.FC = () => {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-red-50 rounded-lg">
-            <TrendingDown className="w-5 h-5 text-red-600" />
+            <TrendingDown className="w-5 h-5 text-red-500" />
           </div>
           <div>
             <h3 className="text-lg font-bold text-gray-900">이탈률 TOP 5</h3>
@@ -125,54 +125,48 @@ export const DropoffInsightsCard: React.FC = () => {
                   {index + 1}
                 </div>
                 
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 px-2">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-sm font-semibold text-gray-900 truncate group-hover:text-red-600 transition-colors duration-200">
                       {getPageDisplayName(item.page)}
                     </span>
-                    <span className={`text-sm font-bold ${getDropoffColor(item.dropRate)} ml-2`}>
+                    <span className={`text-sm font-bold text-black ml-2`}>
                       {item.dropRate}%
                     </span>
                   </div>
                   
-                  <div className="relative w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                  <div className="relative w-3/4 bg-gray-100 rounded-full h-2 overflow-hidden">
                     <div
                       className={`h-2 rounded-full transition-all duration-500 ease-out ${
-                        isTop 
-                          ? 'bg-gradient-to-r from-red-400 to-red-500 shadow-sm' 
-                          : 'bg-gradient-to-r from-orange-500 to-orange-600'
+                        index === 0 
+                          ? 'bg-red-600' 
+                          : index === 1
+                          ? 'bg-red-500'
+                          : index === 2
+                          ? 'bg-red-400'
+                          : index === 3
+                          ? 'bg-red-300'
+                          : 'bg-red-200'
                       }`}
                       style={{ 
                         width: `${percentage}%`,
-                        boxShadow: isTop ? '0 1px 4px rgba(239, 68, 68, 0.3)' : 'none'
+                        boxShadow: '0 1px 4px rgba(239, 68, 68, 0.12)'
                       }}
-                    />
-                    <div
-                      className={`absolute inset-0 rounded-full transition-all duration-500 ${
-                        isTop 
-                          ? 'bg-gradient-to-r from-red-400 to-red-500 opacity-20 blur-sm' 
-                          : 'bg-gradient-to-r from-orange-500 to-orange-600 opacity-10 blur-sm'
-                      }`}
-                      style={{ width: `${percentage}%` }}
                     />
                   </div>
                 </div>
               </div>
-              
               {hoveredItem === item.page && (
                 <div className="absolute top-full left-0 mt-2 px-3 py-2 bg-white text-gray-800 text-xs rounded-lg shadow-lg z-10 whitespace-nowrap border border-gray-200 backdrop-blur-sm">
                   <div className="font-semibold text-gray-900">{getPageDisplayName(item.page)}</div>
-                  <div className={`font-bold ${getDropoffColor(item.dropRate)}`}>{item.dropRate}% 이탈률</div>
-                  <div className="text-gray-500 text-xs">
-                    {item.page}
-                  </div>
+                  <div className="font-bold text-red-500">{item.dropRate}% 이탈률</div>
+                  <div className="text-gray-500 text-xs">{item.page}</div>
                 </div>
               )}
             </div>
           );
         })}
       </div>
-      
       <div className="pt-2">
         <div className="flex items-center justify-between text-xs">
           <span className="text-gray-600 font-medium">평균 이탈률</span>

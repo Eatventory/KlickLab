@@ -18,7 +18,7 @@ export const TopClicks: React.FC = () => {
   useEffect(() => {
     const fetchTopClicks = async () => {
       try {
-        const response = await fetch(`/api/stats/top-clicks`);
+        const response = await fetch(`http://localhost:3000/api/stats/top-clicks`);
         const result: TopClicksData = await response.json();
         setData(result.items || []);
       } catch (error) {
@@ -87,14 +87,14 @@ export const TopClicks: React.FC = () => {
             >
               <div className="flex items-center gap-3 p-2 rounded-lg bg-gradient-to-r from-white to-gray-50 border border-gray-100 hover:border-blue-200 hover:shadow-md transition-all duration-300 cursor-pointer">
                 <div className={`flex items-center justify-center w-6 h-6 text-xs font-bold rounded-full transition-all duration-300 ${
-                  isTop 
-                    ? 'bg-gradient-to-br from-green-400 to-emerald-500 text-white shadow-sm' 
-                    : 'bg-gradient-to-br from-blue-100 to-blue-200 text-blue-700'
+                  index === 0 
+                    ? 'bg-blue-600 text-white shadow-sm' 
+                    : 'bg-blue-100 text-blue-700'
                 }`}>
                   {index + 1}
                 </div>
                 
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 px-2">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-sm font-semibold text-gray-900 truncate group-hover:text-blue-600 transition-colors duration-200">
                       {item.label}
@@ -104,23 +104,29 @@ export const TopClicks: React.FC = () => {
                     </span>
                   </div>
                   
-                  <div className="relative w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                  <div className="relative w-3/4 bg-gray-100 rounded-full h-2 overflow-hidden">
                     <div
                       className={`h-2 rounded-full transition-all duration-500 ease-out ${
-                        isTop 
-                          ? 'bg-gradient-to-r from-green-400 to-emerald-500 shadow-sm' 
-                          : 'bg-gradient-to-r from-blue-500 to-blue-600'
+                        index === 0 
+                          ? 'bg-blue-600' 
+                          : index === 1
+                          ? 'bg-blue-500'
+                          : index === 2
+                          ? 'bg-blue-400'
+                          : index === 3
+                          ? 'bg-blue-300'
+                          : 'bg-blue-200'
                       }`}
                       style={{ 
                         width: `${percentage}%`,
-                        boxShadow: isTop ? '0 1px 4px rgba(34, 197, 94, 0.3)' : 'none'
+                        boxShadow: '0 1px 4px rgba(59, 130, 246, 0.12)'
                       }}
                     />
                     <div
                       className={`absolute inset-0 rounded-full transition-all duration-500 ${
-                        isTop 
-                          ? 'bg-gradient-to-r from-green-400 to-emerald-500 opacity-20 blur-sm' 
-                          : 'bg-gradient-to-r from-blue-500 to-blue-600 opacity-10 blur-sm'
+                        index === 0
+                          ? 'bg-gradient-to-r from-blue-400 to-blue-500 opacity-20 blur-sm'
+                          : 'bg-gradient-to-r from-blue-600 to-blue-700 opacity-20 blur-sm'
                       }`}
                       style={{ width: `${percentage}%` }}
                     />
@@ -142,7 +148,7 @@ export const TopClicks: React.FC = () => {
         })}
       </div>
       
-      <div className="pt-2">
+      <div className="pt-1">
         <div className="flex items-center justify-between text-xs">
           <span className="text-gray-600 font-medium">총 클릭 수</span>
           <span className="font-bold text-gray-900">
