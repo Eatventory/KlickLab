@@ -15,7 +15,9 @@ interface VisitorChartProps {
 }
 
 // y축 숫자 단위 한글 변환 함수
-function formatKoreanNumber(value: number) {
+function formatKoreanNumber(value: number): string {
+  if (!Number.isFinite(value)) return String(value);
+  value = Math.round(value); // 정수로 변환
   if (value >= 100000000) return `${Math.round(value / 10000000) / 10}억`;
   if (value >= 10000) return `${Math.round(value / 1000) / 10}만`;
   return value.toLocaleString();
@@ -24,29 +26,18 @@ function formatKoreanNumber(value: number) {
 export const VisitorChart: React.FC<VisitorChartProps> = ({ data, period = 'daily' }) => {
   // 집계 단위별 라벨 포맷 함수
   const formatDate = (dateString: string) => {
+    if (!dateString || typeof dateString !== 'string') return '-';
     if (period === 'hourly') {
-      // YYYY-MM-DD HH -> MM월 DD일 HH시
-      if (dateString.includes(' ')) {
-        const [date, hour] = dateString.split(' ');
-        const [year, month, day] = date.split('-');
-        return `${Number(month)}월 ${Number(day)}일 ${hour}시`;
+      // YYYY-MM-DD HH -> MM월 DD일 HH시 (KST 변환 불필요)
+      const match = dateString.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2})/);
+      if (match) {
+        const [, year, month, day, hour] = match;
+        const dateObj = new Date(Number(year), Number(month) - 1, Number(day), Number(hour));
+        return `${dateObj.getMonth() + 1}월 ${dateObj.getDate()}일 ${dateObj.getHours()}시`;
       }
-      return dateString; // hour가 없으면 날짜만
-    } else if (period === 'weekly') {
-      // ISO 주차: 2024-23 -> 2024년 23주차
-      const parts = dateString.split('-');
-      if (parts.length === 2) {
-        const [year, week] = parts;
-        return `${year}년 ${week}주차`;
-      }
-      return dateString;
-    } else if (period === 'monthly') {
-      // YYYY-MM -> 2024년 6월
-      const parts = dateString.split('-');
-      if (parts.length === 2) {
-        const [year, month] = parts;
-        return `${year}년 ${Number(month)}월`;
-      }
+      return '-';
+    } else if (period === 'weekly' || period === 'monthly') {
+      // DB에서 받은 key를 그대로 사용
       return dateString;
     } else {
       // YYYY-MM-DD -> 6월 10일
@@ -62,13 +53,27 @@ export const VisitorChart: React.FC<VisitorChartProps> = ({ data, period = 'dail
   const getPeriodDescription = () => {
     switch (period) {
       case 'hourly':
-        return '최근 6시간의 방문자 변화';
+        return '최근 24시간의 방문자 변화';
       case 'weekly':
         return '최근 6주간의 방문자 변화';
       case 'monthly':
         return '최근 12개월간의 방문자 변화';
       default:
         return '최근 7일간의 방문자 변화';
+    }
+  };
+
+  // x축 범례 텍스트를 period에 따라 동적으로 생성
+  const getXAxisLabel = () => {
+    switch (period) {
+      case 'hourly':
+        return '시간';
+      case 'weekly':
+        return '주차';
+      case 'monthly':
+        return '월';
+      default:
+        return '날짜';
     }
   };
 
@@ -88,6 +93,31 @@ export const VisitorChart: React.FC<VisitorChartProps> = ({ data, period = 'dail
     return null;
   };
 
+  // date가 있는 데이터만 필터링 후 정렬
+  let displayData = data.filter(d => d.date != null && d.date !== '');
+  displayData = displayData.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  // 시간별: x축 끝이 항상 현재 시간(시)로 끝나도록 24시간 추출
+  if (period === 'hourly') {
+    const now = new Date();
+    const currentHour = now.getHours();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    // 24시간 key 생성 (끝이 현재 시간)
+    const hours = [];
+    for (let i = 23; i >= 0; i--) {
+      const hour = (currentHour - i + 24) % 24;
+      const dateStr = `${todayStr} ${String(hour).padStart(2, '0')}`;
+      hours.push(dateStr);
+    }
+    // 24시간 데이터 보정
+    displayData = hours.map(dateStr => {
+      const found = data.find(d => d.date === dateStr);
+      return found || { date: dateStr, visitors: 0, newVisitors: 0, returningVisitors: 0 };
+    });
+  } else if (period === 'daily' && displayData.length > 7) {
+    displayData = displayData.slice(-7);
+  }
+  // 주별/월별은 DB에서 받은 순서대로 그대로 사용 (보정/매칭 X)
+
   return (
     <div className="card">
       <div className="mb-4">
@@ -97,7 +127,7 @@ export const VisitorChart: React.FC<VisitorChartProps> = ({ data, period = 'dail
       
       <div className="h-80">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+          <LineChart data={displayData} margin={{ top: 5, right: 30, left: 20, bottom: 30 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
             <XAxis 
               dataKey="date" 
@@ -107,6 +137,9 @@ export const VisitorChart: React.FC<VisitorChartProps> = ({ data, period = 'dail
             <YAxis 
               tick={{ fontSize: 12, fill: '#6b7280' }}
               tickFormatter={formatKoreanNumber}
+              allowDecimals={false}
+              domain={[0, 'dataMax']}
+              // tickCount={6}
             />
             <Tooltip content={<CustomTooltip />} />
             <Legend />

@@ -5,6 +5,9 @@ import { TopClicks } from './TopClicks';
 import { ClickTrend } from './ClickTrend';
 import { UserPathSankeyChart } from '../user/UserPathSankeyChart';
 import { DropoffInsightsCard } from '../engagement/DropoffInsightsCard';
+
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+
 import { AverageSessionDurationCard } from './AverageSessionDurationCard';
 import { ConversionSummaryCard } from './ConversionSummaryCard';
 
@@ -22,18 +25,21 @@ interface ClicksData {
 export const OverviewDashboard: React.FC = () => {
   const [visitorsData, setVisitorsData] = useState<VisitorsData | null>(null);
   const [clicksData, setClicksData] = useState<ClicksData | null>(null);
+  const [userPathData, setUserPathData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const [visitorsResponse, clicksResponse] = await Promise.all([
+        const [visitorsResponse, clicksResponse, userPathResponse] = await Promise.all([
           fetch(`/api/stats/visitors`),
-          fetch(`/api/stats/clicks`)
+          fetch(`/api/stats/clicks`),
+          fetch(`/api/stats/userpath-summary`)
         ]);
         
         const visitors = await visitorsResponse.json();
         const clicks = await clicksResponse.json();
+        const userPath = await userPathResponse.json();
 
         visitors.trend?.sort((a: { date: string }, b: { date: string }) => 
           new Date(a.date).getTime() - new Date(b.date).getTime()
@@ -41,10 +47,12 @@ export const OverviewDashboard: React.FC = () => {
 
         setVisitorsData(visitors);
         setClicksData(clicks);
+        setUserPathData(userPath.data || []);
       } catch (error) {
         console.error('Failed to fetch stats:', error);
         setVisitorsData({ today: 1234, yesterday: 1096 });
         setClicksData({ today: 9874, yesterday: 9124 });
+        setUserPathData([]);
       } finally {
         setLoading(false);
       }
@@ -125,7 +133,7 @@ export const OverviewDashboard: React.FC = () => {
       <div className="w-full">
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 w-full">
           <div className="text-lg font-bold mb-2">사용자 방문 경로</div>
-          <UserPathSankeyChart />
+          <UserPathSankeyChart data={userPathData} />
         </div>
       </div>
     </div>

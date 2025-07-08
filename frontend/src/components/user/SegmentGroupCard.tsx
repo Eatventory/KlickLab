@@ -30,7 +30,7 @@ const getRankIcon = (rank: number) => {
     case 3:
       return '🥉';
     default:
-      return `${rank}`;
+      return null;
   }
 };
 
@@ -101,12 +101,90 @@ const UserDistributionItem = memo<{
 
 UserDistributionItem.displayName = 'UserDistributionItem';
 
+// 연령대 영문 → 한글 변환 함수
+const ageGroupLabelMap: Record<string, string> = {
+  '10s': '10대',
+  '20s': '20대',
+  '30s': '30대',
+  '40s': '40대',
+  '50s': '50대',
+  '60s+': '60대 이상',
+};
+
+// segmentValue 변환 함수
+function getDisplaySegmentValue(segmentType: string, segmentValue: string) {
+  if (!segmentValue || segmentValue.trim() === '') return '불명';
+
+  if (/^\d+대$/.test(segmentValue) || segmentValue === '60대 이상') {
+    return segmentValue;
+  }
+
+  if (segmentType === 'age') {
+    if (ageGroupLabelMap[segmentValue]) return ageGroupLabelMap[segmentValue];
+    return '불명';
+  }
+
+  if (segmentType === 'gender') {
+    if (segmentValue === 'male') return '남성';
+    if (segmentValue === 'female') return '여성';
+    return '불명';
+  }
+
+  if (segmentType === 'device') {
+    if (segmentValue === 'mobile') return '모바일';
+    if (segmentValue === 'desktop') return '데스크탑';
+    return '불명';
+  }
+
+  return segmentValue;
+}
+
+// 연령대별 그룹 합산 함수
+function mergeAgeSegmentsIfNeeded(segmentType: string, segment: SegmentGroupData, allSegments: SegmentGroupData[]) {
+  if (segmentType !== 'age') return segment;
+
+  const group = getDisplaySegmentValue('age', segment.segmentValue);
+  let totalUsers = 0;
+  let totalClicks = 0;
+
+  for (const cur of allSegments) {
+    if (getDisplaySegmentValue('age', cur.segmentValue) === group) {
+      totalUsers += Number(cur.totalUsers) || 0;
+      totalClicks += Number(cur.totalClicks) || 0;
+    }
+  }
+
+  return {
+    ...segment,
+    segmentValue: group,
+    totalUsers,
+    totalClicks,
+    averageClicksPerUser: totalUsers > 0 ? totalClicks / totalUsers : 0
+  };
+}
+
+function getLabelText(segmentType: string, label: string | null): string {
+  if (!label || label.trim() === '') return '불명';
+  if (ageGroupLabelMap[label]) return ageGroupLabelMap[label];
+  if (segmentType === 'gender') {
+    if (label === 'male') return '남성';
+    if (label === 'female') return '여성';
+  }
+  if (segmentType === 'device') {
+    if (label === 'mobile') return '모바일';
+    if (label === 'desktop') return '데스크탑';
+  }
+  return '불명';
+}
+
 // 메모이제이션된 SegmentGroupCard 컴포넌트
 export const SegmentGroupCard = memo<SegmentGroupCardProps>(({ 
   segment, 
   rank, 
   segmentType 
 }) => {
+  // 연령대 세그먼트면 같은 그룹끼리 합산
+  const mergedSegment = mergeAgeSegmentsIfNeeded(segmentType, segment, (segment as any).allSegments || [segment]);
   const getDistributionData = () => {
     const distribution = segment.userDistribution;
     switch (segmentType) {
@@ -117,7 +195,7 @@ export const SegmentGroupCard = memo<SegmentGroupCardProps>(({
       case 'signupPath':
         return distribution.gender ? Object.entries(distribution.gender) : [];
       case 'device':
-        return distribution.gender ? Object.entries(distribution.gender) : [];
+        return distribution.device ? Object.entries(distribution.device) : [];
       default:
         return [];
     }
@@ -131,11 +209,16 @@ export const SegmentGroupCard = memo<SegmentGroupCardProps>(({
       {/* 랭킹 배지 */}
       <div className="flex items-center justify-between mb-4">
         <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getRankColor(rank)}`}>
-          <span className="mr-1">{getRankIcon(rank)}</span>
-          {rank}위
+          {getRankIcon(rank) ? (
+            <>
+              <span className="mr-1">{getRankIcon(rank)}</span>{rank}위
+            </>
+          ) : (
+            <>{rank}위</>
+          )}
         </div>
         <div className="text-sm text-gray-500">
-          {segment.totalClicks.toLocaleString()}회 클릭
+          {mergedSegment.totalClicks.toLocaleString()}회 클릭
         </div>
       </div>
 
@@ -146,36 +229,41 @@ export const SegmentGroupCard = memo<SegmentGroupCardProps>(({
         </div>
         <div className="flex-1">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-gray-900 text-lg">{segment.segmentValue}</span>
+            <span
+              className="font-semibold text-gray-900 text-lg truncate max-w-[160px]"
+              title={getDisplaySegmentValue(segmentType, mergedSegment.segmentValue)}
+            >
+              {getDisplaySegmentValue(segmentType, mergedSegment.segmentValue)}
+            </span>
           </div>
           <div className="text-sm text-gray-600">
-            {segment.totalUsers.toLocaleString()}명의 사용자
+            {mergedSegment.totalUsers.toLocaleString()}명의 사용자
           </div>
         </div>
       </div>
 
       {/* 통계 정보 */}
-      <div className="grid grid-cols-3 gap-4 mb-4">
-        <div className="text-center">
-          <div className="flex items-center justify-center gap-1 text-gray-600 mb-1">
+      <div className="flex flex-col gap-2 mb-4 items-center">
+        <div className="flex flex-col items-center">
+          <div className="flex items-center gap-1 text-gray-600 mb-1">
             <Users className="w-4 h-4" />
             <span className="text-xs">사용자</span>
           </div>
-          <div className="font-bold text-gray-900">{segment.totalUsers.toLocaleString()}</div>
+          <div className="font-bold text-gray-900">{mergedSegment.totalUsers.toLocaleString()}</div>
         </div>
-        <div className="text-center">
-          <div className="flex items-center justify-center gap-1 text-gray-600 mb-1">
+        <div className="flex flex-col items-center">
+          <div className="flex items-center gap-1 text-gray-600 mb-1">
             <MousePointer className="w-4 h-4" />
             <span className="text-xs">클릭</span>
           </div>
-          <div className="font-bold text-gray-900">{segment.totalClicks.toLocaleString()}</div>
+          <div className="font-bold text-gray-900">{mergedSegment.totalClicks.toLocaleString()}</div>
         </div>
-        <div className="text-center">
-          <div className="flex items-center justify-center gap-1 text-gray-600 mb-1">
+        <div className="flex flex-col items-center">
+          <div className="flex items-center gap-1 text-gray-600 mb-1">
             <TrendingUp className="w-4 h-4" />
             <span className="text-xs">평균</span>
           </div>
-          <div className="font-bold text-gray-900">{segment.averageClicksPerUser.toFixed(1)}</div>
+          <div className="font-bold text-gray-900">{mergedSegment.averageClicksPerUser != null ? mergedSegment.averageClicksPerUser.toFixed(1) : '-'}</div>
         </div>
       </div>
 
@@ -198,11 +286,11 @@ export const SegmentGroupCard = memo<SegmentGroupCardProps>(({
           <div className="text-sm font-medium text-gray-900 mb-3">사용자 분포</div>
           <div className="space-y-2">
             {distributionData.map(([label, count]) => (
-              <UserDistributionItem 
-                key={label} 
-                label={label} 
-                count={count} 
-                total={totalDistribution} 
+              <UserDistributionItem
+                key={label}
+                label={getLabelText(segmentType, label)}
+                count={count}
+                total={totalDistribution}
               />
             ))}
           </div>

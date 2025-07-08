@@ -5,104 +5,122 @@ const { buildFilterCondition } = require('../utils/filter');
 
 router.get('/top-clicks', async (req, res) => {
   try {
-    let segment = req.query.filter;
+    const segment = req.query.filter;
     const validSegments = ['user_gender', 'user_age', 'traffic_source', 'device_type'];
 
-    if (segment === 'gender') segment = 'user_gender';
     if (!validSegments.includes(segment)) {
       return res.status(400).json({ error: 'Invalid user segment' });
     }
 
-    // 1. 세그먼트별 총 클릭 수, 유저 수, 평균 클릭 수
-    const baseFilter = `event_name = 'auto_click' AND toDate(timestamp) >= today() - 6 AND ${segment} IS NOT NULL`;
+    const today = new Date();
+    const fromDate = new Date(today);
+    fromDate.setDate(today.getDate() - 6);
+    const fromDateStr = fromDate.toISOString().slice(0, 10);  // 'YYYY-MM-DD'
+
+    // 1. 클릭 요약
     const summaryQuery = `
-      SELECT 
-        ${segment} AS segment,
-        count(*) AS totalClicks,
-        count(DISTINCT user_id) AS totalUsers,
-        round(count() / countDistinct(user_id), 1) AS avgClicksPerUser
-      FROM events
-      WHERE ${baseFilter}
+      SELECT
+        segment_value AS segment,
+        sum(total_clicks) AS totalClicks,
+        sum(total_users) AS totalUsers,
+        round(sum(total_clicks) / sum(total_users), 1) AS avgClicksPerUser
+      FROM daily_click_summary
+      WHERE segment_type = '${segment}' AND date >= toDate('${fromDateStr}')
       GROUP BY segment
     `;
 
-    // 2. 세그먼트별 Top 요소 (상위 3개)
-    const topElementsQuery = `
-      SELECT 
-        ${segment} AS segment,
-        element_path AS element,
-        count(*) AS totalClicks,
-        count(DISTINCT user_id) AS userCount
-      FROM events
-      WHERE ${baseFilter} AND element_path != ''
+    // 2. Top 클릭 요소
+    const topQuery = `
+      SELECT
+        segment_value AS segment,
+        element,
+        sum(total_clicks) AS totalClicks,
+        sum(user_count) AS userCount
+      FROM daily_top_elements
+      WHERE segment_type = '${segment}' AND date >= toDate('${fromDateStr}')
       GROUP BY segment, element
       ORDER BY segment, totalClicks DESC
     `;
 
-    // 3. 연령 분포
-    const ageGroupQuery = `
-      SELECT 
-        ${segment} AS segment,
-        CASE
-          WHEN user_age BETWEEN 10 AND 19 THEN '10s'
-          WHEN user_age BETWEEN 20 AND 29 THEN '20s'
-          WHEN user_age BETWEEN 30 AND 39 THEN '30s'
-          WHEN user_age BETWEEN 40 AND 49 THEN '40s'
-          WHEN user_age BETWEEN 50 AND 59 THEN '50s'
-          ELSE '60s+'
-        END AS ageGroup,
-        count(DISTINCT user_id) AS count
-      FROM events
-      WHERE ${baseFilter} AND user_age IS NOT NULL
-      GROUP BY segment, ageGroup
+    // 3. 유저 분포
+    const distQuery = `
+      SELECT
+        segment_value AS segment,
+        dist_type,
+        dist_value,
+        sum(user_count) AS count
+      FROM daily_user_distribution
+      WHERE segment_type = '${segment}' AND date >= toDate('${fromDateStr}')
+      GROUP BY segment, dist_type, dist_value
     `;
 
-    // 4. 디바이스 분포
-    const deviceQuery = `
-      SELECT 
-        ${segment} AS segment,
-        device_type,
-        count(DISTINCT user_id) AS count
-      FROM events
-      WHERE ${baseFilter} AND device_type != ''
-      GROUP BY segment, device_type
-    `;
-
-    // 병렬 실행
-    const [summaryRes, topElementsRes, ageGroupRes, deviceRes] = await Promise.all([
+    const [summaryRes, topRes, distRes] = await Promise.all([
       clickhouse.query({ query: summaryQuery, format: 'JSON' }).then(r => r.json()),
-      clickhouse.query({ query: topElementsQuery, format: 'JSON' }).then(r => r.json()),
-      clickhouse.query({ query: ageGroupQuery, format: 'JSON' }).then(r => r.json()),
-      clickhouse.query({ query: deviceQuery, format: 'JSON' }).then(r => r.json())
+      clickhouse.query({ query: topQuery, format: 'JSON' }).then(r => r.json()),
+      clickhouse.query({ query: distQuery, format: 'JSON' }).then(r => r.json())
     ]);
 
-    const result = [];
-    const topElementsBySegment = {};
+    // console.time("summaryQuery");
+    // const summaryResPromise = clickhouse
+    //     .query({ query: summaryQuery, format: "JSON" })
+    //     .then((r) => r.json())
+    //     .then((res) => {
+    //         console.timeEnd("summaryQuery");
+    //         return res;
+    //     });
+
+    // console.time("topQuery");
+    // const topResPromise = clickhouse
+    //     .query({ query: topQuery, format: "JSON" })
+    //     .then((r) => r.json())
+    //     .then((res) => {
+    //         console.timeEnd("topQuery");
+    //         return res;
+    //     });
+
+    // console.time("distQuery");
+    // const distResPromise = clickhouse
+    //     .query({ query: distQuery, format: "JSON" })
+    //     .then((r) => r.json())
+    //     .then((res) => {
+    //         console.timeEnd("distQuery");
+    //         return res;
+    //     });
+
+    // const [summaryRes, topRes, distRes] = await Promise.all([
+    //     summaryResPromise,
+    //     topResPromise,
+    //     distResPromise,
+    // ]);
+
+    // 분포 가공
     const ageDistBySegment = {};
     const deviceDistBySegment = {};
+    for (const row of distRes.data) {
+      const seg = row.segment;
+      const distType = row.dist_type;
+      const value = row.dist_value;
+      const count = row.count;
+
+      if (distType === 'ageGroup') {
+        if (!ageDistBySegment[seg]) ageDistBySegment[seg] = {};
+        ageDistBySegment[seg][value] = count;
+      } else if (distType === 'device') {
+        if (!deviceDistBySegment[seg]) deviceDistBySegment[seg] = {};
+        deviceDistBySegment[seg][value] = count;
+      }
+    }
 
     // Top 요소 가공
-    for (const row of topElementsRes.data) {
+    const topElementsBySegment = {};
+    for (const row of topRes.data) {
       const seg = row.segment;
       if (!topElementsBySegment[seg]) topElementsBySegment[seg] = [];
       topElementsBySegment[seg].push(row);
     }
 
-    // 연령 분포 가공
-    for (const row of ageGroupRes.data) {
-      const seg = row.segment;
-      if (!ageDistBySegment[seg]) ageDistBySegment[seg] = {};
-      ageDistBySegment[seg][row.ageGroup] = row.count;
-    }
-
-    // 디바이스 분포 가공
-    for (const row of deviceRes.data) {
-      const seg = row.segment;
-      if (!deviceDistBySegment[seg]) deviceDistBySegment[seg] = {};
-      deviceDistBySegment[seg][row.device_type] = row.count;
-    }
-
     // 종합 조립
+    const result = [];
     for (const row of summaryRes.data) {
       const seg = row.segment;
       const topList = (topElementsBySegment[seg] || []).slice(0, 3);
@@ -111,7 +129,7 @@ router.get('/top-clicks', async (req, res) => {
       const topElements = topList.map(el => ({
         element: el.element,
         totalClicks: el.totalClicks,
-        percentage: Math.round((el.totalClicks / total) * 1000) / 10,
+        percentage: total > 0 ? Math.round((el.totalClicks / total) * 1000) / 10 : 0,
         userCount: el.userCount
       }));
 
