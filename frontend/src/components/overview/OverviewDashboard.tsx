@@ -11,6 +11,7 @@ import { ConversionSummaryCard } from './ConversionSummaryCard';
 interface VisitorsData {
   today: number;
   yesterday: number;
+  trend?: { date: string; visitors: number }[];
 }
 
 interface ClicksData {
@@ -33,7 +34,11 @@ export const OverviewDashboard: React.FC = () => {
         
         const visitors = await visitorsResponse.json();
         const clicks = await clicksResponse.json();
-        
+
+        visitors.trend?.sort((a: { date: string }, b: { date: string }) => 
+          new Date(a.date).getTime() - new Date(b.date).getTime()
+        );
+
         setVisitorsData(visitors);
         setClicksData(clicks);
       } catch (error) {
@@ -123,7 +128,6 @@ export const OverviewDashboard: React.FC = () => {
           <UserPathSankeyChart />
         </div>
       </div>
-
     </div>
   );
 }; 
