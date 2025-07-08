@@ -1,6 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserPathSankeyChart } from './UserPathSankeyChart';
 import { Users, Route, PieChart } from 'lucide-react';
+import { UserSegmentPieChart } from './UserSegmentPieChart';
+import { OsBrowserPieChart } from './OsBrowserPieChart';
+import { OsBrowserTable } from './OsBrowserTable';
+import { OsFilterDropdown } from './OsFilterDropdown';
+import { SegmentGroupCard } from './SegmentGroupCard';
+import { TopButtonList, type SegmentType } from './TopButtonList';
 
 // 타입 정의
 interface FilterOptions {
@@ -9,12 +15,199 @@ interface FilterOptions {
   device: 'all' | 'mobile' | 'desktop';
 }
 
+// 범례 버튼 렌더링 함수
+const renderLegendButtons = (
+  data: { label: string; value: number }[],
+  activeLegends: string[],
+  handleLegendClick: (label: string) => void,
+  colors: string[]
+) => (
+  <div className="flex flex-col gap-2 ml-8">
+    {data.map((d, i) => (
+      <button
+        key={d.label}
+        className={`flex items-center gap-1 px-2 py-1 rounded text-sm border ${activeLegends.includes(d.label) ? 'bg-gray-100 border-blue-500' : 'bg-white border-gray-300 text-gray-400'}`}
+        onClick={() => handleLegendClick(d.label)}
+        type="button"
+      >
+        <span style={{ width: 12, height: 12, background: colors[i % colors.length], display: 'inline-block', borderRadius: 6 }} />
+        {d.label}
+      </button>
+    ))}
+  </div>
+);
+
+const COLORS = ['#4F46E5', '#F59E42', '#10B981', '#6366F1', '#F43F5E', '#FACC15', '#A3A3A3'];
+
+// 연령대별 그룹 합산 함수
+function mergeAgeSegments(segments: any[]) {
+  const ageGroupLabelMap: Record<string, string> = {
+    '10s': '10대',
+    '20s': '20대',
+    '30s': '30대',
+    '40s': '40대',
+    '50s': '50대',
+    '60s+': '60대+',
+  };
+  const result: Record<string, any> = {};
+  for (const seg of segments) {
+    let group = ageGroupLabelMap[seg.segmentValue];
+    if (!group) {
+      const age = Number(seg.segmentValue);
+      if (!isNaN(age)) {
+        if (age >= 10 && age < 20) group = '10대';
+        else if (age >= 20 && age < 30) group = '20대';
+        else if (age >= 30 && age < 40) group = '30대';
+        else if (age >= 40 && age < 50) group = '40대';
+        else if (age >= 50 && age < 60) group = '50대';
+        else if (age >= 60) group = '60대+';
+      }
+    }
+    if (!group) group = seg.segmentValue;
+    if (!result[group]) {
+      result[group] = { ...seg, segmentValue: group };
+      // 숫자 필드 강제 변환
+      result[group].totalUsers = Number(seg.totalUsers) || 0;
+      result[group].totalClicks = Number(seg.totalClicks) || 0;
+      result[group].averageClicksPerUser = Number(seg.averageClicksPerUser) || 0;
+    } else {
+      result[group].totalUsers = Number(result[group].totalUsers) + Number(seg.totalUsers);
+      result[group].totalClicks = Number(result[group].totalClicks) + Number(seg.totalClicks);
+      // 평균 클릭수는 가중평균으로
+      const prevUsers = Number(result[group].totalUsers) - Number(seg.totalUsers);
+      result[group].averageClicksPerUser =
+        (Number(result[group].averageClicksPerUser) * prevUsers + Number(seg.averageClicksPerUser) * Number(seg.totalUsers)) /
+        (Number(result[group].totalUsers) || 1);
+    }
+  }
+  return Object.values(result);
+}
+
+// 재방문률 도넛차트 컴포넌트
+const ReturningRateDonutChart: React.FC<{ percent: number }> = ({ percent }) => {
+  const radius = 60;
+  const stroke = 16;
+  const size = radius * 2 + stroke;
+  const center = size / 2;
+  const circleLength = 2 * Math.PI * radius;
+  const value = Math.max(0, Math.min(percent, 100));
+  const offset = circleLength * (1 - value / 100);
+  return (
+    <div className="flex flex-col items-center justify-center" style={{ minHeight: 180 }}>
+      <svg width={size} height={size}>
+        <circle
+          cx={center}
+          cy={center}
+          r={radius}
+          fill="none"
+          stroke="#e5e7eb"
+          strokeWidth={stroke}
+        />
+        <circle
+          cx={center}
+          cy={center}
+          r={radius}
+          fill="none"
+          stroke="#4F46E5"
+          strokeWidth={stroke}
+          strokeDasharray={circleLength}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          style={{ transition: 'stroke-dashoffset 0.6s' }}
+        />
+        <text
+          x={center}
+          y={center + 8}
+          textAnchor="middle"
+          fontSize={28}
+          fill="#222"
+          fontWeight="bold"
+        >
+          {value}%
+        </text>
+      </svg>
+      <div className="mt-2 text-gray-600 text-sm">최근 7일 중 2일 이상 방문</div>
+    </div>
+  );
+};
+
 export const UserDashboard: React.FC = () => {
   const [filters, setFilters] = useState<FilterOptions>({
     period: '1day',
     userType: 'all',
     device: 'all'
   });
+
+  const [distType, setDistType] = useState<'os' | 'browser'>('os');
+  
+  // 세그먼트별 TOP 3 상태
+  const [activeSegment, setActiveSegment] = useState<SegmentType>('gender');
+
+  // OS 필터 상태
+  const [osFilter, setOsFilter] = useState<{ mainCategory: 'all' | 'mobile' | 'desktop' }>({ mainCategory: 'all' });
+  // 브라우저 필터 상태
+  const [browserFilter, setBrowserFilter] = useState<{ mainCategory: 'all' | 'mobile' | 'desktop' }>({ mainCategory: 'all' });
+
+  // 실제 API 데이터 state
+  const [segmentGroupData, setSegmentGroupData] = useState<any[]>([]); // 세그먼트별 top-clicks
+  const [userTypeSummary, setUserTypeSummary] = useState<any[]>([]); // 신규/기존 유저
+  const [osSummary, setOsSummary] = useState<any[]>([]); // OS별 분포
+  const [browserSummary, setBrowserSummary] = useState<any[]>([]); // 브라우저별 분포
+  const [userPathData, setUserPathData] = useState<any[]>([]); // Sankey 데이터
+  const [returningRate, setReturningRate] = useState<any>(null); // 재방문률
+
+  useEffect(() => {
+    // 세그먼트별 top-clicks
+    const segmentToApiFilter: Record<string, string> = {
+      gender: 'user_gender',
+      age: 'user_age',
+      signupPath: 'traffic_source',
+      device: 'device_type',
+    };
+    fetch(`/api/users/top-clicks?filter=${segmentToApiFilter[activeSegment]}`)
+      .then(res => res.json())
+      .then(data => setSegmentGroupData(data.data || []));
+    // 신규/기존 유저
+    fetch('/api/users/user-type-summary')
+      .then(res => res.json())
+      .then(data => setUserTypeSummary(data.data || []));
+    // OS 분포
+    fetch('/api/users/os-type-summary')
+      .then(res => res.json())
+      .then(data => setOsSummary(data.data || []));
+    // 브라우저 분포
+    fetch('/api/users/browser-type-summary')
+      .then(res => res.json())
+      .then(data => setBrowserSummary(data.data || []));
+    // Sankey(유저 경로)
+    fetch('/api/stats/userpath-summary')
+      .then(res => res.json())
+      .then(data => setUserPathData(data.data || []));
+    // 재방문률
+    fetch('/api/users/returning')
+      .then(res => res.json())
+      .then(data => setReturningRate(data.data || null));
+  }, [activeSegment]);
+
+  // OS/브라우저 필터링
+  const filteredOsData = osSummary.filter(d => {
+    if (osFilter.mainCategory === 'all') return true;
+    return d.category === osFilter.mainCategory;
+  });
+  const osPieData = filteredOsData.map(d => ({ label: d.os, value: d.users }));
+  const filteredBrowserData = browserSummary.filter(d => {
+    if (browserFilter.mainCategory === 'all') return true;
+    return d.category === browserFilter.mainCategory;
+  });
+  const browserPieData = filteredBrowserData.map(d => ({ label: d.browser, value: d.users }));
+  const [osActiveLegends, setOsActiveLegends] = useState<string[]>([]);
+  const [browserActiveLegends, setBrowserActiveLegends] = useState<string[]>([]);
+  useEffect(() => {
+    setOsActiveLegends(osPieData.map(d => d.label));
+  }, [osPieData.length]);
+  useEffect(() => {
+    setBrowserActiveLegends(browserPieData.map(d => d.label));
+  }, [browserPieData.length]);
 
   const handleFilterChange = (key: keyof FilterOptions, value: string) => {
     setFilters(prev => ({
@@ -23,9 +216,66 @@ export const UserDashboard: React.FC = () => {
     }));
   };
 
+  // 드롭다운 핸들러 타입 명확화
+  const handleOsFilterChange = (key: keyof typeof osFilter, value: string) => {
+    setOsFilter(f => ({ ...f, [key]: value as 'all' | 'mobile' | 'desktop' }));
+  };
+  const handleBrowserFilterChange = (key: keyof typeof browserFilter, value: string) => {
+    setBrowserFilter(f => ({ ...f, [key]: value as 'all' | 'mobile' | 'desktop' }));
+  };
+
+  // 범례 클릭 핸들러
+  const handleLegendClick = (type: 'os' | 'browser', label: string) => {
+    if (type === 'os') {
+      setOsActiveLegends(prev => {
+        if (prev.length === 1 && prev[0] === label) return prev; // 최소 1개 유지
+        return prev.includes(label) ? prev.filter(l => l !== label) : [...prev, label];
+      });
+    } else {
+      setBrowserActiveLegends(prev => {
+        if (prev.length === 1 && prev[0] === label) return prev; // 최소 1개 유지
+        return prev.includes(label) ? prev.filter(l => l !== label) : [...prev, label];
+      });
+    }
+  };
+
   return (
     <div className="space-y-8">
-      {/* 필터 */}
+      {/* 세그먼트별 TOP 3 필터 */}
+      <TopButtonList 
+        activeSegment={activeSegment} 
+        onSegmentChange={setActiveSegment} 
+      />
+
+      {/* 세그먼트별 TOP 3 사용자 카드 */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center gap-2 mb-6">
+          <Users className="w-5 h-5 text-gray-600" />
+          <h2 className="text-lg font-semibold text-gray-900">
+            {activeSegment === 'gender' && '성별별 클릭 TOP 3'}
+            {activeSegment === 'age' && '연령대별 클릭 TOP 3'}
+            {activeSegment === 'signupPath' && '가입 경로별 클릭 TOP 3'}
+            {activeSegment === 'device' && '기기별 클릭 TOP 3'}
+          </h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {(activeSegment === 'age'
+            ? mergeAgeSegments(segmentGroupData)
+            : segmentGroupData)
+            .slice()
+            .sort((a, b) => b.totalClicks - a.totalClicks)
+            .map((segment, index) => (
+              <SegmentGroupCard 
+                key={segment.segmentValue} 
+                segment={segment} 
+                rank={index + 1} 
+                segmentType={activeSegment}
+              />
+            ))}
+        </div>
+      </div>
+
+      {/* 기존 필터 */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Users className="w-5 h-5 text-gray-600" />
@@ -69,31 +319,95 @@ export const UserDashboard: React.FC = () => {
           <Route className="w-5 h-5 text-gray-600" />
           <h2 className="text-lg font-semibold text-gray-900">사용자 클릭 흐름 분석</h2>
         </div>
-        <UserPathSankeyChart />
+        <UserPathSankeyChart data={userPathData} />
       </div>
 
-      {/* 향후 구현 예정 컴포넌트들 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* 재방문률 */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center gap-2 mb-4">
+      {/* 신규 vs 기존 유저 */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6" style={{ minHeight: 320 }}>
+        <div className="flex items-center gap-2 mb-4">
+          <Users className="w-5 h-5 text-gray-600" />
+          <h3 className="text-lg font-semibold text-gray-900">신규 vs 기존 유저</h3>
+        </div>
+        <div className="flex items-center justify-center h-40">
+          <UserSegmentPieChart data={userTypeSummary.map(d => ({ type: d.type, value: d.value }))} />
+        </div>
+      </div>
+
+      {/* 기기/브라우저 분포 전체를 grid로 감싸기 */}
+      <div className="grid grid-cols-1 gap-y-12 w-full" style={{ minHeight: 400 }}>
+        {/* 기기 분포 (운영체제) */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 w-full max-w-full">
+          <div className="flex items-center gap-2 mb-1">
             <PieChart className="w-5 h-5 text-gray-600" />
-            <h3 className="text-lg font-semibold text-gray-900">재방문률</h3>
+            <h3 className="text-lg font-semibold text-gray-900">기기 분포 (운영체제)</h3>
           </div>
-          <div className="flex items-center justify-center h-32 text-gray-500">
-            개발 중...
+          <div className="flex flex-col w-full">
+            {/* 파이차트+범례 가로 배치 */}
+            <div className="relative flex flex-row items-start justify-center w-full min-h-[320px]">
+              {/* 파이차트 */}
+              <div
+                className="flex flex-col items-center mx-auto"
+                style={{ minWidth: 320, maxWidth: 400, width: '100%', minHeight: 320, height: 400 }}
+              >
+                <OsFilterDropdown filters={osFilter} onFilterChange={handleOsFilterChange} />
+                <div className="mt-2 w-full h-full">
+                  <OsBrowserPieChart data={osPieData.filter(d => osActiveLegends.includes(d.label))} legendType="os" />
+                </div>
+              </div>
+              {/* 범례(버튼) */}
+              <div className="flex flex-col justify-center min-w-[100px] max-w-[160px] items-center absolute right-0 top-0">
+                {renderLegendButtons(osPieData, osActiveLegends, label => handleLegendClick('os', label), COLORS)}
+              </div>
+            </div>
+            {/* 테이블은 아래에 */}
+            <div className="flex-1 w-full min-w-0 max-w-full overflow-x-auto mt-4">
+              <OsBrowserTable data={osPieData} legendType="os" activeLegends={osActiveLegends} />
+            </div>
           </div>
         </div>
-
-        {/* 신규 vs 기존 유저 */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Users className="w-5 h-5 text-gray-600" />
-            <h3 className="text-lg font-semibold text-gray-900">신규 vs 기존 유저</h3>
+        {/* 브라우저 분포 */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 w-full max-w-full">
+          <div className="flex items-center gap-2 mb-1">
+            <PieChart className="w-5 h-5 text-gray-600" />
+            <h3 className="text-lg font-semibold text-gray-900">브라우저 분포</h3>
           </div>
-          <div className="flex items-center justify-center h-32 text-gray-500">
-            개발 중...
+          <div className="flex flex-col w-full">
+            {/* 파이차트+범례 가로 배치 */}
+            <div className="relative flex flex-row items-start justify-center w-full min-h-[320px]">
+              {/* 파이차트 */}
+              <div
+                className="flex flex-col items-center mx-auto"
+                style={{ minWidth: 320, maxWidth: 400, width: '100%', minHeight: 320, height: 400 }}
+              >
+                <OsFilterDropdown filters={browserFilter} onFilterChange={handleBrowserFilterChange} />
+                <div className="mt-2 w-full h-full">
+                  <OsBrowserPieChart data={browserPieData.filter(d => browserActiveLegends.includes(d.label))} legendType="browser" />
+                </div>
+              </div>
+              {/* 범례(버튼) */}
+              <div className="flex flex-col justify-center min-w-[100px] max-w-[160px] items-center absolute right-0 top-0">
+                {renderLegendButtons(browserPieData, browserActiveLegends, label => handleLegendClick('browser', label), COLORS)}
+              </div>
+            </div>
+            {/* 테이블은 아래에 */}
+            <div className="flex-1 w-full min-w-0 max-w-full overflow-x-auto mt-4">
+              <OsBrowserTable data={browserPieData} legendType="browser" activeLegends={browserActiveLegends} />
+            </div>
           </div>
+        </div>
+      </div>
+      {/* 재방문률 */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <PieChart className="w-5 h-5 text-gray-600" />
+          <h3 className="text-lg font-semibold text-gray-900">재방문률</h3>
+        </div>
+        <div className="flex items-center justify-center">
+          {returningRate ? (
+            <ReturningRateDonutChart percent={returningRate.returnRatePercent} />
+          ) : (
+            <div className="text-gray-400">로딩 중...</div>
+          )}
         </div>
       </div>
     </div>
