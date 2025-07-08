@@ -260,4 +260,4 @@ export const TrafficDashboard: React.FC = () => {
 
     </div>
   );
-}; 
+};

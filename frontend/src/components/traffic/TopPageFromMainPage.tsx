@@ -277,4 +277,4 @@ export const TopPageFromMainPage: React.FC<TopPageFromMainPageProps> = ({ data, 
       </div>
     </div>
   );
-}; 
+};

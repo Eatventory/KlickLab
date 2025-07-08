@@ -175,4 +175,4 @@ export const VisitorChart: React.FC<VisitorChartProps> = ({ data, period = 'dail
       </div>
     </div>
   );
-}; 
+};
