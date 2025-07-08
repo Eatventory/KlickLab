@@ -55,30 +55,42 @@ router.get('/visitors', async (req, res) => {
 
 router.get('/clicks', async (req, res) => {
 	try {
-		const yesterdayRes = await clickhouse.query({
-			query: `
-				SELECT clicks
-				FROM daily_metrics
-				WHERE date = toDate(toTimeZone(now() - INTERVAL 1 DAY, 'Asia/Seoul'));
-			`,
-			format: 'JSON'
-		});
-		const yesterdayClicks = (await yesterdayRes.json()).data[0]?.clicks ?? 0;
-
-		const clickRes = await clickhouse.query({
-			query: `
-				SELECT count() AS clicks
-				FROM events
-				WHERE date(timestamp) >= toDate(toTimeZone(now(), 'Asia/Seoul')) AND event_name = 'auto_click'
-			`,
-			format: 'JSON'
-		});
-		const todayClicks = +(await clickRes.json()).data[0]?.clicks || 0;
-    
-    res.status(200).json({
-      today: todayClicks,
-      yesterday: yesterdayClicks
+    const baseTime = `'${req.query.baseTime}'`;
+    const period = parseInt(req.query.period) || 60;
+    const step = parseInt(req.query.step) || 5;
+    const clickTrendRes = await clickhouse.query({
+      query: `
+        WITH 
+          parseDateTimeBestEffortOrNull(${baseTime}) AS base,
+          toRelativeMinuteNum(base) AS base_min,
+          ${step} AS step_minute,
+          ${period} AS period_minute
+        SELECT 
+          formatDateTime(
+            toDateTime(base_min * 60) 
+              + toIntervalMinute(
+                  intDiv(toRelativeMinuteNum(timestamp) - base_min, step_minute) * step_minute
+                ),
+            '%H:%i'
+          ) AS time,
+          count() AS count
+        FROM events
+        WHERE 
+          event_name = 'auto_click'
+          AND timestamp >= base - toIntervalMinute(period_minute)
+        GROUP BY time
+        ORDER BY time
+      `,
+      format: 'JSONEachRow'
     });
+
+    const rawTrend = await clickTrendRes.json();
+    const clickTrend = rawTrend.map(row => ({
+      time: row.time,
+      count: Number(row.count)
+    }));
+
+    res.status(200).json({ data: clickTrend });
   } catch (err) {
     console.error('Clicks API ERROR:', err);
     res.status(500).json({ error: 'Failed to get clicks data' });
