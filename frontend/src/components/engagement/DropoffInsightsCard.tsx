@@ -18,7 +18,7 @@ export const DropoffInsightsCard: React.FC = () => {
   useEffect(() => {
     const fetchDropoffData = async () => {
       try {
-        const response = await fetch('http://localhost:3000/api/stats/dropoff-summary');
+        const response = await fetch('/api/stats/dropoff-summary');
         const result: DropoffSummaryData = await response.json();
         setData(result.data || []);
       } catch (error) {

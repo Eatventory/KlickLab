@@ -33,7 +33,7 @@ export const ClickTrend: React.FC<ClickTrendProps> = ({ period = 60, step = 5 })
         const bins = points.map((d: Date) => format(d, 'HH:mm'));
         setTimeBins(bins);
         const iso = now.toISOString();
-        const response = await fetch(`http://localhost:3000/api/stats/click-trend?period=${period}&step=${step}&baseTime=${encodeURIComponent(iso)}`);
+        const response = await fetch(`/api/stats/click-trend?period=${period}&step=${step}&baseTime=${encodeURIComponent(iso)}`);
         const result: ClickTrendData = await response.json();
         setData(result.data || []);
       } catch (error) {
