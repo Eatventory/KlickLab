@@ -96,6 +96,37 @@ router.get('/top-clicks', async (req, res) => {
       clickhouse.query({ query: deviceQuery, format: 'JSON' }).then(r => r.json())
     ]);
 
+    // console.time('summaryQuery');
+    // const summaryResPromise = clickhouse.query({ query: summaryQuery, format: 'JSON' }).then(r => r.json()).then((res) => {
+    //   console.timeEnd('summaryQuery');
+    //   return res;
+    // });
+
+    // console.time('topElementsQuery');
+    // const topElementsResPromise = clickhouse.query({ query: topElementsQuery, format: 'JSON' }).then(r => r.json()).then((res) => {
+    //   console.timeEnd('topElementsQuery');
+    //   return res;
+    // });
+
+    // console.time('ageGroupQuery');
+    // const ageGroupResPromise = clickhouse.query({ query: ageGroupQuery, format: 'JSON' }).then(r => r.json()).then((res) => {
+    //   console.timeEnd('ageGroupQuery');
+    //   return res;
+    // });
+
+    // console.time('deviceQuery');
+    // const deviceResPromise = clickhouse.query({ query: deviceQuery, format: 'JSON' }).then(r => r.json()).then((res) => {
+    //   console.timeEnd('deviceQuery');
+    //   return res;
+    // });
+
+    // const [summaryRes, topElementsRes, ageGroupRes, deviceRes] = await Promise.all([
+    //   summaryResPromise,
+    //   topElementsResPromise,
+    //   ageGroupResPromise,
+    //   deviceResPromise,
+    // ]);
+
     // console.log("summaryRes: ", summaryRes.data);
     // console.log("topElementsRes: ", topElementsRes.data);
     // console.log("ageGroupRes: ", ageGroupRes.data);

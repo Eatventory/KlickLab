@@ -234,7 +234,12 @@ export const SegmentGroupCard = memo<SegmentGroupCardProps>(({
         </div>
         <div className="flex-1">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-gray-900 text-lg">{getDisplaySegmentValue(segmentType, mergedSegment.segmentValue)}</span>
+            <span
+              className="font-semibold text-gray-900 text-lg truncate max-w-[160px]"
+              title={getDisplaySegmentValue(segmentType, mergedSegment.segmentValue)}
+            >
+              {getDisplaySegmentValue(segmentType, mergedSegment.segmentValue)}
+            </span>
           </div>
           <div className="text-sm text-gray-600">
             {mergedSegment.totalUsers.toLocaleString()}명의 사용자
