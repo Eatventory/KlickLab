@@ -4,34 +4,55 @@ const clickhouse = require('../src/config/clickhouse');
 
 router.get('/visitors', async (req, res) => {
   try {
-		const yesterdayRes = await clickhouse.query({
-			query: `
-				SELECT visitors
-				FROM daily_metrics
-				WHERE date = yesterday();
-			`,
-			format: 'JSON'
-		});
-		const yesterdayVisitors = (await yesterdayRes.json()).data[0]?.visitors ?? 0;
+    // 최근 7일간 방문자 추이 쿼리
+    const trendRes = await clickhouse.query({
+      query: `
+        SELECT
+          formatDateTime(date, '%Y-%m-%d') AS date_str,
+          toUInt64(visitors) AS visitors
+        FROM klicklab.daily_metrics
+        WHERE date >= toDate(toTimeZone(now(), 'Asia/Seoul')) - 6 AND date < toDate(toTimeZone(now(), 'Asia/Seoul'))
+        UNION ALL
+        SELECT
+          formatDateTime(toDate(timestamp), '%Y-%m-%d') AS date_str,
+          toUInt64(countDistinct(client_id)) AS visitors
+        FROM events
+        WHERE toDate(timestamp) = toDate(toTimeZone(now(), 'Asia/Seoul'))
+        GROUP BY toDate(timestamp)
+        ORDER BY date_str ASC
+      `,
+      format: 'JSON'
+    });
+    const trendData = (await trendRes.json()).data || [];
+    const trend = trendData.map(row => ({
+      date: row.date,
+      visitors: Number(row.visitors)
+    }));
 
-		// 오늘 방문자 수
-		const visitorRes = await clickhouse.query({
-			query: `
-				SELECT countDistinct(client_id) AS visitors
-				FROM events
-				WHERE date(timestamp) = today()
-			`,
-			format: 'JSON'
-		});
-		const todayVisitors = +(await visitorRes.json()).data[0]?.visitors || 0;
-	
-		// const visitorsRate = yesterday.visitors
-		// 	? +(((visitors - yesterday.visitors) / yesterday.visitors) * 100).toFixed(1)
-		// 	: 0;
-    
+    const yesterdayRes = await clickhouse.query({
+      query: `
+        SELECT visitors
+        FROM daily_metrics
+        WHERE date = toDate(toTimeZone(now() - INTERVAL 1 DAY, 'Asia/Seoul'));
+      `,
+      format: 'JSON'
+    });
+    const yesterdayVisitors = (await yesterdayRes.json()).data[0]?.visitors ?? 0;
+
+    const visitorRes = await clickhouse.query({
+      query: `
+        SELECT countDistinct(client_id) AS visitors
+        FROM events
+        WHERE date(timestamp) = toDate(toTimeZone(now(), 'Asia/Seoul'))
+      `,
+      format: 'JSON'
+    });
+    const todayVisitors = +(await visitorRes.json()).data[0]?.visitors || 0;
+
     res.status(200).json({
       today: todayVisitors,
-      yesterday: yesterdayVisitors
+      yesterday: yesterdayVisitors,
+      trend
     });
   } catch (err) {
     console.error('Visitors API ERROR:', err);
@@ -45,18 +66,17 @@ router.get('/clicks', async (req, res) => {
 			query: `
 				SELECT clicks
 				FROM daily_metrics
-				WHERE date = yesterday();
+				WHERE date = toDate(toTimeZone(now() - INTERVAL 1 DAY, 'Asia/Seoul'));
 			`,
 			format: 'JSON'
 		});
 		const yesterdayClicks = (await yesterdayRes.json()).data[0]?.clicks ?? 0;
 
-		// 오늘 방문자 수
 		const clickRes = await clickhouse.query({
 			query: `
 				SELECT count() AS clicks
 				FROM events
-				WHERE date(timestamp) >= today() AND event_name = 'auto_click'
+				WHERE date(timestamp) >= toDate(toTimeZone(now(), 'Asia/Seoul')) AND event_name = 'auto_click'
 			`,
 			format: 'JSON'
 		});
@@ -78,7 +98,7 @@ router.get('/top-clicks', async (req, res) => {
 			query: `
 				SELECT target_text, count() AS cnt
 				FROM events
-				WHERE date(timestamp) >= today() AND event_name = 'auto_click' AND target_text != ''
+				WHERE date(timestamp) >= toDate(toTimeZone(now(), 'Asia/Seoul')) AND event_name = 'auto_click' AND target_text != ''
 				GROUP BY target_text
 				ORDER BY cnt DESC
 				LIMIT 5
@@ -147,8 +167,8 @@ router.get('/dropoff-summary', async (req, res) => {
       SELECT
         page_path as page,
         round(countIf(event_name = 'page_exit') / count() * 100, 1) AS dropRate
-      FROM klicklab.events
-      WHERE date(timestamp) >= today() AND page != ''
+      FROM events
+      WHERE date(timestamp) >= toDate(toTimeZone(now(), 'Asia/Seoul')) AND page != ''
       GROUP BY page
       ORDER BY dropRate DESC
       LIMIT 5
@@ -164,38 +184,116 @@ router.get('/dropoff-summary', async (req, res) => {
 
 router.get('/userpath-summary', async (req, res) => {
   try {
-    const query = `
+    const pathQuery = `
       SELECT 
-        path[1] AS from,
-        path[2] AS to,
+        tuple.1 AS from,
+        tuple.2 AS to,
         count(*) AS value
       FROM (
         SELECT 
           user_id,
-          groupArray(path_order)(page) AS path
+          groupArray(page_path) AS path
         FROM (
           SELECT 
             user_id,
-            page,
-            toUnixTimestamp(timestamp) AS ts,
-            row_number() OVER (PARTITION BY user_id ORDER BY timestamp) AS path_order
-          FROM klicklab.events
-          WHERE page IN ('메인페이지', '상품목록', '검색', '로그인', '상품상세', '장바구니', '결제', '마이페이지')
-            AND event_name = 'page_view'
+            page_path
+          FROM events
+          WHERE event_name IN ('page_view', 'auto_click')
+            AND date(timestamp) = toDate(toTimeZone(now(), 'Asia/Seoul'))
+          ORDER BY user_id, timestamp
         )
         GROUP BY user_id
       )
-      ARRAY JOIN arrayZip(arraySlice(path, 1, length(path)-1), arraySlice(path, 2)) AS (from, to)
+      ARRAY JOIN arrayZip(arraySlice(path, 1, length(path) - 1), arraySlice(path, 2)) AS tuple
       GROUP BY from, to
       ORDER BY value DESC
     `;
 
-    const result = await clickhouse.query({ query, format: "JSON" }).toPromise();
+    const resultSet = await clickhouse.query({
+      query: pathQuery,
+      format: "JSON"
+    });
 
-    res.status(200).json(result.data);
+    const result = await resultSet.json();
+    res.status(200).json({ data: result.data });
   } catch (err) {
     console.error('User Path Summary API ERROR:', err);
     res.status(500).json({ error: 'Failed to get userpath summary data' });
+  }
+});
+
+router.get('/average-session-duration', async (req, res) => {
+  try {
+    const query = `
+      SELECT 
+        toDate(timestamp) AS date,
+        avg(session_duration) AS avg_session_seconds
+      FROM (
+        SELECT 
+          session_id,
+          min(timestamp) AS session_start,
+          max(timestamp) AS session_end,
+          dateDiff('second', min(timestamp), max(timestamp)) AS session_duration
+        FROM events
+        GROUP BY session_id
+      )
+      GROUP BY date
+      ORDER BY date DESC
+      LIMIT 7
+    `;
+
+    const resultSet = await clickhouse.query({ query, format: 'JSONEachRow' });
+    const result = await resultSet.json();
+    res.status(200).json({ data: result });
+  } catch (err) {
+    console.error('Session Duration API ERROR:', err);
+    res.status(500).json({ error: 'Failed to get session duration data' });
+  }
+});
+
+router.get('/conversion-rate', async (req, res) => {
+  const fromPage = req.query.from || '/';
+  const toPage = req.query.to || '/';
+
+  const query = `
+    WITH
+      a_sessions AS (
+        SELECT session_id, min(timestamp) AS a_time
+        FROM events
+        WHERE page_path = '${fromPage}'
+        GROUP BY session_id
+      ),
+      ab_sessions AS (
+        SELECT a.session_id
+        FROM a_sessions a
+        JOIN (
+          SELECT session_id, min(timestamp) AS b_time
+          FROM events
+          WHERE page_path = '${toPage}'
+          GROUP BY session_id
+        ) b ON a.session_id = b.session_id AND a.a_time < b.b_time
+      )
+
+    SELECT 
+      (SELECT count(*) FROM ab_sessions) AS converted,
+      (SELECT count(*) FROM a_sessions) AS total,
+      round((converted / total) * 100, 1) AS conversion_rate
+  `;
+
+  try {
+    const resultSet = await clickhouse.query({ query, format: 'JSONEachRow' });
+    const [data] = await resultSet.json();
+    const response = {
+      from: fromPage,
+      to: toPage,
+      converted: data.converted,
+      total: data.total,
+      conversionRate: data.conversion_rate,
+    };
+    res.status(200).json({ data: response });
+  } catch (err) {
+    console.error('Conversion Rate API ERROR:', err);
+    res.status(500).json({ error: 'Failed to get conversion rate data' });
   }
 });
 
