@@ -5,7 +5,7 @@ const { buildFilterCondition } = require('../utils/filter');
 
 router.get('/top-clicks', async (req, res) => {
   try {
-    let segment = req.query.filter;
+    const segment = req.query.filter;
     const validSegments = ['user_gender', 'user_age', 'traffic_source', 'device_type'];
 
     // if (segment === 'gender') segment = 'user_gender';
@@ -13,14 +13,35 @@ router.get('/top-clicks', async (req, res) => {
       return res.status(400).json({ error: 'Invalid user segment' });
     }
 
+    let segmentCase = segment;
+    if (segment === 'user_gender') {
+      segmentCase = `CASE
+        WHEN user_gender = 'male' THEN 'male'
+        WHEN user_gender = 'female' THEN 'female'
+        ELSE 'unknown'
+      END`;
+    }
+    else if (segment === 'user_age') {
+      segmentCase = `CASE
+        WHEN user_age BETWEEN 10 AND 19 THEN '10s'
+        WHEN user_age BETWEEN 20 AND 29 THEN '20s'
+        WHEN user_age BETWEEN 30 AND 39 THEN '30s'
+        WHEN user_age BETWEEN 40 AND 49 THEN '40s'
+        WHEN user_age BETWEEN 50 AND 59 THEN '50s'
+        WHEN user_age >= 60 THEN '60s+'
+        ELSE 'unknown'
+      END`;
+    }
+
     // 1. 세그먼트별 총 클릭 수, 유저 수, 평균 클릭 수
-    const baseFilter = `event_name = 'auto_click' AND toDate(timestamp) >= today() - 6 AND ${segment} IS NOT NULL`;
+    // const baseFilter = `event_name = 'auto_click' AND toDate(timestamp) >= today() - 6 AND ${segment} IS NOT NULL`;
+    const baseFilter = `event_name = 'auto_click' AND toDate(toTimeZone(timestamp, 'Asia/Seoul')) >= toDate(toTimeZone(now(), 'Asia/Seoul')) - 6`;
     const summaryQuery = `
       SELECT 
-        ${segment} AS segment,
+        ${segmentCase} AS segment,
         count(*) AS totalClicks,
-        count(DISTINCT user_id) AS totalUsers,
-        round(count() / countDistinct(user_id), 1) AS avgClicksPerUser
+        count(DISTINCT client_id) AS totalUsers,
+        round(count() / count(DISTINCT client_id), 1) AS avgClicksPerUser
       FROM events
       WHERE ${baseFilter}
       GROUP BY segment
@@ -28,30 +49,36 @@ router.get('/top-clicks', async (req, res) => {
 
     // 2. 세그먼트별 Top 요소 (상위 3개)
     const topElementsQuery = `
-      SELECT 
-        ${segment} AS segment,
-        element_path AS element,
-        count(*) AS totalClicks,
-        count(DISTINCT user_id) AS userCount
-      FROM events
-      WHERE ${baseFilter} AND element_path != ''
-      GROUP BY segment, element
+      SELECT *
+      FROM (
+        SELECT 
+          ${segmentCase} AS segment,
+          target_text AS element,
+          count(*) AS totalClicks,
+          count(DISTINCT client_id) AS userCount,
+          row_number() OVER (PARTITION BY ${segmentCase} ORDER BY count(*) DESC) AS rn
+        FROM events
+        WHERE ${baseFilter} AND target_text != ''
+        GROUP BY segment, element
+      )
+      WHERE rn <= 3
       ORDER BY segment, totalClicks DESC
     `;
 
     // 3. 연령 분포
     const ageGroupQuery = `
       SELECT 
-        ${segment} AS segment,
+        ${segmentCase} AS segment,
         CASE
           WHEN user_age BETWEEN 10 AND 19 THEN '10s'
           WHEN user_age BETWEEN 20 AND 29 THEN '20s'
           WHEN user_age BETWEEN 30 AND 39 THEN '30s'
           WHEN user_age BETWEEN 40 AND 49 THEN '40s'
           WHEN user_age BETWEEN 50 AND 59 THEN '50s'
-          ELSE '60s+'
+          WHEN user_age >= 60 THEN '60s+'
+          ELSE 'unknown'
         END AS ageGroup,
-        count(DISTINCT user_id) AS count
+        count(DISTINCT client_id) AS count
       FROM events
       WHERE ${baseFilter} AND user_age IS NOT NULL
       GROUP BY segment, ageGroup
@@ -60,9 +87,9 @@ router.get('/top-clicks', async (req, res) => {
     // 4. 디바이스 분포
     const deviceQuery = `
       SELECT 
-        ${segment} AS segment,
+        ${segmentCase} AS segment,
         device_type,
-        count(DISTINCT user_id) AS count
+        count(DISTINCT client_id) AS count
       FROM events
       WHERE ${baseFilter} AND device_type != ''
       GROUP BY segment, device_type
@@ -75,6 +102,10 @@ router.get('/top-clicks', async (req, res) => {
       clickhouse.query({ query: ageGroupQuery, format: 'JSON' }).then(r => r.json()),
       clickhouse.query({ query: deviceQuery, format: 'JSON' }).then(r => r.json())
     ]);
+    console.log("summaryRes: ", summaryRes.data);
+    console.log("topElementsRes: ", topElementsRes.data);
+    console.log("ageGroupRes: ", ageGroupRes.data);
+    console.log("deviceRes: ", deviceRes.data);
 
     const result = [];
     const topElementsBySegment = {};
@@ -127,7 +158,7 @@ router.get('/top-clicks', async (req, res) => {
         }
       });
     }
-    console.log(result);
+    // console.log(result);
     res.status(200).json({ data: result });
   } catch (err) {
     console.error('Top Clicks API ERROR:', err);
