@@ -26,7 +26,7 @@ const segmentOptions = [
     type: 'signupPath' as SegmentType,
     label: '유입 경로',
     icon: Share2,
-    description: '가입 경로별 클릭 패턴'
+    description: '유입 경로별 클릭 패턴'
   },
   {
     type: 'device' as SegmentType,
