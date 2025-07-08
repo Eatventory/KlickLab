@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { VisitorChart } from './VisitorChart';
 import { TopPageFromMainPage } from './TopPageFromMainPage';
 import { TrendingUp, Globe, Clock } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line } from 'recharts';
 
 // 타입 정의
 interface FilterOptions {
@@ -53,6 +53,28 @@ const mockDashboardData = {
     { entry: 'main', visitors: 10 },
   ]
 };
+
+// 시간대별 유입 분포 데이터 보정 (KST 변환)
+function fillHourlyTrafficKST(raw: { hour: string, visitors: number }[]) {
+  // UTC hour(문자열) → KST hour(문자열)
+  const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
+  const map = new Map(raw.map(item => [item.hour, item.visitors]));
+  return hours.map(hour => {
+    // UTC → KST 변환 (UTC+9)
+    const kstHour = (parseInt(hour, 10) + 9) % 24;
+    return {
+      hour: kstHour.toString().padStart(2, '0'),
+      visitors: map.get(hour) || 0
+    };
+  }).sort((a, b) => parseInt(a.hour) - parseInt(b.hour));
+}
+
+// y축 숫자 단위 한글 변환 함수
+function formatKoreanNumber(value: number) {
+  if (value >= 100000000) return `${Math.round(value / 10000000) / 10}억`;
+  if (value >= 10000) return `${Math.round(value / 1000) / 10}만`;
+  return value.toLocaleString();
+}
 
 export const TrafficDashboard: React.FC = () => {
   const [filters, setFilters] = useState<FilterOptions>({
@@ -205,7 +227,7 @@ export const TrafficDashboard: React.FC = () => {
     ? trafficData.entryPageDistribution
     : mockDashboardData.entryPageDistribution;
   const hourlyTrafficData = trafficData.hourlyTraffic && trafficData.hourlyTraffic.length > 0
-    ? trafficData.hourlyTraffic
+    ? fillHourlyTrafficKST(trafficData.hourlyTraffic)
     : mockDashboardData.hourlyTraffic;
 
   return (
@@ -259,7 +281,7 @@ export const TrafficDashboard: React.FC = () => {
           <TrendingUp className="w-5 h-5 text-gray-600" />
           <h2 className="text-lg font-semibold text-gray-900">방문자 수 트렌드</h2>
         </div>
-        <VisitorChart data={visitorTrendData} />
+        <VisitorChart data={visitorTrendData} period={filters.period} />
       </div>
 
       {/* 메인 페이지에서 이동하는 페이지 Top */}
@@ -293,7 +315,7 @@ export const TrafficDashboard: React.FC = () => {
                   <Cell key={`cell-${idx}`} fill={["#3b82f6", "#10b981", "#f59e42", "#ef4444", "#8b5cf6", "#6366f1", "#fbbf24", "#f472b6", "#34d399", "#a3e635"][idx % 10]} />
                 ))}
               </Pie>
-              <Tooltip formatter={(value: number) => `${value.toLocaleString()}명`} />
+              <Tooltip formatter={(value: number) => `${formatKoreanNumber(value as number)}명`} />
               <Legend />
             </PieChart>
           </ResponsiveContainer>
@@ -308,13 +330,22 @@ export const TrafficDashboard: React.FC = () => {
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={hourlyTrafficData} margin={{ top: 10, right: 30, left: 0, bottom: 5 }}>
               <XAxis dataKey="hour" tickFormatter={h => `${h}시`} />
-              <YAxis tickFormatter={v => `${v}명`} />
-              <Tooltip formatter={(value: number) => `${value.toLocaleString()}명`} />
+              <YAxis tickFormatter={formatKoreanNumber} />
+              <Tooltip formatter={(value: number) => `${formatKoreanNumber(value as number)}명`} />
               <Bar dataKey="visitors" fill="#3b82f6" name="방문자 수" />
             </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
+
+      {/* 메인 페이지에서 이동하는 페이지 Top */}
+      <TopPageFromMainPage 
+        data={trafficData.mainPageNavigation}
+        period={filters.period}
+        gender={filters.gender}
+        ageGroup={filters.ageGroup}
+      />
+
     </div>
   );
 }; 
