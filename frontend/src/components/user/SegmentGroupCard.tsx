@@ -147,21 +147,25 @@ function getDisplaySegmentValue(segmentType: string, segmentValue: string) {
 // 연령대별 그룹 합산 함수
 function mergeAgeSegmentsIfNeeded(segmentType: string, segment: SegmentGroupData, allSegments: SegmentGroupData[]) {
   if (segmentType !== 'age') return segment;
-  // 변환된 연령대 그룹
+
   const group = getDisplaySegmentValue('age', segment.segmentValue);
-  // 이미 변환된 그룹이면 합산
-  const merged = allSegments.reduce((acc, cur) => {
+  let totalUsers = 0;
+  let totalClicks = 0;
+
+  for (const cur of allSegments) {
     if (getDisplaySegmentValue('age', cur.segmentValue) === group) {
-      acc.totalUsers += cur.totalUsers;
-      acc.totalClicks += cur.totalClicks;
-      acc.averageClicksPerUser += cur.averageClicksPerUser; // 평균은 단순 합산이 아니라 가중평균이 맞지만, 간단히 합산
-      // topElements, userDistribution 등은 첫 번째 것만 사용(혹은 합산 필요시 추가 구현)
+      totalUsers += Number(cur.totalUsers) || 0;
+      totalClicks += Number(cur.totalClicks) || 0;
     }
-    return acc;
-  }, { ...segment });
-  // 평균 클릭수는 합산된 유저수로 다시 계산
-  merged.averageClicksPerUser = merged.totalUsers > 0 ? merged.totalClicks / merged.totalUsers : 0;
-  return merged;
+  }
+
+  return {
+    ...segment,
+    segmentValue: group,
+    totalUsers,
+    totalClicks,
+    averageClicksPerUser: totalUsers > 0 ? totalClicks / totalUsers : 0
+  };
 }
 
 function getLabelText(segmentType: string, label: string | null): string {
