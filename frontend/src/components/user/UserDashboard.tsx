@@ -6,6 +6,7 @@ import { OsBrowserPieChart } from './OsBrowserPieChart';
 import { OsBrowserTable } from './OsBrowserTable';
 import { OsFilterDropdown } from './OsFilterDropdown';
 import { SegmentGroupCard } from './SegmentGroupCard';
+import { SegmentGroupCardSkeleton } from './SegmentGroupCardSkeleton';
 import { TopButtonList, type SegmentType } from './TopButtonList';
 
 // 타입 정의
@@ -94,6 +95,7 @@ export const UserDashboard: React.FC = () => {
     device: 'all'
   });
 
+  const [loading, setLoading] = useState<boolean>(false);
   const [distType, setDistType] = useState<'os' | 'browser'>('os');
   
   // 세그먼트별 TOP 3 상태
@@ -120,29 +122,34 @@ export const UserDashboard: React.FC = () => {
       signupPath: 'traffic_source',
       device: 'device_type',
     };
-    fetch(`/api/users/top-clicks?filter=${segmentToApiFilter[activeSegment]}`)
+    setLoading(true);
+    const topClicks = fetch(`/api/users/top-clicks?filter=${segmentToApiFilter[activeSegment]}`)
       .then(res => res.json())
       .then(data => setSegmentGroupData(data.data || []));
-    // 신규/기존 유저
-    fetch('/api/users/user-type-summary')
+
+    const userType = fetch('/api/users/user-type-summary')
       .then(res => res.json())
       .then(data => setUserTypeSummary(data.data || []));
-    // OS 분포
-    fetch('/api/users/os-type-summary')
+
+    const osSummary = fetch('/api/users/os-type-summary')
       .then(res => res.json())
       .then(data => setOsSummary(data.data || []));
-    // 브라우저 분포
-    fetch('/api/users/browser-type-summary')
+
+    const browserSummary = fetch('/api/users/browser-type-summary')
       .then(res => res.json())
       .then(data => setBrowserSummary(data.data || []));
-    // Sankey(유저 경로)
-    fetch('/api/stats/userpath-summary')
+
+    const userPath = fetch('/api/stats/userpath-summary')
       .then(res => res.json())
       .then(data => setUserPathData(data.data || []));
-    // 재방문률
-    fetch('/api/users/returning')
+
+    const returning = fetch('/api/users/returning')
       .then(res => res.json())
       .then(data => setReturningRate(data.data || null));
+    
+    Promise.all([topClicks, userType, osSummary, browserSummary, userPath, returning])
+      .catch(err => { console.error('일부 데이터 요청 실패:', err); })
+      .finally(() => { setLoading(false); });
   }, [activeSegment]);
 
   // OS/브라우저 필터링
@@ -198,9 +205,12 @@ export const UserDashboard: React.FC = () => {
   return (
     <div className="space-y-8">
       {/* 세그먼트별 TOP 3 필터 */}
-      <TopButtonList 
-        activeSegment={activeSegment} 
-        onSegmentChange={setActiveSegment} 
+      <TopButtonList
+        activeSegment={activeSegment}
+        onSegmentChange={(newSegment) => {
+          setLoading(true);
+          setActiveSegment(newSegment);
+        }}
       />
 
       {/* 세그먼트별 TOP 3 사용자 카드 */}
@@ -215,17 +225,22 @@ export const UserDashboard: React.FC = () => {
           </h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {segmentGroupData
-            .slice()
-            .sort((a, b) => b.totalClicks - a.totalClicks)
-            .map((segment, index) => (
-              <SegmentGroupCard 
-                key={segment.segmentValue} 
-                segment={segment} 
-                rank={index + 1} 
-                segmentType={activeSegment}
-              />
-            ))}
+          {loading
+            ? [...Array(3)].map((_, idx) => (
+                <SegmentGroupCardSkeleton key={`skeleton-${idx}`} />
+              ))
+            : segmentGroupData
+                .slice()
+                .sort((a, b) => b.totalClicks - a.totalClicks)
+                .map((segment, index) => (
+                  <SegmentGroupCard 
+                    key={segment.segmentValue} 
+                    segment={segment} 
+                    rank={index + 1} 
+                    segmentType={activeSegment}
+                  />
+                ))
+          }
         </div>
       </div>
 
