@@ -284,14 +284,6 @@ export const TrafficDashboard: React.FC = () => {
         <VisitorChart data={visitorTrendData} period={filters.period} />
       </div>
 
-      {/* 메인 페이지에서 이동하는 페이지 Top */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 max-w-2xl mx-auto">
-        <TopPageFromMainPage 
-          data={trafficData?.mainPageNavigation} 
-          filters={trafficData?.filters}
-        />
-      </div>
-
       {/* 향후 구현 예정 컴포넌트들 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* 유입 채널 분포 */}

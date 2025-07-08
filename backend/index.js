@@ -1,27 +1,3 @@
-// =========================
-// KlickLab API 목록 및 설명
-// =========================
-//
-// 1. 트래픽 대시보드 통합 API
-//    GET /api/dashboard/traffic
-//    - 방문자 추이(시간/일/주/월), 메인페이지 클릭 랭킹 등 대시보드용 데이터 제공
-//    - 쿼리 파라미터: period, gender, ageGroup
-//    - 예시: /api/dashboard/traffic?period=hourly&gender=all&ageGroup=all
-//
-// 2. 버튼 클릭 통계 API (데모)
-//    GET /api/button-clicks
-//    - 버튼별 클릭 수, 클릭 이벤트 목록 제공
-//    - 쿼리 파라미터: platform (선택)
-//    - 예시: /api/button-clicks?platform=mobile
-//
-// 3. 이벤트 수집 API
-//    POST /api/analytics/collect
-//    - 클라이언트에서 사용자 행동 데이터 수집용
-//    - body: { event_name, timestamp, ... }
-//
-// (필요시 추가 분석 API: /api/dashboard/channel, /api/dashboard/timezone 등)
-//
-// =========================
 const express = require('express');
 const cors = require('cors');
 const app = express();
@@ -170,7 +146,6 @@ app.listen(PORT, () => {
 
 app.listen(metricsPort, () => {
   console.log(`Metrics server listening on port ${metricsPort}`);
-  console.log(`KlickLab 서버 실행 중: http://localhost:${PORT}`);
 });
 
 app.get('/', (req, res) => {
