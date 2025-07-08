@@ -8,6 +8,7 @@ import { OsFilterDropdown } from './OsFilterDropdown';
 import { SegmentGroupCard } from './SegmentGroupCard';
 import { SegmentGroupCardSkeleton } from './SegmentGroupCardSkeleton';
 import { TopButtonList, type SegmentType } from './TopButtonList';
+import { getPageLabel } from '../../utils/getPageLabel';
 
 // 타입 정의
 interface FilterOptions {
@@ -141,7 +142,16 @@ export const UserDashboard: React.FC = () => {
 
     const userPath = fetch('/api/stats/userpath-summary')
       .then(res => res.json())
-      .then(data => setUserPathData(data.data || []));
+      .then(data => {
+        const mapped = (data.data || [])
+          .filter(p => p.from !== p.to) // 순환 제거
+          .map(p => ({
+            from: getPageLabel(p.from),
+            to: getPageLabel(p.to),
+            value: Number(p.value)
+          }));
+        setUserPathData(mapped);
+      });
 
     const returning = fetch(`/api/users/returning?period=${filters.period}&userType=${filters.userType}&device=${filters.device}`)
       .then(res => res.json())

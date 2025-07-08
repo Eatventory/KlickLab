@@ -23,7 +23,7 @@ export const ConversionSummaryCard: React.FC = () => {
         setLoading(true);
         setError(null);
         
-        const response = await fetch('/api/overview/conversion-summary');
+        const response = await fetch(`/api/overview/conversion-summary`);
         
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
