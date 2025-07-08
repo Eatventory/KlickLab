@@ -2,6 +2,9 @@ const express = require("express");
 const router = express.Router();
 const clickhouse = require('../src/config/clickhouse');
 
+// ✅ UNION ALL 제거: 오늘과 이전 데이터 분리 조회
+// ✅ ORDER BY 제거
+// ✅ toDate()로 파티션 활용
 router.get('/visitors', async (req, res) => {
   try {
     // 최근 7일간 방문자 추이 쿼리
@@ -11,21 +14,14 @@ router.get('/visitors', async (req, res) => {
           formatDateTime(date, '%Y-%m-%d') AS date_str,
           toUInt64(visitors) AS visitors
         FROM klicklab.daily_metrics
-        WHERE date >= toDate(toTimeZone(now(), 'Asia/Seoul')) - 6 AND date < toDate(toTimeZone(now(), 'Asia/Seoul'))
-        UNION ALL
-        SELECT
-          formatDateTime(toDate(timestamp), '%Y-%m-%d') AS date_str,
-          toUInt64(countDistinct(client_id)) AS visitors
-        FROM events
-        WHERE toDate(timestamp) = toDate(toTimeZone(now(), 'Asia/Seoul'))
-        GROUP BY toDate(timestamp)
-        ORDER BY date_str ASC
+        WHERE date >= toDate(toTimeZone(now(), 'Asia/Seoul')) - 6
+          AND date < toDate(toTimeZone(now(), 'Asia/Seoul'))
       `,
       format: 'JSON'
     });
     const trendData = (await trendRes.json()).data || [];
     const trend = trendData.map(row => ({
-      date: row.date,
+      date: row.date_str,
       visitors: Number(row.visitors)
     }));
 
@@ -43,7 +39,7 @@ router.get('/visitors', async (req, res) => {
       query: `
         SELECT countDistinct(client_id) AS visitors
         FROM events
-        WHERE date(timestamp) = toDate(toTimeZone(now(), 'Asia/Seoul'))
+        WHERE toDate(timestamp) = toDate(toTimeZone(now(), 'Asia/Seoul'))
       `,
       format: 'JSON'
     });
@@ -60,28 +56,31 @@ router.get('/visitors', async (req, res) => {
   }
 });
 
+// ✅ event_name = 'auto_click' + toDate(timestamp) 사용
+// ✅ 어제 데이터는 daily_metrics 테이블로 빠르게 조회
 router.get('/clicks', async (req, res) => {
 	try {
-		const yesterdayRes = await clickhouse.query({
-			query: `
-				SELECT clicks
-				FROM daily_metrics
-				WHERE date = toDate(toTimeZone(now() - INTERVAL 1 DAY, 'Asia/Seoul'));
-			`,
-			format: 'JSON'
-		});
-		const yesterdayClicks = (await yesterdayRes.json()).data[0]?.clicks ?? 0;
+    const yesterdayRes = await clickhouse.query({
+      query: `
+        SELECT clicks
+        FROM daily_metrics
+        WHERE date = toDate(toTimeZone(now() - INTERVAL 1 DAY, 'Asia/Seoul'));
+      `,
+      format: 'JSON'
+    });
+    const yesterdayClicks = (await yesterdayRes.json()).data[0]?.clicks ?? 0;
 
-		const clickRes = await clickhouse.query({
-			query: `
-				SELECT count() AS clicks
-				FROM events
-				WHERE date(timestamp) >= toDate(toTimeZone(now(), 'Asia/Seoul')) AND event_name = 'auto_click'
-			`,
-			format: 'JSON'
-		});
-		const todayClicks = +(await clickRes.json()).data[0]?.clicks || 0;
-    
+    const clickRes = await clickhouse.query({
+      query: `
+        SELECT count() AS clicks
+        FROM events
+        WHERE toDate(timestamp) = toDate(toTimeZone(now(), 'Asia/Seoul'))
+          AND event_name = 'auto_click'
+      `,
+      format: 'JSON'
+    });
+    const todayClicks = +(await clickRes.json()).data[0]?.clicks || 0;
+
     res.status(200).json({
       today: todayClicks,
       yesterday: yesterdayClicks
@@ -92,30 +91,36 @@ router.get('/clicks', async (req, res) => {
   }
 });
 
+// ✅ event_name = 'auto_click' AND target_text != ''로 필터링
+// ✅ GROUP BY target_text, LIMIT 5만 수행 → 비교적 가벼움
+// ✅ toDate(timestamp) 사용으로 파티션 최적화
 router.get('/top-clicks', async (req, res) => {
   try {
-		const topClicksRes = await clickhouse.query({
-			query: `
-				SELECT target_text, count() AS cnt
-				FROM events
-				WHERE date(timestamp) >= toDate(toTimeZone(now(), 'Asia/Seoul')) AND event_name = 'auto_click' AND target_text != ''
-				GROUP BY target_text
-				ORDER BY cnt DESC
-				LIMIT 5
-			`,
-			format: 'JSONEachRow'
-		});
-		const topClicks = (await topClicksRes.json()).map(row => ({
-			label: row.target_text,
-			count: Number(row.cnt)
-		}));
-		res.status(200).json({ items: topClicks });
+    const topClicksRes = await clickhouse.query({
+      query: `
+        SELECT target_text, count() AS cnt
+        FROM events
+        WHERE toDate(timestamp) = toDate(toTimeZone(now(), 'Asia/Seoul'))
+          AND event_name = 'auto_click' AND target_text != ''
+        GROUP BY target_text
+        ORDER BY cnt DESC
+        LIMIT 5
+      `,
+      format: 'JSONEachRow'
+    });
+    const topClicks = (await topClicksRes.json()).map(row => ({
+      label: row.target_text,
+      count: Number(row.cnt)
+    }));
+    res.status(200).json({ items: topClicks });
   } catch (err) {
     console.error('Top Clicks API ERROR:', err);
     res.status(500).json({ error: 'Failed to get top clicks data' });
   }
 });
 
+// ✅ timestamp 스캔을 base - interval 범위로 제한
+// ✅ 시간 블록 계산을 상대값 기반으로 처리 → 정렬 성능 개선
 router.get('/click-trend', async (req, res) => {
   try {
     const baseTime = `'${req.query.baseTime}'`;
@@ -125,25 +130,25 @@ router.get('/click-trend', async (req, res) => {
     const clickTrendRes = await clickhouse.query({
       query: `
         WITH 
-					parseDateTimeBestEffortOrNull(${baseTime}) AS base,
-					toRelativeMinuteNum(base) AS base_min,
-					${step} AS step_minute,
-					${period} AS period_minute
-				SELECT 
-					formatDateTime(
-						toDateTime(base_min * 60) 
-							+ toIntervalMinute(
-									intDiv(toRelativeMinuteNum(timestamp) - base_min, step_minute) * step_minute
-								),
-						'%H:%i'
-					) AS time,
-					count() AS count
-				FROM events
-				WHERE 
-					event_name = 'auto_click'
-					AND timestamp >= base - toIntervalMinute(period_minute)
-				GROUP BY time
-				ORDER BY time
+          parseDateTimeBestEffortOrNull(${baseTime}) AS base,
+          toRelativeMinuteNum(base) AS base_min,
+          ${step} AS step_minute,
+          ${period} AS period_minute
+        SELECT 
+          formatDateTime(
+            toDateTime(base_min * 60) 
+              + toIntervalMinute(
+                  intDiv(toRelativeMinuteNum(timestamp) - base_min, step_minute) * step_minute
+                ),
+            '%H:%i'
+          ) AS time,
+          count() AS count
+        FROM events
+        WHERE 
+          event_name = 'auto_click'
+          AND timestamp >= base - toIntervalMinute(period_minute)
+        GROUP BY time
+        ORDER BY time
       `,
       format: 'JSONEachRow'
     });
@@ -161,15 +166,24 @@ router.get('/click-trend', async (req, res) => {
   }
 });
 
+// ✅ countIf() + count() 중복 제거 → WITH로 합쳐서 처리
+// ✅ toDate(timestamp) 사용, page != ''로 사전 필터링
 router.get('/dropoff-summary', async (req, res) => {
   try {
     const query = `
-      SELECT
-        page_path as page,
-        round(countIf(event_name = 'page_exit') / count() * 100, 1) AS dropRate
-      FROM events
-      WHERE date(timestamp) >= toDate(toTimeZone(now(), 'Asia/Seoul')) AND page != ''
-      GROUP BY page
+      WITH t AS (
+        SELECT
+          page_path,
+          countIf(event_name = 'page_exit') AS exit_count,
+          count(*) AS total_count
+        FROM events
+        WHERE toDate(timestamp) = toDate(toTimeZone(now(), 'Asia/Seoul')) AND page_path != ''
+        GROUP BY page_path
+      )
+      SELECT 
+        page_path AS page,
+        round(exit_count / total_count * 100, 1) AS dropRate
+      FROM t
       ORDER BY dropRate DESC
       LIMIT 5
     `;
@@ -182,6 +196,8 @@ router.get('/dropoff-summary', async (req, res) => {
   }
 });
 
+// ✅ groupArray + ARRAY JOIN 조합에 LIMIT 1000으로 유저 수 제한
+// ✅ ORDER BY user_id, timestamp로 정렬은 유지하되 스캔 범위 최소화
 router.get('/userpath-summary', async (req, res) => {
   try {
     const pathQuery = `
@@ -199,101 +215,23 @@ router.get('/userpath-summary', async (req, res) => {
             page_path
           FROM events
           WHERE event_name IN ('page_view', 'auto_click')
-            AND date(timestamp) = toDate(toTimeZone(now(), 'Asia/Seoul'))
+            AND toDate(timestamp) = toDate(toTimeZone(now(), 'Asia/Seoul'))
           ORDER BY user_id, timestamp
         )
         GROUP BY user_id
+        LIMIT 1000
       )
       ARRAY JOIN arrayZip(arraySlice(path, 1, length(path) - 1), arraySlice(path, 2)) AS tuple
       GROUP BY from, to
       ORDER BY value DESC
     `;
 
-    const resultSet = await clickhouse.query({
-      query: pathQuery,
-      format: "JSON"
-    });
-
+    const resultSet = await clickhouse.query({ query: pathQuery, format: "JSON" });
     const result = await resultSet.json();
     res.status(200).json({ data: result.data });
   } catch (err) {
     console.error('User Path Summary API ERROR:', err);
     res.status(500).json({ error: 'Failed to get userpath summary data' });
-  }
-});
-
-router.get('/average-session-duration', async (req, res) => {
-  try {
-    const query = `
-      SELECT 
-        toDate(timestamp) AS date,
-        avg(session_duration) AS avg_session_seconds
-      FROM (
-        SELECT 
-          session_id,
-          min(timestamp) AS session_start,
-          max(timestamp) AS session_end,
-          dateDiff('second', min(timestamp), max(timestamp)) AS session_duration
-        FROM events
-        GROUP BY session_id
-      )
-      GROUP BY date
-      ORDER BY date DESC
-      LIMIT 7
-    `;
-
-    const resultSet = await clickhouse.query({ query, format: 'JSONEachRow' });
-    const result = await resultSet.json();
-    res.status(200).json({ data: result });
-  } catch (err) {
-    console.error('Session Duration API ERROR:', err);
-    res.status(500).json({ error: 'Failed to get session duration data' });
-  }
-});
-
-router.get('/conversion-rate', async (req, res) => {
-  const fromPage = req.query.from || '/';
-  const toPage = req.query.to || '/';
-
-  const query = `
-    WITH
-      a_sessions AS (
-        SELECT session_id, min(timestamp) AS a_time
-        FROM events
-        WHERE page_path = '${fromPage}'
-        GROUP BY session_id
-      ),
-      ab_sessions AS (
-        SELECT a.session_id
-        FROM a_sessions a
-        JOIN (
-          SELECT session_id, min(timestamp) AS b_time
-          FROM events
-          WHERE page_path = '${toPage}'
-          GROUP BY session_id
-        ) b ON a.session_id = b.session_id AND a.a_time < b.b_time
-      )
-
-    SELECT 
-      (SELECT count(*) FROM ab_sessions) AS converted,
-      (SELECT count(*) FROM a_sessions) AS total,
-      round((converted / total) * 100, 1) AS conversion_rate
-  `;
-
-  try {
-    const resultSet = await clickhouse.query({ query, format: 'JSONEachRow' });
-    const [data] = await resultSet.json();
-    const response = {
-      from: fromPage,
-      to: toPage,
-      converted: data.converted,
-      total: data.total,
-      conversionRate: data.conversion_rate,
-    };
-    res.status(200).json({ data: response });
-  } catch (err) {
-    console.error('Conversion Rate API ERROR:', err);
-    res.status(500).json({ error: 'Failed to get conversion rate data' });
   }
 });
 

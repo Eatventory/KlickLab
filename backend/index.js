@@ -17,6 +17,10 @@ app.use(cors());
 const statsRoutes = require('./routes/stats');
 app.use('/api/stats', statsRoutes);
 
+/* overview 라우팅 */
+const overviewRoutes = require('./routes/overview');
+app.use('/api/overview', overviewRoutes);
+
 /* users 라우팅 */
 const usersRoutes = require('./routes/users');
 app.use('/api/users', usersRoutes);

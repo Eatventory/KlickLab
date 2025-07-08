@@ -19,6 +19,7 @@ router.get("/top-clicks", async (req, res) => {
     }
 
     // 1. 세그먼트별 총 클릭 수, 유저 수, 평균 클릭 수
+    const baseFilter = `event_name = 'auto_click' AND toDate(timestamp) >= today() - 6 AND ${segment} IS NOT NULL`;
     const summaryQuery = `
       SELECT 
         ${segment} AS segment,
@@ -26,9 +27,7 @@ router.get("/top-clicks", async (req, res) => {
         count(DISTINCT user_id) AS totalUsers,
         round(count() / countDistinct(user_id), 1) AS avgClicksPerUser
       FROM events
-      WHERE event_name = 'auto_click'
-        AND timestamp >= now() - interval 7 day
-        AND ${segment} IS NOT NULL
+      WHERE ${baseFilter}
       GROUP BY segment
     `;
 
@@ -40,10 +39,7 @@ router.get("/top-clicks", async (req, res) => {
         count(*) AS totalClicks,
         count(DISTINCT user_id) AS userCount
       FROM events
-      WHERE event_name = 'auto_click'
-        AND timestamp >= now() - interval 7 day
-        AND ${segment} IS NOT NULL
-        AND element_path != ''
+      WHERE ${baseFilter} AND element_path != ''
       GROUP BY segment, element
       ORDER BY segment, totalClicks DESC
     `;
@@ -62,10 +58,7 @@ router.get("/top-clicks", async (req, res) => {
         END AS ageGroup,
         count(DISTINCT user_id) AS count
       FROM events
-      WHERE event_name = 'auto_click'
-        AND timestamp >= now() - interval 7 day
-        AND ${segment} IS NOT NULL
-        AND user_age IS NOT NULL
+      WHERE ${baseFilter} AND user_age IS NOT NULL
       GROUP BY segment, ageGroup
     `;
 
@@ -76,10 +69,7 @@ router.get("/top-clicks", async (req, res) => {
         device_type,
         count(DISTINCT user_id) AS count
       FROM events
-      WHERE event_name = 'auto_click'
-        AND timestamp >= now() - interval 7 day
-        AND ${segment} IS NOT NULL
-        AND device_type != ''
+      WHERE ${baseFilter} AND device_type != ''
       GROUP BY segment, device_type
     `;
 
@@ -161,19 +151,24 @@ router.get("/top-clicks", async (req, res) => {
 
 router.get("/user-type-summary", async (req, res) => {
   try {
-    const todayUserQuery = `
-      SELECT DISTINCT user_id
-      FROM events
-      WHERE toDate(timestamp) = today()
-        AND user_id IS NOT NULL
+    const query = `
+      WITH
+        today_users AS (
+          SELECT DISTINCT user_id
+          FROM events
+          WHERE toDate(timestamp) = today() AND user_id IS NOT NULL
+        ),
+        ever_users AS (
+          SELECT DISTINCT user_id
+          FROM events
+          WHERE toDate(timestamp) < today() AND user_id IS NOT NULL
+        )
+      SELECT
+        countIf(u IN (SELECT user_id FROM ever_users)) AS old_users,
+        countIf(u NOT IN (SELECT user_id FROM ever_users)) AS new_users
+      FROM today_users ARRAY JOIN [user_id] AS u
     `;
 
-    const everUserQuery = `
-      SELECT DISTINCT user_id
-      FROM events
-      WHERE toDate(timestamp) < today()
-        AND user_id IS NOT NULL
-    `;
 
     const [todayRes, everRes] = await Promise.all([
       clickhouse
@@ -202,6 +197,7 @@ router.get("/user-type-summary", async (req, res) => {
         { type: "신규 유저", value: newUser },
         { type: "기존 유저", value: oldUser },
       ],
+
     });
   } catch (err) {
     console.error("User Type API ERROR:", err);
@@ -232,6 +228,7 @@ router.get("/os-type-summary", async (req, res) => {
       Windows: "desktop",
       macOS: "desktop",
       Linux: "desktop",
+
     };
 
     const data = result.data.map((item) => ({
@@ -282,6 +279,7 @@ router.get("/browser-type-summary", async (req, res) => {
         name: "기타",
         category: deviceType === "mobile" ? "mobile" : "desktop",
       };
+
     };
 
     const grouped = {};
@@ -301,7 +299,6 @@ router.get("/browser-type-summary", async (req, res) => {
   }
 });
 
-// 기간 계산을 위한 헬퍼 함수
 function getPeriodDateRange(period = "1day") {
   const ranges = {
     "5min": 1, // 최소 1일 유지
@@ -311,6 +308,7 @@ function getPeriodDateRange(period = "1day") {
   };
   return ranges[period] || 1;
 }
+
 
 // 재방문율 = 최근 7일 중 2일 이상 방문한 user_id 수 ÷ 전체 방문 user_id 수
 router.get("/returning", async (req, res) => {
@@ -323,6 +321,7 @@ router.get("/returning", async (req, res) => {
     user_id IS NOT NULL
     ${deviceFilter}
   `;
+
 
   const query = `
     SELECT
