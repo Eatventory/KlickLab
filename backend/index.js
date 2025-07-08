@@ -85,8 +85,8 @@ app.use((req, res, next) => {
 });
 
 /* metrics 라우팅 */
-const metricsRoutes = require('./routes/metrics');
-app.use('/api/metrics', metricsRoutes);
+// const metricsRoutes = require('./routes/metrics');
+// app.use('/api/metrics', metricsRoutes);
 
 // Prometheus 메트릭 엔드포인트
 app.get('/metrics', async (req, res) => {

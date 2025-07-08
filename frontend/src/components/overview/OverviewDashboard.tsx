@@ -5,6 +5,9 @@ import { TopClicks } from './TopClicks';
 import { ClickTrend } from './ClickTrend';
 import { UserPathSankeyChart } from '../user/UserPathSankeyChart';
 import { DropoffInsightsCard } from '../engagement/DropoffInsightsCard';
+
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+
 import { AverageSessionDurationCard } from './AverageSessionDurationCard';
 import { ConversionSummaryCard } from './ConversionSummaryCard';
 

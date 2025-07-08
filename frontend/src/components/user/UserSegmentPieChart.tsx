@@ -41,8 +41,8 @@ export const UserSegmentPieChart: React.FC<Props> = ({ data }) => {
   };
 
   return (
-    <div className="flex flex-col items-center">
-      <svg width={140} height={140}>
+    <div className="flex flex-col items-center" style={{ minHeight: 220, paddingTop: 16 }}>
+      <svg width={140} height={160}>
         {data.length === 0 ? (
           <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" fill="#ccc">
             없음
@@ -54,7 +54,7 @@ export const UserSegmentPieChart: React.FC<Props> = ({ data }) => {
             const angle = (d.value / total) * 360;
             const midAngle = startAngle + angle / 2;
             const labelX = center + (radius + 18) * Math.cos((Math.PI / 180) * midAngle);
-            const labelY = center + (radius + 18) * Math.sin((Math.PI / 180) * midAngle);
+            const labelY = center + (radius + 18) * Math.sin((Math.PI / 180) * midAngle) + 10;
             const percent = ((d.value / total) * 100).toFixed(1);
             startAngle += angle;
             return (
