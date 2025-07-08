@@ -33,7 +33,12 @@ export const OverviewDashboard: React.FC = () => {
         
         const visitors = await visitorsResponse.json();
         const clicks = await clicksResponse.json();
-        
+
+        visitors.trend?.sort((a: { date: string }, b: { date: string }) => 
+          new Date(a.date).getTime() - new Date(b.date).getTime()
+        );
+        console.log(visitors);
+
         setVisitorsData(visitors);
         setClicksData(clicks);
       } catch (error) {

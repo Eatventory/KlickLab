@@ -11,21 +11,14 @@ router.get('/visitors', async (req, res) => {
           formatDateTime(date, '%Y-%m-%d') AS date_str,
           toUInt64(visitors) AS visitors
         FROM klicklab.daily_metrics
-        WHERE date >= toDate(toTimeZone(now(), 'Asia/Seoul')) - 6 AND date < toDate(toTimeZone(now(), 'Asia/Seoul'))
-        UNION ALL
-        SELECT
-          formatDateTime(toDate(timestamp), '%Y-%m-%d') AS date_str,
-          toUInt64(countDistinct(client_id)) AS visitors
-        FROM events
-        WHERE toDate(timestamp) = toDate(toTimeZone(now(), 'Asia/Seoul'))
-        GROUP BY toDate(timestamp)
-        ORDER BY date_str ASC
+        WHERE date >= toDate(toTimeZone(now(), 'Asia/Seoul')) - 6
+          AND date < toDate(toTimeZone(now(), 'Asia/Seoul'))
       `,
       format: 'JSON'
     });
     const trendData = (await trendRes.json()).data || [];
     const trend = trendData.map(row => ({
-      date: row.date,
+      date: row.date_str,
       visitors: Number(row.visitors)
     }));
 
@@ -43,7 +36,7 @@ router.get('/visitors', async (req, res) => {
       query: `
         SELECT countDistinct(client_id) AS visitors
         FROM events
-        WHERE date(timestamp) = toDate(toTimeZone(now(), 'Asia/Seoul'))
+        WHERE toDate(timestamp) = toDate(toTimeZone(now(), 'Asia/Seoul'))
       `,
       format: 'JSON'
     });
