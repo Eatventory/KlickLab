@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Dashboard } from './components/dashboard/Dashboard';
-import LoginForm from './components/auth/LoginForm';
-import RegisterForm from './components/auth/RegisterForm'
+import AuthForm from './components/auth/AuthForm';
 import './App.css';
 
 function App() {
@@ -39,11 +38,10 @@ function App() {
     <div className="App">
       <Router>
         <Routes>
-          <Route path="/login" element={<LoginForm />} />
-          <Route path="/register" element={<RegisterForm />} />
+          <Route path="/auth" element={<AuthForm />} />
           <Route
             path="/"
-            element={ authState === 'loggedIn' ? <Dashboard /> : <Navigate to="/login" /> }
+            element={ authState === 'loggedIn' ? <Dashboard /> : <Navigate to="/auth" /> }
           />
         </Routes>
       </Router>
