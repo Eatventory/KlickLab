@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface PathData {
   from: string;
@@ -42,7 +42,39 @@ function computeNodeDepths(paths?: PathData[]): Map<string, number> {
   return nodeDepths;
 }
 
-export const UserPathSankeyChart: React.FC<Props> = ({ data }) => {
+interface UserPathSankeyChartProps {
+  data?: any[];
+  refreshKey?: number;
+  loading?: boolean;
+}
+
+export const UserPathSankeyChart: React.FC<UserPathSankeyChartProps> = ({ data: propData, refreshKey, loading }) => {
+  const [data, setData] = useState<any[]>(propData || []);
+
+  // propData가 변경되면 내부 상태도 업데이트
+  useEffect(() => {
+    if (propData) {
+      setData(propData);
+    }
+  }, [propData]);
+
+  // propData가 없고 refreshKey가 있을 때만 자체 API 호출
+  useEffect(() => {
+    if (!propData && refreshKey !== undefined) {
+      // fetch user path data
+      const fetchUserPath = async () => {
+        try {
+          const response = await fetch(`/api/stats/userpath-summary`);
+          const result = await response.json();
+          setData(result.data || []);
+        } catch (error) {
+          setData([]);
+        }
+      };
+      fetchUserPath();
+    }
+  }, [refreshKey, propData]);
+
   const safeData = Array.isArray(data) ? data : [];
   const [hoverLinkIdx, setHoverLinkIdx] = useState<number | null>(null);
   const nodeDepths = computeNodeDepths(safeData);
