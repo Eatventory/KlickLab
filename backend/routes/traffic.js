@@ -83,24 +83,85 @@ router.get("/", async (req, res) => {
     // 방문자 추이 쿼리 (unique user_id, total count)
     let visitorTrendQuery;
     if (period === 'weekly') {
-      // 주별 집계 쿼리 (date_str을 '7월 1주차' 등 한글로 생성)
       visitorTrendQuery = `
         SELECT
-          concat(formatDateTime(timestamp, '%m'), '월 ', toString(toRelativeWeekNum(timestamp) - toRelativeWeekNum(toStartOfMonth(timestamp)) + 1), '주차') AS date_str,
-          toUInt64(countDistinct(client_id)) AS visitors
-        FROM events
-        WHERE ${whereClause}
+          concat(formatDateTime(date, '%m'), '월 ', toString(toRelativeWeekNum(date) - toRelativeWeekNum(toStartOfMonth(date)) + 1), '주차') AS date_str,
+          sum(visitors) AS visitors,
+          sum(new_visitors) AS newVisitors,
+          sum(existing_visitors) AS returningVisitors
+        FROM daily_metrics
+        WHERE date >= toStartOfWeek(toDate('${startDateStr}'))
+          AND date <= toDate('${endDateStr}')
+          ${gender !== "all" ? `AND user_gender = '${gender}'` : ""}
+          ${ageGroup !== "all" ? `AND ${getAgeCondition(ageGroup)}` : ""}
         GROUP BY date_str
         ORDER BY date_str ASC
       `;
     } else if (period === 'monthly') {
-      // 월별 집계 쿼리 (today 변수 없이 visitors만 집계)
       visitorTrendQuery = `
         SELECT
-          formatDateTime(timestamp, '%Y-%m') AS date_str,
-          toUInt64(countDistinct(client_id)) AS visitors
-        FROM events
-        WHERE ${whereClause}
+          formatDateTime(date, '%Y-%m') AS date_str,
+          sum(visitors) AS visitors,
+          sum(new_visitors) AS newVisitors,
+          sum(existing_visitors) AS returningVisitors
+        FROM daily_metrics
+        WHERE date >= toStartOfMonth(toDate('${startDateStr}'))
+          AND date <= toDate('${endDateStr}')
+          ${gender !== "all" ? `AND user_gender = '${gender}'` : ""}
+          ${ageGroup !== "all" ? `AND ${getAgeCondition(ageGroup)}` : ""}
+        GROUP BY date_str
+        ORDER BY date_str ASC
+      `;
+    } else if (period === 'daily') {
+      visitorTrendQuery = `
+        SELECT
+          formatDateTime(date, '%Y-%m-%d') AS date_str,
+          toUInt64(visitors) AS visitors,
+          toUInt64(new_visitors) AS newVisitors,
+          toUInt64(existing_visitors) AS returningVisitors
+        FROM daily_metrics
+        WHERE date >= toDate('${startDateStr}')
+          AND date < today()
+          ${gender !== "all" ? `AND user_gender = '${gender}'` : ""}
+          ${ageGroup !== "all" ? `AND ${getAgeCondition(ageGroup)}` : ""}
+        UNION ALL
+        SELECT
+          formatDateTime(toDate(timestamp), '%Y-%m-%d') AS date_str,
+          countDistinct(client_id) AS visitors,
+          countDistinctIf(client_id, toDate(timestamp) = minDate) AS newVisitors,
+          countDistinctIf(client_id, toDate(timestamp) != minDate) AS returningVisitors
+        FROM (
+          SELECT
+            client_id,
+            timestamp,
+            min(toDate(timestamp)) OVER (PARTITION BY client_id) AS minDate
+          FROM events
+          WHERE event_name = 'auto_click'
+            AND toDate(timestamp) = today()
+            ${gender !== "all" ? `AND user_gender = '${gender}'` : ""}
+            ${ageGroup !== "all" ? `AND ${getAgeCondition(ageGroup)}` : ""}
+        )
+        GROUP BY date_str
+        ORDER BY date_str ASC
+      `;
+    } else if (period === 'hourly') {
+      visitorTrendQuery = `
+        SELECT
+          formatDateTime(timestamp, '%Y-%m-%d %H') AS date_str,
+          countDistinct(client_id) AS visitors,
+          countDistinctIf(client_id, toDate(timestamp) = minDate) AS newVisitors,
+          countDistinctIf(client_id, toDate(timestamp) != minDate) AS returningVisitors
+        FROM (
+          SELECT
+            client_id,
+            timestamp,
+            min(toDate(timestamp)) OVER (PARTITION BY client_id) AS minDate
+          FROM klicklab.events
+          WHERE event_name = 'auto_click'
+            AND toDate(timestamp) = today()
+            ${gender !== "all" ? `AND user_gender = '${gender}'` : ""}
+            ${ageGroup !== "all" ? `AND ${getAgeCondition(ageGroup)}` : ""}
+        )
         GROUP BY date_str
         ORDER BY date_str ASC
       `;
@@ -112,6 +173,7 @@ router.get("/", async (req, res) => {
             SELECT DISTINCT client_id
             FROM events
             WHERE timestamp < today
+              AND event_name = 'auto_click'
           )
         SELECT
           ${formatExpr} AS date_str,
@@ -126,7 +188,7 @@ router.get("/", async (req, res) => {
           ${eventFormatExpr} AS date_str,
           toUInt64(countDistinct(client_id)) AS visitors,
           toUInt64(countDistinctIf(client_id, client_id NOT IN past_clients)) AS newVisitors,
-          toUInt64(countDistinct(client_id) - countDistinctIf(client_id, client_id NOT IN past_clients)) AS returningVisitors
+          toUInt64(countDistinctIf(client_id, client_id IN past_clients)) AS returningVisitors
         FROM events
         WHERE 
           toDate(timestamp) = today
@@ -142,12 +204,21 @@ router.get("/", async (req, res) => {
       format: "JSON",
     });
     const visitorTrendJson = await visitorTrendResult.json();
-    let visitorTrend = visitorTrendJson.data.map((row) => ({
-      date: row.date_str || row.date,
-      visitors: Number(row.visitors),
-      newVisitors: period === 'daily' ? Number(row.newVisitors) : 0,
-      returningVisitors: period === 'daily' ? Number(row.returningVisitors) : 0,
-    }));
+    let visitorTrend = visitorTrendJson.data.map((row) => {
+      let visitors = Number(row.visitors) || 0;
+      let newVisitors = Number(row.newVisitors) || 0;
+      let returningVisitors = Number(row.returningVisitors) || 0;
+      // 음수, NaN, Infinity, null, undefined 방지
+      visitors = visitors >= 0 && isFinite(visitors) ? visitors : 0;
+      newVisitors = newVisitors >= 0 && isFinite(newVisitors) ? newVisitors : 0;
+      returningVisitors = returningVisitors >= 0 && isFinite(returningVisitors) ? returningVisitors : 0;
+      return {
+        date: row.date_str || row.date,
+        visitors,
+        newVisitors,
+        returningVisitors,
+      };
+    });
 
     // x축 보정: 기간별로 항상 일정 개수 보장 (hourly: 24, weekly: 6, monthly: 12, daily: 7)
     if (period === 'hourly') {
@@ -226,12 +297,31 @@ router.get("/", async (req, res) => {
     });
 
     // 유입 채널 분포 쿼리 (traffic_source 기준)
+    let sourceDistWhere = "event_name = 'auto_click'";
+    if (period === 'daily') {
+      sourceDistWhere += " AND toDate(timestamp) = yesterday()";
+    } else if (period === 'hourly') {
+      // 직전 1시간 (예: 12:30이면 11:00~12:00)
+      const now = new Date();
+      const prevHour = new Date(now.getTime() - 60 * 60 * 1000);
+      const year = prevHour.getFullYear();
+      const month = String(prevHour.getMonth() + 1).padStart(2, '0');
+      const day = String(prevHour.getDate()).padStart(2, '0');
+      const hour = String(prevHour.getHours()).padStart(2, '0');
+      sourceDistWhere += ` AND timestamp >= toDateTime('${year}-${month}-${day} ${hour}:00:00') AND timestamp < toDateTime('${year}-${month}-${day} ${String(Number(hour) + 1).padStart(2, '0')}:00:00')`;
+    } else if (period === 'weekly') {
+      // 지난주 월~일
+      sourceDistWhere += " AND toDate(timestamp) >= toMonday(today() - INTERVAL 1 WEEK) AND toDate(timestamp) <= toMonday(today()) - INTERVAL 1 DAY";
+    } else if (period === 'monthly') {
+      // 전달 1일~말일
+      sourceDistWhere += " AND toDate(timestamp) >= toStartOfMonth(today() - INTERVAL 1 MONTH) AND toDate(timestamp) <= toStartOfMonth(today()) - INTERVAL 1 DAY";
+    }
     const sourceDistQuery = `
     SELECT
       traffic_source AS source,
       count() AS visitors
     FROM events
-    WHERE ${whereClause}
+    WHERE ${sourceDistWhere}
     GROUP BY source
     ORDER BY visitors DESC
     LIMIT 10
@@ -310,13 +400,29 @@ router.get("/", async (req, res) => {
     }));
 
     // 메인 페이지에서 이동하는 페이지 Top 10 쿼리
+    let mainPageNavWhere = "event_name = 'auto_click' AND page_path != '/'";
+    if (period === 'daily') {
+      mainPageNavWhere += " AND toDate(timestamp) = yesterday()";
+    } else if (period === 'hourly') {
+      const now = new Date();
+      const prevHour = new Date(now.getTime() - 60 * 60 * 1000);
+      const year = prevHour.getFullYear();
+      const month = String(prevHour.getMonth() + 1).padStart(2, '0');
+      const day = String(prevHour.getDate()).padStart(2, '0');
+      const hour = String(prevHour.getHours()).padStart(2, '0');
+      mainPageNavWhere += ` AND timestamp >= toDateTime('${year}-${month}-${day} ${hour}:00:00') AND timestamp < toDateTime('${year}-${month}-${day} ${String(Number(hour) + 1).padStart(2, '0')}:00:00')`;
+    } else if (period === 'weekly') {
+      mainPageNavWhere += " AND toDate(timestamp) >= toMonday(today() - INTERVAL 1 WEEK) AND toDate(timestamp) <= toMonday(today()) - INTERVAL 1 DAY";
+    } else if (period === 'monthly') {
+      mainPageNavWhere += " AND toDate(timestamp) >= toStartOfMonth(today() - INTERVAL 1 MONTH) AND toDate(timestamp) <= toStartOfMonth(today()) - INTERVAL 1 DAY";
+    }
     const mainPageNavQuery = `
     SELECT
       page_path AS page,
       count() AS clicks,
       uniq(user_id) AS uniqueClicks
     FROM events
-    WHERE ${whereClause} AND page_path != '/'
+    WHERE ${mainPageNavWhere}
     GROUP BY page
     ORDER BY clicks DESC
     LIMIT 10

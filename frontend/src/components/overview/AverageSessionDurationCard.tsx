@@ -15,42 +15,39 @@ export const AverageSessionDurationCard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isHovered, setIsHovered] = useState(false);
+  // refreshKey 상태 선언 제거
+
+  const fetchSessionDuration = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await fetch('/api/overview/session-duration');
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result: SessionDurationData = await response.json();
+      setData(result);
+    } catch (error) {
+      console.error('Failed to fetch session duration:', error);
+      setError('데이터를 불러오는데 실패했습니다.');
+      // Fallback 데이터
+      setData({
+        averageDuration: 267, // 4분 27초
+        deltaDuration: 72, // 1분 12초
+        trend: 'up',
+        period: '최근 24시간'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchSessionDuration = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        const response = await fetch('/api/overview/session-duration');
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const result: SessionDurationData = await response.json();
-        setData(result);
-      } catch (error) {
-        console.error('Failed to fetch session duration:', error);
-        setError('데이터를 불러오는데 실패했습니다.');
-        // Fallback 데이터
-        setData({
-          averageDuration: 267, // 4분 27초
-          deltaDuration: 72, // 1분 12초
-          trend: 'up',
-          period: '최근 24시간'
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchSessionDuration();
-    
-    // 30초마다 데이터 갱신
-    const interval = setInterval(fetchSessionDuration, 30000);
-    return () => clearInterval(interval);
-  }, []);
+  }, []); // refreshKey 대신 빈 배열을 사용하여 컴포넌트 마운트 시 한 번만 호출
 
   const formatDuration = (seconds: number): string => {
     const hours = Math.floor(seconds / 3600);
