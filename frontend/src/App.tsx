@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Dashboard } from './components/dashboard/Dashboard';
 import AuthForm from './components/auth/AuthForm';
+import Error from "./Error";
 import './App.css';
 
 function App() {
@@ -43,6 +44,7 @@ function App() {
             path="/"
             element={ authState === 'loggedIn' ? <Dashboard /> : <Navigate to="/auth" /> }
           />
+          <Route path="*" element={<Error />} />
         </Routes>
       </Router>
     </div>
