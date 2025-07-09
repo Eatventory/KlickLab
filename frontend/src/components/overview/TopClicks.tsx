@@ -10,15 +10,19 @@ interface TopClicksData {
   items: TopClickItem[];
 }
 
-export const TopClicks: React.FC = () => {
+interface TopClicksProps {
+  refreshKey?: number;
+  loading?: boolean;
+}
+
+export const TopClicks: React.FC<TopClicksProps> = ({ refreshKey, loading }) => {
   const [data, setData] = useState<TopClickItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchTopClicks = async () => {
       try {
-        const response = await fetch(`http://localhost:3000/api/stats/top-clicks`);
+        const response = await fetch(`/api/stats/top-clicks`);
         const result: TopClicksData = await response.json();
         setData(result.items || []);
       } catch (error) {
@@ -31,7 +35,7 @@ export const TopClicks: React.FC = () => {
           { label: '상품상세', count: 432 }
         ]);
       } finally {
-        setLoading(false);
+        // setLoading(false); // This line was removed from the new_code, so it's removed here.
       }
     };
 
@@ -39,7 +43,7 @@ export const TopClicks: React.FC = () => {
     
     const interval = setInterval(fetchTopClicks, 10000);
     return () => clearInterval(interval);
-  }, []);
+  }, [refreshKey]);
 
   if (loading) {
     return (

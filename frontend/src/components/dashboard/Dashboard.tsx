@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Sidebar } from '../ui/Sidebar';
 import { FilterTabs } from '../ui/FilterTabs';
 import Test from './Test';
-import { BarChart3 } from 'lucide-react';
+import { BarChart3, RefreshCw } from 'lucide-react';
 
 // 새로운 탭별 대시보드 컴포넌트들
 import { OverviewDashboard } from '../overview/OverviewDashboard';
@@ -15,6 +15,8 @@ import { SettingsDashboard } from '../settings/SettingsDashboard';
 export const Dashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const overviewRef = useRef<any>(null);
+  const [overviewLastUpdated, setOverviewLastUpdated] = useState<Date | null>(null);
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
@@ -24,11 +26,16 @@ export const Dashboard: React.FC = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
   };
 
+  // OverviewDashboard에서 lastUpdated를 받아오는 콜백
+  const handleOverviewUpdate = (lastUpdated: Date) => {
+    setOverviewLastUpdated(lastUpdated);
+  };
+
   // 탭별 컴포넌트 렌더링
   const renderTabContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <OverviewDashboard />;
+        return <OverviewDashboard ref={overviewRef} onLastUpdated={handleOverviewUpdate} />;
       case 'users':
         return <UserDashboard />;
       case 'traffic':
@@ -42,7 +49,7 @@ export const Dashboard: React.FC = () => {
       case 'test':
         return <Test />;
       default:
-        return <OverviewDashboard />;
+        return <OverviewDashboard ref={overviewRef} onLastUpdated={handleOverviewUpdate} />;
     }
   };
 
@@ -83,11 +90,23 @@ export const Dashboard: React.FC = () => {
                 </p>
               </div>
               
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                {/* 새로고침 버튼 */}
+                {activeTab === 'dashboard' && (
+                  <button
+                    onClick={() => overviewRef.current?.fetchStats?.()}
+                    className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                    title="새로고침"
+                  >
+                    <RefreshCw className="w-5 h-5 text-gray-500" />
+                  </button>
+                )}
                 <div className="text-right">
                   <p className="text-sm text-gray-600">마지막 업데이트</p>
                   <p className="text-sm font-medium text-gray-900">
-                    {new Date().toLocaleString('ko-KR')}
+                    {activeTab === 'dashboard' && overviewLastUpdated
+                      ? overviewLastUpdated.toLocaleString('ko-KR')
+                      : new Date().toLocaleString('ko-KR')}
                   </p>
                 </div>
               </div>

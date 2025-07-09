@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface PathData {
   from: string;
@@ -15,7 +15,17 @@ function computeNodeDepths(paths?: PathData[]): Map<string, number> {
   const nodeDepths = new Map<string, number>();
   const allFrom = new Set(safePaths.map(p => p.from));
   const allTo = new Set(safePaths.map(p => p.to));
-  const roots = Array.from(allFrom).filter(f => !allTo.has(f));
+  // const roots = Array.from(allFrom).filter(f => !allTo.has(f));
+  let roots = Array.from(allFrom).filter(f => !allTo.has(f));
+  if (roots.length === 0 && allFrom.size > 0) {
+    // fallback: 가장 많이 등장한 from을 루트로 설정
+    const freqMap = new Map<string, number>();
+    for (const p of safePaths) {
+      freqMap.set(p.from, (freqMap.get(p.from) || 0) + p.value);
+    }
+    const [mostCommonFrom] = Array.from(freqMap.entries()).sort((a, b) => b[1] - a[1])[0] || [];
+    if (mostCommonFrom) roots = [mostCommonFrom];
+  }
   const queue: { name: string; depth: number }[] = roots.map(r => ({ name: r, depth: 0 }));
   while (queue.length > 0) {
     const { name, depth } = queue.shift()!;
@@ -32,7 +42,39 @@ function computeNodeDepths(paths?: PathData[]): Map<string, number> {
   return nodeDepths;
 }
 
-export const UserPathSankeyChart: React.FC<Props> = ({ data }) => {
+interface UserPathSankeyChartProps {
+  data?: any[];
+  refreshKey?: number;
+  loading?: boolean;
+}
+
+export const UserPathSankeyChart: React.FC<UserPathSankeyChartProps> = ({ data: propData, refreshKey, loading }) => {
+  const [data, setData] = useState<any[]>(propData || []);
+
+  // propData가 변경되면 내부 상태도 업데이트
+  useEffect(() => {
+    if (propData) {
+      setData(propData);
+    }
+  }, [propData]);
+
+  // propData가 없고 refreshKey가 있을 때만 자체 API 호출
+  useEffect(() => {
+    if (!propData && refreshKey !== undefined) {
+      // fetch user path data
+      const fetchUserPath = async () => {
+        try {
+          const response = await fetch(`/api/stats/userpath-summary`);
+          const result = await response.json();
+          setData(result.data || []);
+        } catch (error) {
+          setData([]);
+        }
+      };
+      fetchUserPath();
+    }
+  }, [refreshKey, propData]);
+
   const safeData = Array.isArray(data) ? data : [];
   const [hoverLinkIdx, setHoverLinkIdx] = useState<number | null>(null);
   const nodeDepths = computeNodeDepths(safeData);

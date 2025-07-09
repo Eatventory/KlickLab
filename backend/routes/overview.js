@@ -106,62 +106,72 @@ router.get('/session-duration', async (req, res) => {
 });
 
 router.get('/conversion-summary', async (req, res) => {
-  const fromPage = req.query.from || '/';
-  const toPage = req.query.to || '/';
+  const fromPage = req.query.from || '/cart';
+  const toPage = req.query.to || '/checkout/success';
   const period = '7d';
   const periodLabel = '최근 7일';
 
   const query = `
     WITH
-      -- 오늘 데이터
-      today_a_sessions AS (
+      -- 오늘 포함 최근 7일 간 A, B 페이지 진입 세션
+      a_sessions AS (
         SELECT session_id, min(timestamp) AS a_time
         FROM events
-        WHERE page_path = '${fromPage}' AND toDate(timestamp) = today()
+        WHERE page_path = '${fromPage}' AND toDate(timestamp) >= today() - 6
         GROUP BY session_id
       ),
-      today_b_sessions AS (
+      b_sessions AS (
         SELECT session_id, min(timestamp) AS b_time
         FROM events
-        WHERE page_path = '${toPage}' AND toDate(timestamp) = today()
+        WHERE page_path = '${toPage}' AND toDate(timestamp) >= today() - 6
         GROUP BY session_id
       ),
-      today_joined AS (
+      joined AS (
         SELECT a.session_id, a.a_time, b.b_time
-        FROM today_a_sessions a
-        INNER JOIN today_b_sessions b ON a.session_id = b.session_id AND a.a_time < b.b_time
-      ),
-      today_data AS (
-        SELECT count() AS converted, 
-              (SELECT count() FROM today_a_sessions) AS total
-        FROM today_joined
-      ),
-      
-      -- 지난 6일치 데이터 (오늘 제외)
-      past_data AS (
-        SELECT 
-          sumIf(visitors, date >= today() - 7 AND date < today()) AS total,
-          0 AS converted
-        FROM daily_metrics
+        FROM a_sessions a
+        INNER JOIN b_sessions b ON a.session_id = b.session_id AND a.a_time < b.b_time
       ),
 
-      -- 과거 7~13일 전 데이터 (변화량 비교용)
+      -- 지난 7일간 데이터
+      recent_data AS (
+        SELECT 
+          (SELECT count() FROM joined) AS converted,
+          (SELECT count() FROM a_sessions) AS total
+      ),
+
+      -- 그 이전 7일간 데이터 (변화 비교용)
+      prev_a_sessions AS (
+        SELECT session_id, min(timestamp) AS a_time
+        FROM events
+        WHERE page_path = '${fromPage}' AND toDate(timestamp) BETWEEN today() - 13 AND today() - 7
+        GROUP BY session_id
+      ),
+      prev_b_sessions AS (
+        SELECT session_id, min(timestamp) AS b_time
+        FROM events
+        WHERE page_path = '${toPage}' AND toDate(timestamp) BETWEEN today() - 13 AND today() - 7
+        GROUP BY session_id
+      ),
+      prev_joined AS (
+        SELECT a.session_id, a.a_time, b.b_time
+        FROM prev_a_sessions a
+        INNER JOIN prev_b_sessions b ON a.session_id = b.session_id AND a.a_time < b.b_time
+      ),
       prev_data AS (
         SELECT 
-          sumIf(visitors, date >= today() - 14 AND date < today() - 7) AS total,
-          0 AS converted
-        FROM daily_metrics
+          (SELECT count() FROM prev_joined) AS converted,
+          (SELECT count() FROM prev_a_sessions) AS total
       )
 
     SELECT 
-      (t.converted + 0) AS converted,
-      (t.total + p.total) AS total,
-      round(t.converted / nullIf(t.total + p.total, 0) * 100, 1) AS conversion_rate,
-      0 AS past_converted,
-      prev.total AS past_total,
-      round(0 / nullIf(prev.total, 0) * 100, 1) AS past_rate
-    FROM today_data t, past_data p, prev_data prev;
-  `;
+      r.converted AS converted,
+      r.total AS total,
+      round(r.converted / nullIf(r.total, 0) * 100, 1) AS conversion_rate,
+      p.converted AS past_converted,
+      p.total AS past_total,
+      round(p.converted / nullIf(p.total, 0) * 100, 1) AS past_rate
+    FROM recent_data r, prev_data p
+    `;
 
   try {
     const resultSet = await clickhouse.query({ query, format: 'JSONEachRow' });
@@ -183,19 +193,11 @@ router.get('/conversion-summary', async (req, res) => {
       period,
       periodLabel,
     };
+    // console.log(response);
     res.status(200).json(response);
   } catch (err) {
     console.error('Conversion Rate API ERROR:', err);
     res.status(500).json({ error: 'Failed to get conversion rate data' });
-    // res.status(500).json({
-    //   conversionRate: 0,
-    //   convertedSessions: 0,
-    //   totalSessions: 0,
-    //   deltaRate: 0,
-    //   trend: 'flat',
-    //   period,
-    //   periodLabel,
-    // });
   }
 });
 

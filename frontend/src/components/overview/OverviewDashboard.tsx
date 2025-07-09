@@ -1,15 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { StatCard } from './StatCard';
 import { Summary } from './Summary';
 import { TopClicks } from './TopClicks';
 import { ClickTrend } from './ClickTrend';
 import { UserPathSankeyChart } from '../user/UserPathSankeyChart';
 import { DropoffInsightsCard } from '../engagement/DropoffInsightsCard';
-
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-
+import { getPageLabel } from '../../utils/getPageLabel';
 import { AverageSessionDurationCard } from './AverageSessionDurationCard';
 import { ConversionSummaryCard } from './ConversionSummaryCard';
+
+interface PathData {
+  from: string;
+  to: string;
+  value: number;
+}
 
 interface VisitorsData {
   today: number;
@@ -22,60 +26,72 @@ interface ClicksData {
   yesterday: number;
 }
 
-export const OverviewDashboard: React.FC = () => {
+export const OverviewDashboard = forwardRef<any, { onLastUpdated?: (d: Date) => void }>((props, ref) => {
   const [visitorsData, setVisitorsData] = useState<VisitorsData | null>(null);
   const [clicksData, setClicksData] = useState<ClicksData | null>(null);
   const [userPathData, setUserPathData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const mapPathData = (paths: any[]): PathData[] =>
+    paths
+      .filter(p => p.from !== p.to)
+      .map(p => ({
+        from: getPageLabel(p.from),
+        to: getPageLabel(p.to),
+        value: Number(p.value),
+    }));
+
+  const fetchStats = async () => {
+    try {
+      const [visitorsResponse, clicksResponse, userPathResponse] = await Promise.all([
+        fetch(`/api/stats/visitors`),
+        fetch(`/api/stats/clicks`),
+        fetch(`/api/stats/userpath-summary`)
+      ]);
+      const visitors = await visitorsResponse.json();
+      const clicks = await clicksResponse.json();
+      const userPath = await userPathResponse.json();
+      visitors.trend?.sort((a: { date: string }, b: { date: string }) => 
+        new Date(a.date).getTime() - new Date(b.date).getTime()
+      );
+      setVisitorsData(visitors);
+      setClicksData(clicks);
+      setUserPathData(mapPathData(userPath.data || []));
+      const now = new Date();
+      setLastUpdated(now);
+      props.onLastUpdated?.(now);
+      setRefreshKey(prev => prev + 1);
+    } catch (error) {
+      console.error('Failed to fetch stats:', error);
+      setVisitorsData({ today: 1234, yesterday: 1096 });
+      setClicksData({ today: 9874, yesterday: 9124 });
+      setUserPathData([]);
+      const now = new Date();
+      setLastUpdated(now);
+      props.onLastUpdated?.(now);
+      setRefreshKey(prev => prev + 1);
+    }
+  };
+
+  useImperativeHandle(ref, () => ({
+    fetchStats,
+    lastUpdated,
+  }));
 
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const [visitorsResponse, clicksResponse, userPathResponse] = await Promise.all([
-          fetch(`/api/stats/visitors`),
-          fetch(`/api/stats/clicks`),
-          fetch(`/api/stats/userpath-summary`)
-        ]);
-        
-        const visitors = await visitorsResponse.json();
-        const clicks = await clicksResponse.json();
-        const userPath = await userPathResponse.json();
-
-        visitors.trend?.sort((a: { date: string }, b: { date: string }) => 
-          new Date(a.date).getTime() - new Date(b.date).getTime()
-        );
-
-        setVisitorsData(visitors);
-        setClicksData(clicks);
-        setUserPathData(userPath.data || []);
-      } catch (error) {
-        console.error('Failed to fetch stats:', error);
-        setVisitorsData({ today: 1234, yesterday: 1096 });
-        setClicksData({ today: 9874, yesterday: 9124 });
-        setUserPathData([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchStats();
-    
-    const interval = setInterval(fetchStats, 30000);
+  }, []);
+
+  // 30초마다 자동 새로고침
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchStats();
+    }, 30000);
     return () => clearInterval(interval);
   }, []);
 
-  const calculateChange = (today: number, yesterday: number): number => {
-    if (yesterday === 0) return 0;
-    return Math.round(((today - yesterday) / yesterday) * 100 * 10) / 10;
-  };
-
-  const getChangeType = (change: number): 'increase' | 'decrease' | 'neutral' => {
-    if (change > 0) return 'increase';
-    if (change < 0) return 'decrease';
-    return 'neutral';
-  };
-
-  if (loading) {
+  if (visitorsData === null || clicksData === null) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-gray-500">데이터 로딩 중...</div>
@@ -89,9 +105,8 @@ export const OverviewDashboard: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="mb-2">
-        <Summary />
+        <Summary refreshKey={refreshKey} />
       </div>
-
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard
           data={{
@@ -113,29 +128,36 @@ export const OverviewDashboard: React.FC = () => {
             color: "green"
           }}
         />
-        <AverageSessionDurationCard />
-        <ConversionSummaryCard />
+        <AverageSessionDurationCard refreshKey={refreshKey} />
+        <ConversionSummaryCard refreshKey={refreshKey} />
       </div>
-
       <div className="w-full">
-        <ClickTrend />
+        <ClickTrend refreshKey={refreshKey} />
       </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
-          <TopClicks />
+          <TopClicks refreshKey={refreshKey} />
         </div>
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
-          <DropoffInsightsCard />
+          <DropoffInsightsCard refreshKey={refreshKey} />
         </div>
       </div>
-
       <div className="w-full">
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 w-full">
           <div className="text-lg font-bold mb-2">사용자 방문 경로</div>
-          <UserPathSankeyChart data={userPathData} />
+          <UserPathSankeyChart data={userPathData} refreshKey={refreshKey} />
         </div>
       </div>
     </div>
   );
-}; 
+
+  function calculateChange(today: number, yesterday: number): number {
+    if (yesterday === 0) return 0;
+    return Math.round(((today - yesterday) / yesterday) * 100 * 10) / 10;
+  }
+  function getChangeType(change: number): 'increase' | 'decrease' | 'neutral' {
+    if (change > 0) return 'increase';
+    if (change < 0) return 'decrease';
+    return 'neutral';
+  }
+}); 

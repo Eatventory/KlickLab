@@ -16,43 +16,40 @@ export const ConversionSummaryCard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isHovered, setIsHovered] = useState(false);
+  // refreshKey 상태 선언 제거
+
+  const fetchConversionSummary = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await fetch(`/api/overview/conversion-summary`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result: ConversionSummaryData = await response.json();
+      setData(result);
+    } catch (error) {
+      console.error('Failed to fetch conversion summary:', error);
+      setError('데이터를 불러오는데 실패했습니다.');
+      // Fallback 데이터
+      setData({
+        conversionRate: 38.4,
+        convertedSessions: 384,
+        totalSessions: 1000,
+        deltaRate: 2.3,
+        trend: 'up'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchConversionSummary = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        const response = await fetch('/api/overview/conversion-summary');
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const result: ConversionSummaryData = await response.json();
-        setData(result);
-      } catch (error) {
-        console.error('Failed to fetch conversion summary:', error);
-        setError('데이터를 불러오는데 실패했습니다.');
-        // Fallback 데이터
-        setData({
-          conversionRate: 38.4,
-          convertedSessions: 384,
-          totalSessions: 1000,
-          deltaRate: 2.3,
-          trend: 'up'
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchConversionSummary();
-    
-    // 30초마다 데이터 갱신
-    const interval = setInterval(fetchConversionSummary, 30000);
-    return () => clearInterval(interval);
-  }, []);
+  }, []); // refreshKey 의존성 제거
 
   const getTrendIcon = (trend: string) => {
     switch (trend) {

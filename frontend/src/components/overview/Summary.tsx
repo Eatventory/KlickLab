@@ -11,17 +11,16 @@ interface SummaryData {
   totalClicks: number;
 }
 
-export const Summary: React.FC = () => {
+export const Summary: React.FC<{ refreshKey?: number }> = ({ refreshKey }) => {
   const [summary, setSummary] = useState<string>('');
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const generateSummary = async () => {
       try {
         // Top 클릭 요소와 전체 클릭 수를 동시에 가져오기
         const [topClicksResponse, clicksResponse] = await Promise.all([
-          fetch(`http://localhost:3000/api/stats/top-clicks`),
-          fetch(`http://localhost:3000/api/stats/clicks`)
+          fetch(`/api/stats/top-clicks`),
+          fetch(`/api/stats/clicks`)
         ]);
         
         const topClicksData = await topClicksResponse.json();
@@ -52,25 +51,13 @@ export const Summary: React.FC = () => {
         const topItem = mockTopClicks[0];
         const percentage = ((topItem.count / mockTotalClicks) * 100).toFixed(1);
         setSummary(`오늘 가장 많이 클릭된 요소는 <strong>${topItem.label}</strong>로, 전체 클릭의 <strong>${percentage}%</strong>를 차지했습니다.`);
-      } finally {
-        setLoading(false);
       }
     };
-
     generateSummary();
-    
-    // 30초마다 요약 갱신
-    const interval = setInterval(generateSummary, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-16">
-        <div className="text-gray-500">요약 생성 중...</div>
-      </div>
-    );
-  }
+    // setInterval 제거
+    // 30초마다 요약 갱신 X, 오직 refreshKey 변경 시만 실행
+    return () => {};
+  }, [refreshKey]);
 
   return (
     <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
@@ -80,14 +67,13 @@ export const Summary: React.FC = () => {
             <Sparkles className="w-4 h-4 text-blue-600" />
           </div>
         </div>
-        
         <div className="flex-1">
           <h3 className="text-sm font-medium text-blue-900 mb-1">
             오늘의 클릭 분석 요약
           </h3>
           <p 
             className="text-sm text-blue-800 leading-relaxed"
-            dangerouslySetInnerHTML={{ __html: summary }}
+            dangerouslySetInnerHTML={{ __html: summary || '오늘의 클릭 데이터를 분석 중입니다.' }}
           />
         </div>
       </div>

@@ -65,7 +65,7 @@ const ClickPatternItem = memo<{
     <div className="flex items-center justify-between text-sm">
       <div className="flex-1 min-w-0">
         <div className="text-gray-700 truncate">{element.element}</div>
-        <div className="text-xs text-gray-500">{element.userCount}명이 클릭</div>
+        <div className="text-xs text-gray-500">{element.userCount}명</div>
       </div>
       <div className="flex items-center gap-2 ml-2">
         <span className="text-gray-600">{element.totalClicks.toLocaleString()}회</span>

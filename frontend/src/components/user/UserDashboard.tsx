@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { UserPathSankeyChart } from './UserPathSankeyChart';
 import { Users, Route, PieChart } from 'lucide-react';
 import { UserSegmentPieChart } from './UserSegmentPieChart';
@@ -6,7 +6,9 @@ import { OsBrowserPieChart } from './OsBrowserPieChart';
 import { OsBrowserTable } from './OsBrowserTable';
 import { OsFilterDropdown } from './OsFilterDropdown';
 import { SegmentGroupCard } from './SegmentGroupCard';
+import { SegmentGroupCardSkeleton } from './SegmentGroupCardSkeleton';
 import { TopButtonList, type SegmentType } from './TopButtonList';
+import { getPageLabel } from '../../utils/getPageLabel';
 
 // 타입 정의
 interface FilterOptions {
@@ -94,6 +96,7 @@ export const UserDashboard: React.FC = () => {
     device: 'all'
   });
 
+  const [loading, setLoading] = useState<boolean>(false);
   const [distType, setDistType] = useState<'os' | 'browser'>('os');
   
   // 세그먼트별 TOP 3 상태
@@ -120,30 +123,62 @@ export const UserDashboard: React.FC = () => {
       signupPath: 'traffic_source',
       device: 'device_type',
     };
-    fetch(`/api/users/top-clicks?filter=${segmentToApiFilter[activeSegment]}`)
+    setLoading(true);
+    const topClicks = fetch(`/api/users/top-clicks?filter=${segmentToApiFilter[activeSegment]}`)
       .then(res => res.json())
       .then(data => setSegmentGroupData(data.data || []));
-    // 신규/기존 유저
-    fetch('/api/users/user-type-summary')
+
+    const userType = fetch(`/api/users/user-type-summary?period=${filters.period}&userType=${filters.userType}&device=${filters.device}`)
       .then(res => res.json())
       .then(data => setUserTypeSummary(data.data || []));
-    // OS 분포
-    fetch('/api/users/os-type-summary')
+
+    const osSummary = fetch(`/api/users/os-type-summary?period=${filters.period}&userType=${filters.userType}&device=${filters.device}`)
       .then(res => res.json())
       .then(data => setOsSummary(data.data || []));
-    // 브라우저 분포
-    fetch('/api/users/browser-type-summary')
+
+    const browserSummary = fetch(`/api/users/browser-type-summary?period=${filters.period}&userType=${filters.userType}&device=${filters.device}`)
       .then(res => res.json())
       .then(data => setBrowserSummary(data.data || []));
-    // Sankey(유저 경로)
-    fetch('/api/stats/userpath-summary')
+
+    const userPath = fetch('/api/stats/userpath-summary')
       .then(res => res.json())
-      .then(data => setUserPathData(data.data || []));
-    // 재방문률
-    fetch('/api/users/returning')
+      .then(data => {
+        const mapped = (data.data || [])
+          .filter(p => p.from !== p.to) // 순환 제거
+          .map(p => ({
+            from: getPageLabel(p.from),
+            to: getPageLabel(p.to),
+            value: Number(p.value)
+          }));
+        setUserPathData(mapped);
+      });
+
+    const returning = fetch(`/api/users/returning?period=${filters.period}&userType=${filters.userType}&device=${filters.device}`)
       .then(res => res.json())
       .then(data => setReturningRate(data.data || null));
+    
+    Promise.all([topClicks, userType, osSummary, browserSummary, userPath, returning])
+      .catch(err => { console.error('일부 데이터 요청 실패:', err); })
+      .finally(() => { setLoading(false); });
   }, [activeSegment]);
+
+  useEffect(() => {
+    const osSummary = fetch(`/api/users/os-type-summary?period=${filters.period}&userType=${filters.userType}&device=${filters.device}`)
+      .then(res => res.json())
+      .then(data => setOsSummary(data.data || []));
+
+    const browserSummary = fetch(`/api/users/browser-type-summary?period=${filters.period}&userType=${filters.userType}&device=${filters.device}`)
+      .then(res => res.json())
+      .then(data => setBrowserSummary(data.data || []));
+
+    const returning = fetch(`/api/users/returning?period=${filters.period}&userType=${filters.userType}&device=${filters.device}`)
+      .then(res => res.json())
+      .then(data => setReturningRate(data.data || null));
+    
+    Promise.all([osSummary, browserSummary, returning])
+      .catch(err => { console.error('일부 데이터 요청 실패:', err); })
+      .finally(() => { setLoading(false); });
+  }, [JSON.stringify(filters)]);
 
   // OS/브라우저 필터링
   const filteredOsData = osSummary.filter(d => {
@@ -158,12 +193,31 @@ export const UserDashboard: React.FC = () => {
   const browserPieData = filteredBrowserData.map(d => ({ label: d.browser, value: d.users }));
   const [osActiveLegends, setOsActiveLegends] = useState<string[]>([]);
   const [browserActiveLegends, setBrowserActiveLegends] = useState<string[]>([]);
+
+  const isFirstOsInit = useRef(true);
+  useEffect(() => {
+    if (osPieData.length === 0) return;
+    if (isFirstOsInit.current) {
+      setOsActiveLegends(osPieData.map(d => d.label));
+      isFirstOsInit.current = false;
+    }
+  }, [osPieData, osFilter]);
+
+  const isFirstBrowserInit = useRef(true);
+  useEffect(() => {
+    if (browserPieData.length === 0) return;
+    if (isFirstBrowserInit.current) {
+      setBrowserActiveLegends(browserPieData.map(d => d.label));
+      isFirstBrowserInit.current = false;
+    }
+  }, [browserPieData, browserFilter]);
+
   useEffect(() => {
     setOsActiveLegends(osPieData.map(d => d.label));
-  }, [osPieData.length]);
+  }, [osFilter]);
   useEffect(() => {
     setBrowserActiveLegends(browserPieData.map(d => d.label));
-  }, [browserPieData.length]);
+  }, [browserFilter]);
 
   const handleFilterChange = (key: keyof FilterOptions, value: string) => {
     setFilters(prev => ({
@@ -198,9 +252,12 @@ export const UserDashboard: React.FC = () => {
   return (
     <div className="space-y-8">
       {/* 세그먼트별 TOP 3 필터 */}
-      <TopButtonList 
-        activeSegment={activeSegment} 
-        onSegmentChange={setActiveSegment} 
+      <TopButtonList
+        activeSegment={activeSegment}
+        onSegmentChange={(newSegment) => {
+          setLoading(true);
+          setActiveSegment(newSegment);
+        }}
       />
 
       {/* 세그먼트별 TOP 3 사용자 카드 */}
@@ -215,18 +272,32 @@ export const UserDashboard: React.FC = () => {
           </h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {segmentGroupData
-            .slice()
-            .sort((a, b) => b.totalClicks - a.totalClicks)
-            .map((segment, index) => (
-              <SegmentGroupCard 
-                key={segment.segmentValue} 
-                segment={segment} 
-                rank={index + 1} 
-                segmentType={activeSegment}
-              />
-            ))}
+          {loading
+            ? [...Array(3)].map((_, idx) => (
+                <SegmentGroupCardSkeleton key={`skeleton-${idx}`} />
+              ))
+            : segmentGroupData
+                .slice()
+                .sort((a, b) => b.totalClicks - a.totalClicks)
+                .map((segment, index) => (
+                  <SegmentGroupCard 
+                    key={segment.segmentValue} 
+                    segment={segment} 
+                    rank={index + 1} 
+                    segmentType={activeSegment}
+                  />
+                ))
+          }
         </div>
+      </div>
+
+      {/* 유저 클릭 흐름 Sankey */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Route className="w-5 h-5 text-gray-600" />
+          <h2 className="text-lg font-semibold text-gray-900">사용자 클릭 흐름 분석</h2>
+        </div>
+        <UserPathSankeyChart data={userPathData} />
       </div>
 
       {/* 기존 필터 */}
@@ -265,15 +336,6 @@ export const UserDashboard: React.FC = () => {
             <option value="desktop">데스크탑</option>
           </select>
         </div>
-      </div>
-
-      {/* 유저 클릭 흐름 Sankey */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Route className="w-5 h-5 text-gray-600" />
-          <h2 className="text-lg font-semibold text-gray-900">사용자 클릭 흐름 분석</h2>
-        </div>
-        <UserPathSankeyChart data={userPathData} />
       </div>
 
       {/* 신규 vs 기존 유저 */}
