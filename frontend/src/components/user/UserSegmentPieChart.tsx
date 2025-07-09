@@ -12,7 +12,13 @@ interface Props {
 const COLORS = ['#4F46E5', '#F59E42'];
 
 export const UserSegmentPieChart: React.FC<Props> = ({ data }) => {
-  const total = data.reduce((sum, d) => sum + d.value, 0);
+  // 안전한 숫자 변환 및 유효성 검사
+  const safeData = data.map(d => ({
+    ...d,
+    value: Number(d.value) || 0
+  })).filter(d => d.value > 0);
+
+  const total = safeData.reduce((sum, d) => sum + d.value, 0);
 
   // 파이차트는 SVG로 간단히 구현
   let startAngle = 0;
@@ -20,6 +26,8 @@ export const UserSegmentPieChart: React.FC<Props> = ({ data }) => {
   const center = 70;
 
   const getPath = (value: number, total: number, startAngle: number) => {
+    if (total === 0) return '';
+    
     const angle = (value / total) * 360;
     const endAngle = startAngle + angle;
     const largeArc = angle > 180 ? 1 : 0;
@@ -43,19 +51,19 @@ export const UserSegmentPieChart: React.FC<Props> = ({ data }) => {
   return (
     <div className="flex flex-col items-center" style={{ minHeight: 220, paddingTop: 16 }}>
       <svg width={140} height={160}>
-        {data.length === 0 ? (
+        {safeData.length === 0 ? (
           <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" fill="#ccc">
             없음
           </text>
         ) : (
-          data.map((d, i) => {
+          safeData.map((d, i) => {
             const path = getPath(d.value, total, startAngle);
             const color = COLORS[i % COLORS.length];
-            const angle = (d.value / total) * 360;
+            const angle = total > 0 ? (d.value / total) * 360 : 0;
             const midAngle = startAngle + angle / 2;
             const labelX = center + (radius + 18) * Math.cos((Math.PI / 180) * midAngle);
             const labelY = center + (radius + 18) * Math.sin((Math.PI / 180) * midAngle) + 10;
-            const percent = ((d.value / total) * 100).toFixed(1);
+            const percent = total > 0 ? ((d.value / total) * 100).toFixed(1) : '0';
             startAngle += angle;
             return (
               <g key={d.type}>
@@ -70,7 +78,7 @@ export const UserSegmentPieChart: React.FC<Props> = ({ data }) => {
       </svg>
       {/* 범례 */}
       <div className="flex gap-4 mt-4">
-        {data.map((d, i) => (
+        {safeData.map((d, i) => (
           <div
             key={d.type}
             className={"flex items-center gap-1 px-2 py-1 rounded text-sm border bg-gray-100 border-blue-500"}
