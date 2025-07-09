@@ -40,7 +40,9 @@ export default function RegisterForm() {
     {error && <p className="text-red-500 mb-4">{error}</p>}
     <form onSubmit={handleSubmit} className="space-y-4">
     <div>
-      <label className="block text-gray-700 mb-1">이메일</label>
+      <div className="flex justify-between items-center">
+        <label className="block text-gray-700 mb-1">이메일</label>
+      </div>
       <input
       type="email"
       value={email}
@@ -51,7 +53,9 @@ export default function RegisterForm() {
       />
     </div>
     <div>
-      <label className="block text-gray-700 mb-1">비밀번호</label>
+      <div className="flex justify-between items-center">
+        <label className="block text-gray-700 mb-1">비밀번호</label>
+      </div>
       <input
       type="password"
       value={password}
@@ -62,7 +66,7 @@ export default function RegisterForm() {
       placeholder="••••••••"
       />
     </div>
-    <button type="submit" className="w-full py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition">
+    <button type="submit" className="w-full py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition">
       가입하기
     </button>
     </form>
