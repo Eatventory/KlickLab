@@ -8,7 +8,6 @@ import {
   FileText,
   ChevronLeft,
   ChevronRight,
-  FlaskConical,
   LogOut
 } from 'lucide-react';
 import clsx from 'clsx';
@@ -56,12 +55,6 @@ const tabs = [
     label: '설정',
     icon: Settings,
     description: '시스템 설정'
-  },
-  {
-    id: 'test',
-    label: '테스트',
-    icon: FlaskConical,
-    description: '데모용 테스트'
   }
 ];
 
