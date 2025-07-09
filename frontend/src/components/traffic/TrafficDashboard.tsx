@@ -79,26 +79,6 @@ export const TrafficDashboard: React.FC = () => {
     );
   }
 
-  // 서버 데이터가 없을 때 처리
-  if (!trafficData) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-red-500">트래픽 데이터를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.</div>
-      </div>
-    );
-  }
-
-  // 각 차트 데이터: 실제 데이터가 없으면 mock 데이터 사용
-  const visitorTrendData = trafficData.visitorTrend && trafficData.visitorTrend.length > 0
-    ? trafficData.visitorTrend
-    : mockDashboardData.visitorTrend;
-  const entryPageData = trafficData.entryPageDistribution && trafficData.entryPageDistribution.length > 0
-    ? trafficData.entryPageDistribution
-    : mockDashboardData.entryPageDistribution;
-  const hourlyTrafficData = trafficData.hourlyTraffic && trafficData.hourlyTraffic.length > 0
-    ? fillHourlyTrafficKST(trafficData.hourlyTraffic)
-    : mockDashboardData.hourlyTraffic;
-
   return (
     <div className="space-y-8">
 
@@ -153,6 +133,7 @@ export const TrafficDashboard: React.FC = () => {
         <VisitorChart data={trafficData?.visitorTrend || mockDashboardData.visitorTrend} />
       </div>
 
+      
 
       {/* 향후 구현 예정 컴포넌트들 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
