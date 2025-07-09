@@ -1,7 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Sidebar } from '../ui/Sidebar';
 import { FilterTabs } from '../ui/FilterTabs';
-import Test from './Test';
 import { BarChart3, RefreshCw } from 'lucide-react';
 
 // 새로운 탭별 대시보드 컴포넌트들
@@ -46,8 +45,6 @@ export const Dashboard: React.FC = () => {
         return <ReportDashboard />;
       case 'settings':
         return <SettingsDashboard />;
-      case 'test':
-        return <Test />;
       default:
         return <OverviewDashboard ref={overviewRef} onLastUpdated={handleOverviewUpdate} />;
     }
@@ -77,7 +74,6 @@ export const Dashboard: React.FC = () => {
                   {activeTab === 'engagement' && '참여도 분석'}
                   {activeTab === 'reports' && '리포트'}
                   {activeTab === 'settings' && '설정'}
-                  {activeTab === 'test' && '데모용 테스트'}
                 </h1>
                 <p className="text-sm text-gray-600 mt-1">
                   {activeTab === 'dashboard' && '전체 개요 및 주요 지표'}
@@ -86,7 +82,6 @@ export const Dashboard: React.FC = () => {
                   {activeTab === 'engagement' && '체류시간 및 참여도 분석'}
                   {activeTab === 'reports' && '상세 리포트 및 데이터 내보내기'}
                   {activeTab === 'settings' && '시스템 설정 및 계정 관리'}
-                  {activeTab === 'test' && '차트 및 랭킹 데모'}
                 </p>
               </div>
               

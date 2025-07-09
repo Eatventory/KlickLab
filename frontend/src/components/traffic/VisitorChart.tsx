@@ -112,13 +112,18 @@ export const VisitorChart: React.FC<VisitorChartProps> = ({ data, period = 'dail
     }
     return { ...item, visitors, newVisitors, returningVisitors };
   });
-  // 시간별: x축 끝이 항상 현재 시간(시)로 끝나도록 24시간 추출
+  // 시간별: 현재 시간 기준으로 최근 24시간 추출
   if (period === 'hourly') {
     const now = new Date();
-    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const hours: string[] = [];
-    for (let i = 0; i < 24; i++) {
-      hours.push(`${todayStr} ${String(i).padStart(2, '0')}`);
+    for (let i = 23; i >= 0; i--) {
+      const time = new Date(now);
+      time.setHours(now.getHours() - i);
+      const year = time.getFullYear();
+      const month = String(time.getMonth() + 1).padStart(2, '0');
+      const day = String(time.getDate()).padStart(2, '0');
+      const hour = String(time.getHours()).padStart(2, '0');
+      hours.push(`${year}-${month}-${day} ${hour}`);
     }
     displayData = hours.map(dateStr => {
       const found = data.find(d => d.date === dateStr);
