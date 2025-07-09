@@ -15,17 +15,10 @@ export const SettingsDashboard: React.FC = () => {
   const [domains, setDomains] = useState<DomainData[]>([
     {
       id: '1',
-      domain: 'example.com',
+      domain: 'your-api-endpoint.com',
       status: 'active',
-      lastEvent: '2024-01-07 15:30:00',
+      lastEvent: '2024-07-09 15:37:24',
       eventCount: 1247
-    },
-    {
-      id: '2',
-      domain: 'test-site.com',
-      status: 'active',
-      lastEvent: '2024-01-07 14:45:00',
-      eventCount: 892
     }
   ]);
 
