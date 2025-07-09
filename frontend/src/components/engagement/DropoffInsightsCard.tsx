@@ -10,9 +10,13 @@ interface DropoffSummaryData {
   data: DropoffData[];
 }
 
-export const DropoffInsightsCard: React.FC = () => {
+interface DropoffInsightsCardProps {
+  refreshKey?: number;
+  loading?: boolean;
+}
+
+export const DropoffInsightsCard: React.FC<DropoffInsightsCardProps> = ({ refreshKey, loading }) => {
   const [data, setData] = useState<DropoffData[]>([]);
-  const [loading, setLoading] = useState(true);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
 
   useEffect(() => {
@@ -32,14 +36,14 @@ export const DropoffInsightsCard: React.FC = () => {
           { page: "/cart", dropRate: 15.3 }
         ]);
       } finally {
-        setLoading(false);
+        // setLoading(false); // This line was removed as per the new_code
       }
     };
 
     fetchDropoffData();
     const interval = setInterval(fetchDropoffData, 60000); // 1분마다 갱신
     return () => clearInterval(interval);
-  }, []);
+  }, [refreshKey]);
 
   if (loading) {
     return (

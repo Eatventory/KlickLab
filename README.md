@@ -1,3 +1,5 @@
+![1](https://github.com/user-attachments/assets/3a665e26-0d07-42b1-ae6e-45cf059419e9)
+
 # klickLab
 
 > 클릭스트림 기반 데이터 수집 및 분석 플랫폼  
