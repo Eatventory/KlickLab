@@ -78,7 +78,7 @@ function formatKoreanNumber(value: number) {
 
 export const TrafficDashboard: React.FC = () => {
   const [filters, setFilters] = useState<FilterOptions>({
-    period: 'daily',
+    period: 'hourly',
     gender: 'all',
     ageGroup: 'all'
   });
