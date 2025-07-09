@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { UserPathSankeyChart } from './UserPathSankeyChart';
-import { Users, Route, PieChart } from 'lucide-react';
+import { Users, Route, PieChart, RefreshCw } from 'lucide-react';
 import { UserSegmentPieChart } from './UserSegmentPieChart';
 import { OsBrowserPieChart } from './OsBrowserPieChart';
 import { OsBrowserTable } from './OsBrowserTable';
@@ -8,6 +8,7 @@ import { OsFilterDropdown } from './OsFilterDropdown';
 import { SegmentGroupCard } from './SegmentGroupCard';
 import { SegmentGroupCardSkeleton } from './SegmentGroupCardSkeleton';
 import { TopButtonList, type SegmentType } from './TopButtonList';
+import { UserSegmentSummary } from './UserSegmentSummary';
 import { getPageLabel } from '../../utils/getPageLabel';
 
 // 타입 정의
@@ -97,7 +98,9 @@ export const UserDashboard: React.FC = () => {
   });
 
   const [loading, setLoading] = useState<boolean>(false);
+  const [segmentLoading, setSegmentLoading] = useState<boolean>(false);
   const [distType, setDistType] = useState<'os' | 'browser'>('os');
+  const [refreshKey, setRefreshKey] = useState(0);
   
   // 세그먼트별 TOP 3 상태
   const [activeSegment, setActiveSegment] = useState<SegmentType>('gender');
@@ -124,6 +127,7 @@ export const UserDashboard: React.FC = () => {
       device: 'device_type',
     };
     setLoading(true);
+    setSegmentLoading(true);
     const topClicks = fetch(`/api/users/top-clicks?filter=${segmentToApiFilter[activeSegment]}`)
       .then(res => res.json())
       .then(data => setSegmentGroupData(data.data || []));
@@ -159,7 +163,11 @@ export const UserDashboard: React.FC = () => {
     
     Promise.all([topClicks, userType, osSummary, browserSummary, userPath, returning])
       .catch(err => { console.error('일부 데이터 요청 실패:', err); })
-      .finally(() => { setLoading(false); });
+      .finally(() => { 
+        setLoading(false);
+        setSegmentLoading(false);
+        setRefreshKey(prev => prev + 1);
+      });
   }, [activeSegment]);
 
   useEffect(() => {
@@ -249,30 +257,71 @@ export const UserDashboard: React.FC = () => {
     }
   };
 
+  // 세그먼트 데이터 새로고침 함수
+  const refreshSegmentData = async () => {
+    setSegmentLoading(true);
+    try {
+      const segmentToApiFilter: Record<string, string> = {
+        gender: 'user_gender',
+        age: 'user_age',
+        signupPath: 'traffic_source',
+        device: 'device_type',
+      };
+      
+      const response = await fetch(`/api/users/top-clicks?filter=${segmentToApiFilter[activeSegment]}`);
+      const data = await response.json();
+      setSegmentGroupData(data.data || []);
+    } catch (error) {
+      console.error('세그먼트 데이터 새로고침 실패:', error);
+    } finally {
+      setSegmentLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-8">
+      {/* 사용자 세그먼트 분석 요약 */}
+      <div className="mb-2">
+        <UserSegmentSummary refreshKey={refreshKey} />
+      </div>
+      
       {/* 세그먼트별 TOP 3 필터 */}
       <TopButtonList
         activeSegment={activeSegment}
         onSegmentChange={(newSegment) => {
           setLoading(true);
+          setSegmentLoading(true);
           setActiveSegment(newSegment);
         }}
       />
 
       {/* 세그먼트별 TOP 3 사용자 카드 */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center gap-2 mb-6">
-          <Users className="w-5 h-5 text-gray-600" />
-          <h2 className="text-lg font-semibold text-gray-900">
-            {activeSegment === 'gender' && '성별별 클릭 TOP 3'}
-            {activeSegment === 'age' && '연령대별 클릭 TOP 3'}
-            {activeSegment === 'signupPath' && '가입 경로별 클릭 TOP 3'}
-            {activeSegment === 'device' && '기기별 클릭 TOP 3'}
-          </h2>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2">
+            <Users className="w-5 h-5 text-gray-600" />
+            <h2 className="text-lg font-semibold text-gray-900">
+              {activeSegment === 'gender' && '성별 클릭 TOP 3'}
+              {activeSegment === 'age' && '연령대별 클릭 TOP 3'}
+              {activeSegment === 'signupPath' && '가입 경로별 클릭 TOP 3'}
+              {activeSegment === 'device' && '기기별 클릭 TOP 3'}
+            </h2>
+          </div>
+          <button
+            onClick={refreshSegmentData}
+            disabled={segmentLoading}
+            className={`p-2 rounded-lg border transition-colors ${
+              segmentLoading 
+                ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' 
+                : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50 hover:border-gray-400'
+            }`}
+            title="새로고침"
+          >
+            <RefreshCw className={`w-4 h-4 ${segmentLoading ? 'animate-spin' : ''}`} />
+          </button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {loading
+          {segmentLoading
             ? [...Array(3)].map((_, idx) => (
                 <SegmentGroupCardSkeleton key={`skeleton-${idx}`} />
               ))
