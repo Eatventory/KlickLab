@@ -42,8 +42,8 @@ router.get('/session-duration', authMiddleware, async (req, res) => {
     const deltaSec = todayAvgSec - prevAvgSec;
 
     const data = {
-      averageDuration: todayAvgSec,
-      deltaDuration: deltaSec,
+      averageDuration: todayAvgSec ? Math.round(todayAvgSec) : 0,
+      deltaDuration: Math.round(deltaSec),
       trend: deltaSec > 0 ? 'up' : deltaSec < 0 ? 'down' : 'flat',
       period: '24h',
       periodLabel: '최근 24시간'
