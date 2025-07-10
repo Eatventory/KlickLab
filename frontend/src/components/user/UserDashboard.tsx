@@ -130,13 +130,27 @@ export const UserDashboard: React.FC = () => {
     setSegmentLoading(true);
     (async () => {
       try {
+        const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+        if (!token) throw new Error("No token");
         const [topClicksRes, userTypeRes, osRes, browserRes, userPathRes, returningRes] = await Promise.all([
-          fetch(`/api/users/top-clicks?filter=${segmentToApiFilter[activeSegment]}`),
-          fetch(`/api/users/user-type-summary?period=${filters.period}&userType=${filters.userType}&device=${filters.device}`),
-          fetch(`/api/users/os-type-summary?period=${filters.period}&userType=${filters.userType}&device=${filters.device}`),
-          fetch(`/api/users/browser-type-summary?period=${filters.period}&userType=${filters.userType}&device=${filters.device}`),
-          fetch('/api/stats/userpath-summary'),
-          fetch(`/api/users/returning?period=${filters.period}&userType=${filters.userType}&device=${filters.device}`),
+          fetch(`/api/users/top-clicks?filter=${segmentToApiFilter[activeSegment]}`,
+            {headers: { Authorization: `Bearer ${token}` }}
+          ),
+          fetch(`/api/users/user-type-summary?period=${filters.period}&userType=${filters.userType}&device=${filters.device}`,
+            {headers: { Authorization: `Bearer ${token}` }}
+          ),
+          fetch(`/api/users/os-type-summary?period=${filters.period}&userType=${filters.userType}&device=${filters.device}`,
+            {headers: { Authorization: `Bearer ${token}` }}
+          ),
+          fetch(`/api/users/browser-type-summary?period=${filters.period}&userType=${filters.userType}&device=${filters.device}`,
+            {headers: { Authorization: `Bearer ${token}` }}
+          ),
+          fetch('/api/stats/userpath-summary',
+            {headers: { Authorization: `Bearer ${token}` }}
+          ),
+          fetch(`/api/users/returning?period=${filters.period}&userType=${filters.userType}&device=${filters.device}`,
+            {headers: { Authorization: `Bearer ${token}` }}
+          ),
         ]);
   
         const [
@@ -183,10 +197,18 @@ export const UserDashboard: React.FC = () => {
     setLoading(true);
     (async () => {
       try {
+        const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+        if (!token) throw new Error("No token");
         const [osRes, browserRes, returningRes] = await Promise.all([
-          fetch(`/api/users/os-type-summary?period=${filters.period}&userType=${filters.userType}&device=${filters.device}`),
-          fetch(`/api/users/browser-type-summary?period=${filters.period}&userType=${filters.userType}&device=${filters.device}`),
-          fetch(`/api/users/returning?period=${filters.period}&userType=${filters.userType}&device=${filters.device}`),
+          fetch(`/api/users/os-type-summary?period=${filters.period}&userType=${filters.userType}&device=${filters.device}`,
+            {headers: { Authorization: `Bearer ${token}` }}
+          ),
+          fetch(`/api/users/browser-type-summary?period=${filters.period}&userType=${filters.userType}&device=${filters.device}`,
+            {headers: { Authorization: `Bearer ${token}` }}
+          ),
+          fetch(`/api/users/returning?period=${filters.period}&userType=${filters.userType}&device=${filters.device}`,
+            {headers: { Authorization: `Bearer ${token}` }}
+          ),
         ]);
   
         const [osData, browserData, returningData] = await Promise.all([
@@ -279,6 +301,9 @@ export const UserDashboard: React.FC = () => {
   const refreshSegmentData = async () => {
     setSegmentLoading(true);
     try {
+      const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+      if (!token) throw new Error("No token");
+
       const segmentToApiFilter: Record<string, string> = {
         gender: 'user_gender',
         age: 'user_age',
@@ -286,7 +311,7 @@ export const UserDashboard: React.FC = () => {
         device: 'device_type',
       };
       
-      const response = await fetch(`/api/users/top-clicks?filter=${segmentToApiFilter[activeSegment]}`);
+      const response = await fetch(`/api/users/top-clicks?filter=${segmentToApiFilter[activeSegment]}`, {headers: { Authorization: `Bearer ${token}` }});
       const data = await response.json();
       setSegmentGroupData(data.data || []);
     } catch (error) {
