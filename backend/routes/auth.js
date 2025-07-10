@@ -23,7 +23,7 @@ router.post('/login', async (req, res) => {
     );
 
     const refreshToken = jwt.sign(
-      { userId: user.id },
+      { userId: user.id, email: user.email, sdk_key: user.sdk_key },
       process.env.JWT_REFRESH_SECRET,
       { expiresIn: '7d' }
     );
@@ -51,7 +51,7 @@ router.post('/refresh', (req, res) => {
   try {
     const payload = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
     const accessToken = jwt.sign(
-      { userId: payload.id, email: payload.email, sdk_key: payload.sdk_key },
+      { userId: payload.userId, email: payload.email, sdk_key: payload.sdk_key },
       process.env.JWT_SECRET,
       { expiresIn: '15m' }
     );

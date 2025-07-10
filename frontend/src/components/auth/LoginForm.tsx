@@ -1,10 +1,13 @@
 import { useState } from "react";
+import { setToken } from '../../utils/storage';
+import { useAuthStore } from '../../store/useAuthStore';
 
 export default function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const setAuthState = useAuthStore((s) => s.setAuthState);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,11 +23,8 @@ export default function LoginForm() {
         throw new Error(err.message || '로그인에 실패했습니다.');
       }
       const { accessToken } = await res.json();
-      if (remember) {
-        localStorage.setItem('klicklab_token', accessToken);
-      } else {
-        sessionStorage.setItem('klicklab_token', accessToken);
-      }
+      setToken(accessToken, 15 * 60 * 1000, remember); // 토큰 + 만료시각 저장 (15분 후)
+      setAuthState("loggedIn");
       window.location.href = '/';
     } catch (err: any) {
       setError(err.message);
@@ -53,12 +53,6 @@ export default function LoginForm() {
         </div>
         <div className="flex justify-between items-center">
           <label className="block text-gray-700 mb-1">비밀번호</label>
-          {/* <a
-            href="/forgot-password"
-            className="text-sm text-blue-600 hover:underline"
-          >
-            비밀번호 찾기
-          </a> */}
         </div>
         <div>
           <input

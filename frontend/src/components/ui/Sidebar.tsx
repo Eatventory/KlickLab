@@ -7,8 +7,7 @@ import {
   Settings, 
   FileText,
   ChevronLeft,
-  ChevronRight,
-  LogOut
+  ChevronRight
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -64,16 +63,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isCollapsed, 
   onToggleCollapse 
 }) => {
-  const handleLogout = () => {
-    fetch('/api/auth/logout', {
-      method: 'POST',
-      credentials: 'include',
-    }).finally(() => {
-      localStorage.removeItem('klicklab_token');
-      sessionStorage.removeItem('klicklab_token');
-      window.location.href = '/login';
-    });
-  };
   
   return (
     <div className={clsx(
@@ -143,22 +132,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* 하단 정보 */}
       {!isCollapsed && (
-        <>
-        <div className='p-4 flex justify-center items-center'>
-          <button
-            onClick={handleLogout}
-            className="w-fit flex items-center gap-2 text-sm text-gray-600 hover:text-red-600 transition-colors"
-          >
-            <LogOut className="w-4 h-4" /> 로그아웃
-          </button>
-        </div>
         <div className="p-4 border-t border-gray-200">
           <div className="text-xs text-gray-500">
             <div>버전 1.0.1</div>
             <div>© 2025 KlickLab</div>
           </div>
         </div>
-        </>
       )}
     </div>
   );
