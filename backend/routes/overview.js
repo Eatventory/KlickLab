@@ -48,8 +48,8 @@ router.get('/session-duration', async (req, res) => {
     // console.log(todayAvgSec, prevAvgSec);
 
     const deltaSec = todayAvgSec - prevAvgSec;
-    const deltaMs = deltaSec * 1000;
-    const averageSessionTimeMs = todayAvgSec * 1000;
+    // const deltaMs = deltaSec * 1000;
+    // const averageSessionTimeMs = todayAvgSec * 1000;
 
     // const formatSeconds = (sec) => {
     //   if (sec <= 0) return '0초';
@@ -83,8 +83,8 @@ router.get('/session-duration', async (req, res) => {
     // };
 
     const data = {
-      averageDuration: averageSessionTimeMs,
-      deltaDuration: deltaMs,
+      averageDuration: todayAvgSec,
+      deltaDuration: deltaSec,
       trend: deltaSec > 0 ? 'up' : deltaSec < 0 ? 'down' : 'flat',
       period: '24h',
       periodLabel: '최근 24시간'
