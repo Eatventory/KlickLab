@@ -36,6 +36,10 @@ app.use('/api/users', usersRoutes);
 const trafficRoutes = require('./routes/traffic');
 app.use('/api/traffic', trafficRoutes);
 
+/* setting 라우팅 */
+const settingsRoutes = require('./routes/settings');
+app.use('/api/settings', settingsRoutes);
+
 /* ▼ 메트릭 연결 */
 const metricsPort = 9091; // 메트릭 전용 포트
 const client = require('prom-client');
