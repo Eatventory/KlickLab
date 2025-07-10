@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Dashboard } from './components/dashboard/Dashboard';
+import SessionTimer from './components/ui/SessionTimer';
 import AuthForm from './components/auth/AuthForm';
 import Error from "./Error";
 import './App.css';
@@ -10,24 +11,8 @@ function App() {
 
   useEffect(() => {
     const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
-    if (token) {
-      setAuthState('loggedIn');
-    } else {
-      fetch('/api/auth/refresh', {
-        method: 'POST',
-        credentials: 'include',
-      })
-        .then(res => res.json())
-        .then(data => {
-          if (data?.accessToken) {
-            localStorage.setItem('klicklab_token', data.accessToken);
-            setAuthState('loggedIn');
-          } else {
-            setAuthState('loggedOut');
-          }
-        })
-        .catch(() => setAuthState('loggedOut'));
-    }
+    if (token) setAuthState('loggedIn');
+    else setAuthState('loggedOut');
   }, []);
 
   
@@ -37,6 +22,7 @@ function App() {
 
   return (
     <div className="App">
+      <SessionTimer />
       <Router>
         <Routes>
           <Route path="/auth" element={<AuthForm />} />
