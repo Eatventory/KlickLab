@@ -78,7 +78,7 @@ function formatKoreanNumber(value: number) {
 
 export const TrafficDashboard: React.FC = () => {
   const [filters, setFilters] = useState<FilterOptions>({
-    period: 'hourly',
+    period: 'daily',
     gender: 'all',
     ageGroup: 'all'
   });
@@ -97,13 +97,15 @@ export const TrafficDashboard: React.FC = () => {
   useEffect(() => {
     const fetchTrafficData = async () => {
       try {
+        const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+        if (!token) throw new Error("No token");
         const queryParams = new URLSearchParams({
           period: filters.period,
           gender: filters.gender,
           ageGroup: filters.ageGroup
         });
         
-        const response = await fetch(`/api/traffic?${queryParams}`);
+        const response = await fetch(`/api/traffic?${queryParams}`, {headers: { Authorization: `Bearer ${token}` }});
         const data: TrafficData = await response.json();
         setTrafficData(data);
       } catch (error) {
