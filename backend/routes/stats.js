@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const clickhouse = require('../src/config/clickhouse');
 const { formatLocalDateDay } = require('../utils/formatLocalDateTime');
+const authMiddleware = require('../middlewares/authMiddleware');
 
 const now = new Date();
 const localNow = formatLocalDateDay(now);
@@ -9,7 +10,8 @@ const localNow = formatLocalDateDay(now);
 // ✅ UNION ALL 제거: 오늘과 이전 데이터 분리 조회
 // ✅ ORDER BY 제거
 // ✅ toDate()로 파티션 활용
-router.get('/visitors', async (req, res) => {
+router.get('/visitors', authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
   try {
     // 최근 7일간 방문자 추이 쿼리
     const trendRes = await clickhouse.query({
@@ -17,9 +19,10 @@ router.get('/visitors', async (req, res) => {
         SELECT
           formatDateTime(date, '%Y-%m-%d') AS date_str,
           toUInt64(visitors) AS visitors
-        FROM klicklab.daily_metrics
+        FROM daily_metrics
         WHERE date >= toDate('${localNow}') - 6
           AND date < toDate('${localNow}')
+          AND sdk_key = '${sdk_key}'
       `,
       format: 'JSON'
     });
@@ -33,7 +36,8 @@ router.get('/visitors', async (req, res) => {
       query: `
         SELECT visitors
         FROM daily_metrics
-        WHERE date = toDate('${localNow}') - 1;
+        WHERE date = toDate('${localNow}') - 1
+          AND sdk_key = '${sdk_key}'
       `,
       format: 'JSON'
     });
@@ -44,6 +48,7 @@ router.get('/visitors', async (req, res) => {
         SELECT countDistinct(client_id) AS visitors
         FROM events
         WHERE toDate(timestamp) = toDate('${localNow}')
+          AND sdk_key = '${sdk_key}'
       `,
       format: 'JSON'
     });
@@ -62,13 +67,15 @@ router.get('/visitors', async (req, res) => {
 
 // ✅ event_name = 'auto_click' + toDate(timestamp) 사용
 // ✅ 어제 데이터는 daily_metrics 테이블로 빠르게 조회
-router.get('/clicks', async (req, res) => {
+router.get('/clicks', authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
 	try {
     const yesterdayRes = await clickhouse.query({
       query: `
         SELECT clicks
         FROM daily_metrics
-        WHERE date = toDate('${localNow}') - 1;
+        WHERE date = toDate('${localNow}') - 1
+          AND sdk_key = '${sdk_key}'
       `,
       format: 'JSON'
     });
@@ -80,6 +87,7 @@ router.get('/clicks', async (req, res) => {
         FROM events
         WHERE toDate(timestamp) = toDate('${localNow}')
           AND event_name = 'auto_click'
+          AND sdk_key = '${sdk_key}'
       `,
       format: 'JSON'
     });
@@ -98,7 +106,8 @@ router.get('/clicks', async (req, res) => {
 // ✅ event_name = 'auto_click' AND target_text != ''로 필터링
 // ✅ GROUP BY target_text, LIMIT 5만 수행 → 비교적 가벼움
 // ✅ toDate(timestamp) 사용으로 파티션 최적화
-router.get('/top-clicks', async (req, res) => {
+router.get('/top-clicks', authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
   try {
     const topClicksRes = await clickhouse.query({
       query: `
@@ -106,6 +115,7 @@ router.get('/top-clicks', async (req, res) => {
         FROM events
         WHERE toDate(timestamp) = toDate('${localNow}')
           AND event_name = 'auto_click' AND target_text != ''
+            AND sdk_key = '${sdk_key}'
         GROUP BY target_text
         ORDER BY cnt DESC
         LIMIT 5
@@ -125,7 +135,8 @@ router.get('/top-clicks', async (req, res) => {
 
 // ✅ timestamp 스캔을 base - interval 범위로 제한
 // ✅ 시간 블록 계산을 상대값 기반으로 처리 → 정렬 성능 개선
-router.get('/click-trend', async (req, res) => {
+router.get('/click-trend', authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
   try {
     const baseTime = `'${req.query.baseTime}'`;
     const period = parseInt(req.query.period) || 60; // 조회 범위 (분)
@@ -151,6 +162,7 @@ router.get('/click-trend', async (req, res) => {
         WHERE 
           event_name = 'auto_click'
           AND timestamp >= base - toIntervalMinute(period_minute)
+          AND sdk_key = '${sdk_key}'
         GROUP BY time
         ORDER BY time
       `,
@@ -172,7 +184,8 @@ router.get('/click-trend', async (req, res) => {
 
 // ✅ countIf() + count() 중복 제거 → WITH로 합쳐서 처리
 // ✅ toDate(timestamp) 사용, page != ''로 사전 필터링
-router.get('/dropoff-summary', async (req, res) => {
+router.get('/dropoff-summary', authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
   try {
     const query = `
       WITH t AS (
@@ -181,7 +194,7 @@ router.get('/dropoff-summary', async (req, res) => {
           countIf(event_name = 'page_exit') AS exit_count,
           count(*) AS total_count
         FROM events
-        WHERE toDate(timestamp) = toDate('${localNow}') AND page_path != ''
+        WHERE toDate(timestamp) = toDate('${localNow}') AND page_path != '' AND sdk_key = '${sdk_key}'
         GROUP BY page_path
       )
       SELECT 
@@ -202,7 +215,8 @@ router.get('/dropoff-summary', async (req, res) => {
 
 // ✅ groupArray + ARRAY JOIN 조합에 LIMIT 1000으로 유저 수 제한
 // ✅ ORDER BY user_id, timestamp로 정렬은 유지하되 스캔 범위 최소화
-router.get('/userpath-summary', async (req, res) => {
+router.get('/userpath-summary', authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
   try {
     const pathQuery = `
       SELECT 
@@ -220,6 +234,7 @@ router.get('/userpath-summary', async (req, res) => {
           FROM events
           WHERE event_name IN ('page_view', 'auto_click')
             AND toDate(timestamp) = toDate('${localNow}')
+            AND sdk_key = '${sdk_key}'
           ORDER BY user_id, timestamp
         )
         GROUP BY user_id

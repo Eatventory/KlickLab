@@ -44,10 +44,12 @@ export const OverviewDashboard = forwardRef<any, { onLastUpdated?: (d: Date) => 
 
   const fetchStats = async () => {
     try {
+      const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+      if (!token) throw new Error("No token");
       const [visitorsResponse, clicksResponse, userPathResponse] = await Promise.all([
-        fetch(`/api/stats/visitors`),
-        fetch(`/api/stats/clicks`),
-        fetch(`/api/stats/userpath-summary`)
+        fetch(`/api/stats/visitors`, {headers: { Authorization: `Bearer ${token}` }}),
+        fetch(`/api/stats/clicks`, {headers: { Authorization: `Bearer ${token}` }}),
+        fetch(`/api/stats/userpath-summary`, {headers: { Authorization: `Bearer ${token}` }})
       ]);
       const visitors = await visitorsResponse.json();
       const clicks = await clicksResponse.json();

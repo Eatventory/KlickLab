@@ -18,11 +18,12 @@ export const AverageSessionDurationCard: React.FC = () => {
   // refreshKey 상태 선언 제거
 
   const fetchSessionDuration = async () => {
+    const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
     try {
       setLoading(true);
       setError(null);
-      
-      const response = await fetch('/api/overview/session-duration');
+      if (!token) throw new Error("No token");
+      const response = await fetch('/api/overview/session-duration', {headers: { Authorization: `Bearer ${token}` }});
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);

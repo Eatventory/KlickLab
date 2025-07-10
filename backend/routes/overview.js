@@ -1,23 +1,14 @@
 const express = require("express");
 const router = express.Router();
 const clickhouse = require("../src/config/clickhouse");
+const authMiddleware = require('../middlewares/authMiddleware');
+// const { formatLocalDateDay } = require('../utils/formatLocalDateTime');
+// const now = new Date();
+// const localNow = formatLocalDateDay(now);
 
-router.get('/session-duration', async (req, res) => {
+router.get('/session-duration', authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
   try {
-    // const todayQuery = `
-    //   SELECT avg(duration) AS avg_s FROM (
-    //     SELECT session_id, dateDiff(
-    //       'second',
-    //       min(toTimeZone(timestamp, 'Asia/Seoul')),
-    //       max(toTimeZone(timestamp, 'Asia/Seoul'))
-    //     ) AS duration
-    //     FROM events
-    //     WHERE toTimeZone(timestamp, 'Asia/Seoul') >= now() - INTERVAL 1 DAY
-    //     GROUP BY session_id
-    //     LIMIT 1000
-    //   )
-    // `;
-
     const todayQuery = `
       SELECT toUInt32(avg(duration)) AS avg_s FROM (
         SELECT session_id, dateDiff(
@@ -27,6 +18,7 @@ router.get('/session-duration', async (req, res) => {
         ) AS duration
         FROM events
         WHERE toDate(toTimeZone(timestamp, 'Asia/Seoul')) >= now() - INTERVAL 1 DAY
+          AND sdk_key = '${sdk_key}'
         GROUP BY session_id
         HAVING count(*) > 1
       )
@@ -36,6 +28,7 @@ router.get('/session-duration', async (req, res) => {
       SELECT date, avg_session_seconds
       FROM klicklab.daily_metrics
       WHERE date = yesterday()
+        AND sdk_key = '${sdk_key}'
     `;
 
     const [todayRes, prevRes] = await Promise.all([
@@ -45,42 +38,8 @@ router.get('/session-duration', async (req, res) => {
 
     const todayAvgSec = +(todayRes[0]?.avg_s || 0);
     const prevAvgSec = +(prevRes[0]?.avg_session_seconds || 0);
-    // console.log(todayAvgSec, prevAvgSec);
 
     const deltaSec = todayAvgSec - prevAvgSec;
-    // const deltaMs = deltaSec * 1000;
-    // const averageSessionTimeMs = todayAvgSec * 1000;
-
-    // const formatSeconds = (sec) => {
-    //   if (sec <= 0) return '0초';
-    //   const h = Math.floor(sec / 3600);
-    //   const m = Math.floor((sec % 3600) / 60);
-    //   const s = Math.floor(sec % 60);
-    //   return [
-    //     h > 0 ? `${String(h).padStart(2, '0')}` : '00',
-    //     String(m).padStart(2, '0'),
-    //     String(s).padStart(2, '0')
-    //   ].join(':');
-    // };
-
-    // const formatDelta = (sec) => {
-    //   if (sec === 0) return '변화 없음';
-    //   const sign = sec > 0 ? '+' : '-';
-    //   const abs = Math.abs(sec);
-    //   const m = Math.floor(abs / 60);
-    //   const s = Math.round(abs % 60);
-    //   return `${sign}${m > 0 ? `${m}분 ` : ''}${s > 0 ? `${s}초` : ''}`.trim();
-    // };
-
-    // const data = {
-    //   averageSessionTimeMs,
-    //   deltaMs,
-    //   formattedDuration: formatSeconds(todayAvgSec),
-    //   deltaFormatted: formatDelta(deltaSec),
-    //   trend: deltaSec > 0 ? 'up' : deltaSec < 0 ? 'down' : 'flat',
-    //   period: '24h',
-    //   periodLabel: '최근 24시간'
-    // };
 
     const data = {
       averageDuration: todayAvgSec,
@@ -93,23 +52,15 @@ router.get('/session-duration', async (req, res) => {
   } catch (err) {
     console.error('Session Duration API ERROR:', err);
     res.status(500).json({ error: 'Failed to get session duration data' });
-    // res.status(500).json({
-    //   averageSessionTimeMs: 0,
-    //   deltaMs: 0,
-    //   formattedDuration: '0초',
-    //   deltaFormatted: '변화 없음',
-    //   trend: 'flat',
-    //   period: '24h',
-    //   periodLabel: '최근 24시간'
-    // });
   }
 });
 
-router.get('/conversion-summary', async (req, res) => {
+router.get('/conversion-summary', authMiddleware, async (req, res) => {
   const fromPage = req.query.from || '/cart';
   const toPage = req.query.to || '/checkout/success';
   const period = '7d';
   const periodLabel = '최근 7일';
+  const { sdk_key } = req.user;
 
   const query = `
     WITH
@@ -118,12 +69,14 @@ router.get('/conversion-summary', async (req, res) => {
         SELECT session_id, min(timestamp) AS a_time
         FROM events
         WHERE page_path = '${fromPage}' AND toDate(timestamp) >= today() - 6
+          AND sdk_key = '${sdk_key}'
         GROUP BY session_id
       ),
       b_sessions AS (
         SELECT session_id, min(timestamp) AS b_time
         FROM events
         WHERE page_path = '${toPage}' AND toDate(timestamp) >= today() - 6
+          AND sdk_key = '${sdk_key}'
         GROUP BY session_id
       ),
       joined AS (
@@ -144,12 +97,14 @@ router.get('/conversion-summary', async (req, res) => {
         SELECT session_id, min(timestamp) AS a_time
         FROM events
         WHERE page_path = '${fromPage}' AND toDate(timestamp) BETWEEN today() - 13 AND today() - 7
+          AND sdk_key = '${sdk_key}'
         GROUP BY session_id
       ),
       prev_b_sessions AS (
         SELECT session_id, min(timestamp) AS b_time
         FROM events
         WHERE page_path = '${toPage}' AND toDate(timestamp) BETWEEN today() - 13 AND today() - 7
+          AND sdk_key = '${sdk_key}'
         GROUP BY session_id
       ),
       prev_joined AS (

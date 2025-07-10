@@ -17,7 +17,7 @@ router.post('/login', async (req, res) => {
     if (!match) return res.status(401).json({ message: '이메일 또는 비밀번호가 잘못되었습니다.' });
 
     const accessToken = jwt.sign(
-      { userId: user.id, email: user.email },
+      { userId: user.id, email: user.email, sdk_key: user.sdk_key },
       process.env.JWT_SECRET,
       { expiresIn: '15m' }
     );
@@ -51,7 +51,7 @@ router.post('/refresh', (req, res) => {
   try {
     const payload = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
     const accessToken = jwt.sign(
-      { userId: payload.userId },
+      { userId: payload.id, email: payload.email, sdk_key: payload.sdk_key },
       process.env.JWT_SECRET,
       { expiresIn: '15m' }
     );
