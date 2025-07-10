@@ -1,5 +1,7 @@
 const db = require('../src/config/clickhouse');
 const bcrypt = require('bcryptjs');
+const { randomUUID } = require('crypto');
+const { formatLocalDateTime } = require('../utils/formatLocalDateTime');
 
 // SQL 인젝션 공격 방지용
 function escapeSQLString(str) {
@@ -23,10 +25,15 @@ async function createUser(email, password) {
   const salt = await bcrypt.genSalt(10);
   const hash = await bcrypt.hash(password, salt);
   const escapedEmail = escapeSQLString(email);
+  
+  const uuid = randomUUID();
+  const now = new Date();
+  const localDatetime = formatLocalDateTime(now);
+
   await db.insert({
     table: 'users',
     values: [
-      { email: escapedEmail, password_hash: hash }
+      { email: escapedEmail, password_hash: hash, sdk_key: uuid, created_at: localDatetime, updated_at: localDatetime }
     ],
     format: 'JSONEachRow'
   });
