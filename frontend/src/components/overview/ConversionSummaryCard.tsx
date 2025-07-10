@@ -20,11 +20,12 @@ export const ConversionSummaryCard: React.FC = () => {
 
   // 데이터를 API에서 불러오는 비동기 함수
   const fetchConversionSummary = async () => {
+    const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
     try {
       setLoading(true); // 로딩 상태 설정
       setError(null);   // 에러 상태 초기화
-      
-      const response = await fetch(`/api/overview/conversion-summary`); // API 엔드포인트에서 데이터 가져오기
+      if (!token) throw new Error("No token");
+      const response = await fetch(`/api/overview/conversion-summary`, {headers: { Authorization: `Bearer ${token}` }}); // API 엔드포인트에서 데이터 가져오기
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`); // 응답이 성공하지 않으면 에러 발생

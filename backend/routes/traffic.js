@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const clickhouse = require('../src/config/clickhouse');
+const authMiddleware = require('../middlewares/authMiddleware');
 
 function getAgeCondition(ageGroup) {
   switch (ageGroup) {
@@ -15,7 +16,8 @@ function getAgeCondition(ageGroup) {
 }
 
 /* Traffic 탭 통합 API */
-router.get("/", async (req, res) => {
+router.get("/", authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
   try {
     const {
       period = "daily",
@@ -94,6 +96,7 @@ router.get("/", async (req, res) => {
           AND date <= toDate('${endDateStr}')
           ${gender !== "all" ? `AND user_gender = '${gender}'` : ""}
           ${ageGroup !== "all" ? `AND ${getAgeCondition(ageGroup)}` : ""}
+          AND sdk_key = '${sdk_key}'
         GROUP BY date_str
         ORDER BY date_str ASC
       `;
@@ -107,6 +110,7 @@ router.get("/", async (req, res) => {
         FROM daily_metrics
         WHERE date >= toStartOfMonth(toDate('${startDateStr}'))
           AND date <= toDate('${endDateStr}')
+          AND sdk_key = '${sdk_key}'
           ${gender !== "all" ? `AND user_gender = '${gender}'` : ""}
           ${ageGroup !== "all" ? `AND ${getAgeCondition(ageGroup)}` : ""}
         GROUP BY date_str
@@ -122,6 +126,7 @@ router.get("/", async (req, res) => {
         FROM daily_metrics
         WHERE date >= toDate('${startDateStr}')
           AND date < today()
+          AND sdk_key = '${sdk_key}'
           ${gender !== "all" ? `AND user_gender = '${gender}'` : ""}
           ${ageGroup !== "all" ? `AND ${getAgeCondition(ageGroup)}` : ""}
         UNION ALL
@@ -138,6 +143,7 @@ router.get("/", async (req, res) => {
           FROM events
           WHERE event_name = 'auto_click'
             AND toDate(timestamp) = today()
+            AND sdk_key = '${sdk_key}'
             ${gender !== "all" ? `AND user_gender = '${gender}'` : ""}
             ${ageGroup !== "all" ? `AND ${getAgeCondition(ageGroup)}` : ""}
         )
@@ -159,6 +165,7 @@ router.get("/", async (req, res) => {
           FROM klicklab.events
           WHERE event_name = 'auto_click'
             AND toDate(timestamp) = today()
+            AND sdk_key = '${sdk_key}'
             ${gender !== "all" ? `AND user_gender = '${gender}'` : ""}
             ${ageGroup !== "all" ? `AND ${getAgeCondition(ageGroup)}` : ""}
         )
@@ -174,6 +181,7 @@ router.get("/", async (req, res) => {
             FROM events
             WHERE timestamp < today
               AND event_name = 'auto_click'
+              AND sdk_key = '${sdk_key}'
           )
         SELECT
           ${formatExpr} AS date_str,
@@ -183,6 +191,7 @@ router.get("/", async (req, res) => {
         FROM daily_metrics
         WHERE date < today
           AND date >= toDate(toTimeZone(parseDateTimeBestEffort('${startDateStr}'), 'Asia/Seoul'))
+          AND sdk_key = '${sdk_key}'
         UNION ALL
         SELECT
           ${eventFormatExpr} AS date_str,
@@ -193,6 +202,7 @@ router.get("/", async (req, res) => {
         WHERE 
           toDate(timestamp) = today
           AND event_name = 'auto_click'
+          AND sdk_key = '${sdk_key}'
           ${gender !== "all" ? `AND user_gender = '${gender}'` : ""}
           ${ageGroup !== "all" ? `AND ${getAgeCondition(ageGroup)}` : ""}
         GROUP BY date_str
@@ -277,6 +287,7 @@ router.get("/", async (req, res) => {
       count() AS visitors
     FROM events
     WHERE ${whereClause}
+      AND sdk_key = '${sdk_key}'
     GROUP BY hour
     ORDER BY hour ASC
     `;
@@ -322,6 +333,7 @@ router.get("/", async (req, res) => {
       count() AS visitors
     FROM events
     WHERE ${sourceDistWhere}
+      AND sdk_key = '${sdk_key}'
     GROUP BY source
     ORDER BY visitors DESC
     LIMIT 10
@@ -343,6 +355,7 @@ router.get("/", async (req, res) => {
       count() AS visitors
     FROM events
     WHERE ${whereClause}
+      AND sdk_key = '${sdk_key}'
     GROUP BY medium
     ORDER BY visitors DESC
     LIMIT 10
@@ -364,6 +377,7 @@ router.get("/", async (req, res) => {
       count() AS visitors
     FROM events
     WHERE ${whereClause}
+      AND sdk_key = '${sdk_key}'
     GROUP BY campaign
     ORDER BY visitors DESC
     LIMIT 10
@@ -385,6 +399,7 @@ router.get("/", async (req, res) => {
       count() AS visitors
     FROM events
     WHERE ${whereClause}
+      AND sdk_key = '${sdk_key}'
     GROUP BY referrer
     ORDER BY visitors DESC
     LIMIT 10
@@ -423,6 +438,7 @@ router.get("/", async (req, res) => {
       uniq(user_id) AS uniqueClicks
     FROM events
     WHERE ${mainPageNavWhere}
+      AND sdk_key = '${sdk_key}'
     GROUP BY page
     ORDER BY clicks DESC
     LIMIT 10

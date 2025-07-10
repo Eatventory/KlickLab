@@ -17,10 +17,12 @@ export const Summary: React.FC<{ refreshKey?: number }> = ({ refreshKey }) => {
   useEffect(() => {
     const generateSummary = async () => {
       try {
+        const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+        if (!token) throw new Error("No token");
         // Top 클릭 요소와 전체 클릭 수를 동시에 가져오기
         const [topClicksResponse, clicksResponse] = await Promise.all([
-          fetch(`/api/stats/top-clicks`),
-          fetch(`/api/stats/clicks`)
+          fetch(`/api/stats/top-clicks`, {headers: { Authorization: `Bearer ${token}` }}),
+          fetch(`/api/stats/clicks`, {headers: { Authorization: `Bearer ${token}` }})
         ]);
         
         const topClicksData = await topClicksResponse.json();

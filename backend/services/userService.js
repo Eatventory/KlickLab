@@ -1,4 +1,4 @@
-const db = require('../src/config/clickhouse');
+const clickhouse = require('../src/config/clickhouse');
 const bcrypt = require('bcryptjs');
 const { randomUUID } = require('crypto');
 const { formatLocalDateTime } = require('../utils/formatLocalDateTime');
@@ -11,12 +11,12 @@ function escapeSQLString(str) {
 async function getUserByEmail(email) {
   const escapedEmail = escapeSQLString(email);
   const query = `
-    SELECT id, email, password_hash
+    SELECT id, email, password_hash, sdk_key
     FROM users
     WHERE email = '${escapedEmail}'
     LIMIT 1
   `;
-  const res = await db.query({ query, format: 'JSON' });
+  const res = await clickhouse.query({ query, format: 'JSON' });
   const json = await res.json();
   return json.data[0] || null;
 }
@@ -30,7 +30,7 @@ async function createUser(email, password) {
   const now = new Date();
   const localDatetime = formatLocalDateTime(now);
 
-  await db.insert({
+  await clickhouse.insert({
     table: 'users',
     values: [
       { email: escapedEmail, password_hash: hash, sdk_key: uuid, created_at: localDatetime, updated_at: localDatetime }

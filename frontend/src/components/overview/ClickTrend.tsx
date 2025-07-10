@@ -27,6 +27,8 @@ export const ClickTrend: React.FC<ClickTrendProps> = ({ period = 60, step = 5, r
   useEffect(() => {
     const fetchClickTrend = async () => {
       try {
+        const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+        if (!token) throw new Error("No token");
         const now = new Date();
         const end = now;
         const start = subMinutes(end, period);
@@ -34,10 +36,11 @@ export const ClickTrend: React.FC<ClickTrendProps> = ({ period = 60, step = 5, r
         const bins = points.map((d: Date) => format(d, 'HH:mm'));
         setTimeBins(bins);
         const iso = now.toISOString();
-        const response = await fetch(`/api/stats/click-trend?period=${period}&step=${step}&baseTime=${encodeURIComponent(iso)}`);
+        const response = await fetch(`/api/stats/click-trend?period=${period}&step=${step}&baseTime=${encodeURIComponent(iso)}`, {headers: { Authorization: `Bearer ${token}` }});
         const result: ClickTrendData = await response.json();
         setData(result.data || []);
       } catch (error) {
+        console.log("Failed to fetch click trends:", error);
         const now = new Date();
         const end = now;
         const start = subMinutes(end, period);

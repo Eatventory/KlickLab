@@ -47,6 +47,18 @@ export const SettingsDashboard: React.FC = () => {
     setShowToast(true);
   };
 
+  // const test = async () => {
+  //   const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+  //   console.log(token);
+  //   try {
+  //     if (!token) throw new Error("No token");
+  //     const response = await fetch(`/api/overview/test`, {headers: { Authorization: `Bearer ${token}` }});
+  //     console.log(response);
+  //   } catch (error) {
+  //     console.error('테스트 실패:', error);
+  //   }
+  // }
+
   return (
     <div className="space-y-8">
       {/* SDK 설치 가이드 */}
