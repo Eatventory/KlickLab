@@ -3,6 +3,8 @@ const router = express.Router();
 const clickhouse = require('../src/config/clickhouse');
 const { buildFilterCondition } = require('../utils/filter');
 
+const users_if = 'DISTINCT if(user_id IS NULL, client_id, toString(user_id))';
+
 router.get('/top-clicks', async (req, res) => {
   try {
     const segment = req.query.filter;
@@ -59,39 +61,6 @@ router.get('/top-clicks', async (req, res) => {
       clickhouse.query({ query: topQuery, format: 'JSON' }).then(r => r.json()),
       clickhouse.query({ query: distQuery, format: 'JSON' }).then(r => r.json())
     ]);
-
-    // console.time("summaryQuery");
-    // const summaryResPromise = clickhouse
-    //     .query({ query: summaryQuery, format: "JSON" })
-    //     .then((r) => r.json())
-    //     .then((res) => {
-    //         console.timeEnd("summaryQuery");
-    //         return res;
-    //     });
-
-    // console.time("topQuery");
-    // const topResPromise = clickhouse
-    //     .query({ query: topQuery, format: "JSON" })
-    //     .then((r) => r.json())
-    //     .then((res) => {
-    //         console.timeEnd("topQuery");
-    //         return res;
-    //     });
-
-    // console.time("distQuery");
-    // const distResPromise = clickhouse
-    //     .query({ query: distQuery, format: "JSON" })
-    //     .then((r) => r.json())
-    //     .then((res) => {
-    //         console.timeEnd("distQuery");
-    //         return res;
-    //     });
-
-    // const [summaryRes, topRes, distRes] = await Promise.all([
-    //     summaryResPromise,
-    //     topResPromise,
-    //     distResPromise,
-    // ]);
 
     // 분포 가공
     const ageDistBySegment = {};
@@ -198,7 +167,7 @@ router.get('/os-type-summary', async (req, res) => {
   const query = `
     SELECT 
       device_os AS os, 
-      count(DISTINCT user_id) AS users
+      count(${users_if}) AS users
     FROM events
     WHERE user_id IS NOT NULL AND length(device_os) > 0 AND ${condition}
     GROUP BY device_os
@@ -234,7 +203,7 @@ router.get('/browser-type-summary', async (req, res) => {
     SELECT 
       browser,
       device_type,
-      count(DISTINCT user_id) AS users
+      count(${users_if}) AS users
     FROM events
     WHERE toDate(timestamp) = today()
       AND user_id IS NOT NULL AND ${condition}
