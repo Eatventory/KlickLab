@@ -1,0 +1,23 @@
+.perspective {
+    perspective: 1200px;
+}
+
+.preserve-3d {
+    transform-style: preserve-3d;
+    position: relative;
+}
+
+.auth-card {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
+    background: white;
+    border-radius: 1rem;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    padding: 2rem;
+}
+
+.auth-card.back {
+    transform: rotateY(180deg);
+}
