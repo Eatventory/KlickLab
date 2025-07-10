@@ -22,7 +22,7 @@ const SessionTimer = () => {
 
       if (remaining <= 0) {
         clearToken();
-        window.location.href = "/auth";
+        window.location.href = "/login";
       }
     }, 1000);
 
@@ -45,12 +45,12 @@ const SessionTimer = () => {
         setToken(data.accessToken, 15 * 60 * 1000, isAutoLogin);
       } else {
         clearToken();
-        window.location.href = "/auth";
+        window.location.href = "/login";
       }
     } catch (err) {
       console.error("세션 연장 실패:", err);
       clearToken();
-      window.location.href = "/auth";
+      window.location.href = "/login";
     }
   };
 

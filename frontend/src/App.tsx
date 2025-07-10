@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Dashboard } from './components/dashboard/Dashboard';
 import SessionTimer from './components/ui/SessionTimer';
-import AuthForm from './components/auth/AuthForm';
+import LoginForm from './components/auth/LoginForm';
+import RegisterForm from './components/auth/RegisterForm'
 import Error from "./Error";
 import './App.css';
 
@@ -25,10 +26,11 @@ function App() {
       <SessionTimer />
       <Router>
         <Routes>
-          <Route path="/auth" element={<AuthForm />} />
+          <Route path="/login" element={<LoginForm />} />
+          <Route path="/register" element={<RegisterForm />} />
           <Route
             path="/"
-            element={ authState === 'loggedIn' ? <Dashboard /> : <Navigate to="/auth" /> }
+            element={ authState === 'loggedIn' ? <Dashboard /> : <Navigate to="/login" /> }
           />
           <Route path="*" element={<Error />} />
         </Routes>

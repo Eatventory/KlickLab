@@ -71,7 +71,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }).finally(() => {
       localStorage.removeItem('klicklab_token');
       sessionStorage.removeItem('klicklab_token');
-      window.location.href = '/auth';
+      window.location.href = '/login';
     });
   };
   
