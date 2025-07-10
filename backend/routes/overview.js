@@ -10,7 +10,7 @@ router.get('/session-duration', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   try {
     const todayQuery = `
-      SELECT toUInt32(avg(duration)) AS avg_s FROM (
+      SELECT avg(duration) AS avg_s FROM (
         SELECT session_id, dateDiff(
           'second',
           min(toTimeZone(timestamp, 'Asia/Seoul')),
@@ -26,7 +26,7 @@ router.get('/session-duration', authMiddleware, async (req, res) => {
 
     const prevQuery = `
       SELECT date, avg_session_seconds
-      FROM klicklab.daily_metrics
+      FROM daily_metrics
       WHERE date = yesterday()
         AND sdk_key = '${sdk_key}'
     `;
@@ -140,7 +140,7 @@ router.get('/conversion-summary', authMiddleware, async (req, res) => {
       delta < 0 ? 'down' : 'flat';
 
     const response = {
-      conversionRate: total === 0 ? 0 : conversion_rate,
+      conversionRate: total === 0 ? 0 : (conversion_rate ? conversion_rate : 0),
       convertedSessions: converted ?? 0,
       totalSessions: total ?? 0,
       deltaRate: delta,
@@ -148,7 +148,6 @@ router.get('/conversion-summary', authMiddleware, async (req, res) => {
       period,
       periodLabel,
     };
-    // console.log(response);
     res.status(200).json(response);
   } catch (err) {
     console.error('Conversion Rate API ERROR:', err);
