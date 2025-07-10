@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Settings, Code, Globe, Users, Bell } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Settings, Code, Globe, Users, Bell, IdCard } from 'lucide-react';
 import Toast from "../ui/Toast";
 
 // 타입 정의
@@ -12,6 +12,24 @@ interface DomainData {
 }
 
 export const SettingsDashboard: React.FC = () => {
+  const [keyData, setKeyData] = useState<string>('00000000-0000-0000-0000-000000000000');
+
+  const getKey = async () => {
+    try {
+      const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+      if (!token) throw new Error("No token");
+      const keyRes = await fetch(`/api/settings/get-key`, {headers: { Authorization: `Bearer ${token}` }});
+      const yourKey = await keyRes.json();
+      setKeyData(yourKey);
+    } catch(error) {
+      console.error('Failed to get SDK key:', error);
+    }
+  };
+
+  useEffect(() => {
+    getKey();
+  }, []);
+
   const [domains, setDomains] = useState<DomainData[]>([
     {
       id: '1',
@@ -47,18 +65,6 @@ export const SettingsDashboard: React.FC = () => {
     setShowToast(true);
   };
 
-  // const test = async () => {
-  //   const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
-  //   console.log(token);
-  //   try {
-  //     if (!token) throw new Error("No token");
-  //     const response = await fetch(`/api/overview/test`, {headers: { Authorization: `Bearer ${token}` }});
-  //     console.log(response);
-  //   } catch (error) {
-  //     console.error('테스트 실패:', error);
-  //   }
-  // }
-
   return (
     <div className="space-y-8">
       {/* SDK 설치 가이드 */}
@@ -77,6 +83,30 @@ export const SettingsDashboard: React.FC = () => {
             </pre>
             <button
               onClick={() => copyToClipboard(sdkCode)}
+              className="absolute top-2 right-2 px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
+            >
+              복사
+            </button>
+            {showToast && (
+              <Toast message="클립보드에 복사되었습니다!" onClose={() => setShowToast(false)} />
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 사용자 SDK KEY */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <IdCard className="w-5 h-5 text-gray-600" />
+          <h2 className="text-lg font-semibold text-gray-900">SDK 키 확인하기</h2>
+        </div>
+        <div className="space-y-4">
+          <div className="relative">
+            <pre className="bg-gray-50 p-4 rounded-lg text-sm overflow-x-auto">
+              <code className="block text-left">{keyData}</code>
+            </pre>
+            <button
+              onClick={() => copyToClipboard(keyData)}
               className="absolute top-2 right-2 px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
             >
               복사
