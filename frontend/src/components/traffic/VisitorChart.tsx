@@ -96,25 +96,52 @@ export const VisitorChart: React.FC<VisitorChartProps> = ({ data, period = 'dail
   // date가 있는 데이터만 필터링 후 정렬
   let displayData = data.filter(d => d.date != null && d.date !== '');
   displayData = displayData.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-  // 시간별: x축 끝이 항상 현재 시간(시)로 끝나도록 24시간 추출
+  
+  // 데이터 검증 및 보정: 총 방문자 수가 신규+재방문자와 일치하도록
+  displayData = displayData.map(item => {
+    let newVisitors = Number(item.newVisitors) || 0;
+    let returningVisitors = Number(item.returningVisitors) || 0;
+    let visitors = Number(item.visitors) || 0;
+    // 음수, NaN, Infinity 방지
+    newVisitors = newVisitors >= 0 && isFinite(newVisitors) ? newVisitors : 0;
+    returningVisitors = returningVisitors >= 0 && isFinite(returningVisitors) ? returningVisitors : 0;
+    visitors = visitors >= 0 && isFinite(visitors) ? visitors : 0;
+    const calculatedTotal = newVisitors + returningVisitors;
+    if (visitors !== calculatedTotal) {
+      visitors = calculatedTotal;
+    }
+    return { ...item, visitors, newVisitors, returningVisitors };
+  });
+  // 시간별: 현재 시간 기준으로 최근 24시간 추출
   if (period === 'hourly') {
     const now = new Date();
-    const currentHour = now.getHours();
-    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    // 24시간 key 생성 (끝이 현재 시간)
-    const hours = [];
+    const hours: string[] = [];
     for (let i = 23; i >= 0; i--) {
-      const hour = (currentHour - i + 24) % 24;
-      const dateStr = `${todayStr} ${String(hour).padStart(2, '0')}`;
-      hours.push(dateStr);
+      const time = new Date(now);
+      time.setHours(now.getHours() - i);
+      const year = time.getFullYear();
+      const month = String(time.getMonth() + 1).padStart(2, '0');
+      const day = String(time.getDate()).padStart(2, '0');
+      const hour = String(time.getHours()).padStart(2, '0');
+      hours.push(`${year}-${month}-${day} ${hour}`);
     }
-    // 24시간 데이터 보정
     displayData = hours.map(dateStr => {
       const found = data.find(d => d.date === dateStr);
       return found || { date: dateStr, visitors: 0, newVisitors: 0, returningVisitors: 0 };
     });
-  } else if (period === 'daily' && displayData.length > 7) {
-    displayData = displayData.slice(-7);
+  } else if (period === 'daily') {
+    const today = new Date();
+    const days: string[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const dateStr = d.toISOString().slice(0, 10);
+      days.push(dateStr);
+    }
+    displayData = days.map(dateStr => {
+      const found = displayData.find(d => d.date === dateStr);
+      return found || { date: dateStr, visitors: 0, newVisitors: 0, returningVisitors: 0 };
+    });
   }
   // 주별/월별은 DB에서 받은 순서대로 그대로 사용 (보정/매칭 X)
 

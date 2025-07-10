@@ -53,12 +53,12 @@ export default function LoginForm() {
         </div>
         <div className="flex justify-between items-center">
           <label className="block text-gray-700 mb-1">비밀번호</label>
-          <a
+          {/* <a
             href="/forgot-password"
             className="text-sm text-blue-600 hover:underline"
           >
             비밀번호 찾기
-          </a>
+          </a> */}
         </div>
         <div>
           <input
