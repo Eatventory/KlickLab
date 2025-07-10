@@ -25,9 +25,9 @@ export const ClickTrend: React.FC<ClickTrendProps> = ({ period = 60, step = 5, r
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
     const fetchClickTrend = async () => {
       try {
+        const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
         if (!token) throw new Error("No token");
         const now = new Date();
         const end = now;
@@ -40,6 +40,7 @@ export const ClickTrend: React.FC<ClickTrendProps> = ({ period = 60, step = 5, r
         const result: ClickTrendData = await response.json();
         setData(result.data || []);
       } catch (error) {
+        console.log("Failed to fetch click trends:", error);
         const now = new Date();
         const end = now;
         const start = subMinutes(end, period);
