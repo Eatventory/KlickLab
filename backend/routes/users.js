@@ -2,10 +2,12 @@ const express = require("express");
 const router = express.Router();
 const clickhouse = require('../src/config/clickhouse');
 const { buildFilterCondition } = require('../utils/filter');
+const authMiddleware = require('../middlewares/authMiddleware');
 
 const users_if = 'DISTINCT if(user_id IS NULL, client_id, toString(user_id))';
 
-router.get('/top-clicks', async (req, res) => {
+router.get('/top-clicks', authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
   try {
     const segment = req.query.filter;
     const validSegments = ['user_gender', 'user_age', 'traffic_source', 'device_type'];
@@ -28,6 +30,7 @@ router.get('/top-clicks', async (req, res) => {
         round(sum(total_clicks) / sum(total_users), 1) AS avgClicksPerUser
       FROM daily_click_summary
       WHERE segment_type = '${segment}' AND date >= toDate('${fromDateStr}')
+        AND sdk_key = '${sdk_key}'
       GROUP BY segment
     `;
 
@@ -40,6 +43,7 @@ router.get('/top-clicks', async (req, res) => {
         sum(user_count) AS userCount
       FROM daily_top_elements
       WHERE segment_type = '${segment}' AND date >= toDate('${fromDateStr}')
+        AND sdk_key = '${sdk_key}'
       GROUP BY segment, element
       ORDER BY segment, totalClicks DESC
     `;
@@ -53,6 +57,7 @@ router.get('/top-clicks', async (req, res) => {
         sum(user_count) AS count
       FROM daily_user_distribution
       WHERE segment_type = '${segment}' AND date >= toDate('${fromDateStr}')
+        AND sdk_key = '${sdk_key}'
       GROUP BY segment, dist_type, dist_value
     `;
 
@@ -122,7 +127,8 @@ router.get('/top-clicks', async (req, res) => {
   }
 });
 
-router.get('/user-type-summary', async (req, res) => {
+router.get('/user-type-summary', authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
   const { period, userType, device } = req.query;
   const condition = buildFilterCondition({ period, userType, device });
 
@@ -133,11 +139,13 @@ router.get('/user-type-summary', async (req, res) => {
           SELECT DISTINCT user_id
           FROM events
           WHERE toDate(timestamp) = today() AND user_id IS NOT NULL AND ${condition}
+            AND sdk_key = '${sdk_key}'
         ),
         ever_users AS (
           SELECT DISTINCT user_id
           FROM events
           WHERE toDate(timestamp) < today() AND user_id IS NOT NULL AND ${condition}
+            AND sdk_key = '${sdk_key}'
         )
       SELECT
         countIf(u IN (SELECT user_id FROM ever_users)) AS old_users,
@@ -160,7 +168,8 @@ router.get('/user-type-summary', async (req, res) => {
   }
 });
 
-router.get('/os-type-summary', async (req, res) => {
+router.get('/os-type-summary', authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
   const { period, userType, device } = req.query;
   const condition = buildFilterCondition({ period, userType, device });
 
@@ -170,6 +179,7 @@ router.get('/os-type-summary', async (req, res) => {
       count(${users_if}) AS users
     FROM events
     WHERE user_id IS NOT NULL AND length(device_os) > 0 AND ${condition}
+      AND sdk_key = '${sdk_key}'
     GROUP BY device_os
   `;
 
@@ -195,7 +205,8 @@ router.get('/os-type-summary', async (req, res) => {
   }
 });
 
-router.get('/browser-type-summary', async (req, res) => {
+router.get('/browser-type-summary', authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
   const { period, userType, device } = req.query;
   const condition = buildFilterCondition({ period, userType, device });
 
@@ -208,6 +219,7 @@ router.get('/browser-type-summary', async (req, res) => {
     WHERE toDate(timestamp) = today()
       AND user_id IS NOT NULL AND ${condition}
       AND length(browser) > 0 AND length(device_type) > 0
+      AND sdk_key = '${sdk_key}'
     GROUP BY browser, device_type
   `;
 
@@ -246,7 +258,8 @@ router.get('/browser-type-summary', async (req, res) => {
 });
 
 // 재방문율 = 최근 7일 중 2일 이상 방문한 user_id 수 ÷ 전체 방문 user_id 수
-router.get('/returning', async (req, res) => {
+router.get('/returning', authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
   const { period, userType, device } = req.query;
   const periodDays = { '5min': 1, '1hour': 1, '1day': 1, '1week': 7 };
   const dayRange = periodDays[period] || 1;
@@ -265,6 +278,7 @@ router.get('/returning', async (req, res) => {
       FROM events
       WHERE ${condition}
         AND toDate(timestamp) BETWEEN today() - interval ${dayRange - 1} day AND today()
+        AND sdk_key = '${sdk_key}'
       GROUP BY user_id
     )
   `;

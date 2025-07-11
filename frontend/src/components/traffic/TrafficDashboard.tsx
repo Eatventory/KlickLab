@@ -55,19 +55,19 @@ const mockDashboardData = {
 };
 
 // 시간대별 유입 분포 데이터 보정 (KST 변환)
-function fillHourlyTrafficKST(raw: { hour: string, visitors: number }[]) {
-  // UTC hour(문자열) → KST hour(문자열)
-  const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
-  const map = new Map(raw.map(item => [item.hour, item.visitors]));
-  return hours.map(hour => {
-    // UTC → KST 변환 (UTC+9)
-    const kstHour = (parseInt(hour, 10) + 9) % 24;
-    return {
-      hour: kstHour.toString().padStart(2, '0'),
-      visitors: map.get(hour) || 0
-    };
-  }).sort((a, b) => parseInt(a.hour) - parseInt(b.hour));
-}
+// function fillHourlyTrafficKST(raw: { hour: string, visitors: number }[]) {
+//   // UTC hour(문자열) → KST hour(문자열)
+//   const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
+//   const map = new Map(raw.map(item => [item.hour, item.visitors]));
+//   return hours.map(hour => {
+//     // UTC → KST 변환 (UTC+9)
+//     const kstHour = (parseInt(hour, 10) + 9) % 24;
+//     return {
+//       hour: kstHour.toString().padStart(2, '0'),
+//       visitors: map.get(hour) || 0
+//     };
+//   }).sort((a, b) => parseInt(a.hour) - parseInt(b.hour));
+// }
 
 // y축 숫자 단위 한글 변환 함수
 function formatKoreanNumber(value: number) {
@@ -78,7 +78,7 @@ function formatKoreanNumber(value: number) {
 
 export const TrafficDashboard: React.FC = () => {
   const [filters, setFilters] = useState<FilterOptions>({
-    period: 'hourly',
+    period: 'daily',
     gender: 'all',
     ageGroup: 'all'
   });
@@ -97,13 +97,15 @@ export const TrafficDashboard: React.FC = () => {
   useEffect(() => {
     const fetchTrafficData = async () => {
       try {
+        const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+        if (!token) throw new Error("No token");
         const queryParams = new URLSearchParams({
           period: filters.period,
           gender: filters.gender,
           ageGroup: filters.ageGroup
         });
         
-        const response = await fetch(`/api/traffic?${queryParams}`);
+        const response = await fetch(`/api/traffic?${queryParams}`, {headers: { Authorization: `Bearer ${token}` }});
         const data: TrafficData = await response.json();
         setTrafficData(data);
       } catch (error) {
@@ -146,7 +148,7 @@ export const TrafficDashboard: React.FC = () => {
     ? trafficData.entryPageDistribution
     : mockDashboardData.entryPageDistribution;
   const hourlyTrafficData = trafficData.hourlyTraffic && trafficData.hourlyTraffic.length > 0
-    ? fillHourlyTrafficKST(trafficData.hourlyTraffic)
+    ? trafficData.hourlyTraffic
     : mockDashboardData.hourlyTraffic;
 
   return (

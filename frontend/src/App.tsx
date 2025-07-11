@@ -1,50 +1,63 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Dashboard } from './components/dashboard/Dashboard';
-import AuthForm from './components/auth/AuthForm';
-import Error from "./Error";
+import { useAuthStore } from './store/useAuthStore';
+import { setToken } from './utils/storage';
+import SessionTimer from './components/ui/SessionTimer';
+import LoginForm from './components/auth/LoginForm';
+import RegisterForm from './components/auth/RegisterForm';
+import ErrorPage from "./Error";
 import './App.css';
 
 function App() {
-  const [authState, setAuthState] = useState<'checking' | 'loggedIn' | 'loggedOut'>('checking');
-
+  const setAuthState = useAuthStore((s) => s.setAuthState);
   useEffect(() => {
-    const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
-    if (token) {
-      setAuthState('loggedIn');
-    } else {
-      fetch('/api/auth/refresh', {
-        method: 'POST',
-        credentials: 'include',
-      })
-        .then(res => res.json())
-        .then(data => {
-          if (data?.accessToken) {
-            localStorage.setItem('klicklab_token', data.accessToken);
-            setAuthState('loggedIn');
-          } else {
-            setAuthState('loggedOut');
-          }
-        })
-        .catch(() => setAuthState('loggedOut'));
-    }
-  }, []);
+    const refreshAccessToken = async () => {
+      try {
+        const res = await fetch("/api/auth/refresh", {
+          method: "POST",
+          credentials: "include",
+        });
+        const data = await res.json();
 
+        if (data?.accessToken) {
+          const isAuto = !!localStorage.getItem("klicklab_expiresAt");
+          setToken(data.accessToken, 15 * 60 * 1000, isAuto);
+          setAuthState("loggedIn");
+        } else {
+          throw new Error("토큰 없음");
+        }
+      } catch {
+        setAuthState("loggedOut");
+      }
+    };
+
+    refreshAccessToken();
+  }, [setAuthState]);
   
+  const authState = useAuthStore((s) => s.authState);
   if (authState === 'checking') {
     return <div>로딩 중...</div>;
   }
 
   return (
     <div className="App">
+      <SessionTimer />
       <Router>
         <Routes>
-          <Route path="/auth" element={<AuthForm />} />
+          <Route
+            path="/login"
+            element={ authState !== 'loggedIn' ? <LoginForm /> : <Navigate to="/" /> }
+          />
+          <Route
+            path="/register"
+            element={ authState !== 'loggedIn' ? <RegisterForm /> : <Navigate to="/" /> }
+          />
           <Route
             path="/"
-            element={ authState === 'loggedIn' ? <Dashboard /> : <Navigate to="/auth" /> }
+            element={ authState === 'loggedIn' ? <Dashboard /> : <Navigate to="/login" /> }
           />
-          <Route path="*" element={<Error />} />
+          <Route path="*" element={<ErrorPage />} />
         </Routes>
       </Router>
     </div>

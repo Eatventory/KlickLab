@@ -21,8 +21,10 @@ export const DropoffInsightsCard: React.FC<DropoffInsightsCardProps> = ({ refres
 
   useEffect(() => {
     const fetchDropoffData = async () => {
+      const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
       try {
-        const response = await fetch('/api/stats/dropoff-summary');
+        if (!token) throw new Error("No token");
+        const response = await fetch('/api/stats/dropoff-summary', {headers: { Authorization: `Bearer ${token}` }});
         const result: DropoffSummaryData = await response.json();
         setData(result.data || []);
       } catch (error) {

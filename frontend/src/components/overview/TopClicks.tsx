@@ -22,7 +22,9 @@ export const TopClicks: React.FC<TopClicksProps> = ({ refreshKey, loading }) => 
   useEffect(() => {
     const fetchTopClicks = async () => {
       try {
-        const response = await fetch(`/api/stats/top-clicks`);
+        const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+        if (!token) throw new Error("No token");
+        const response = await fetch(`/api/stats/top-clicks`, {headers: { Authorization: `Bearer ${token}` }});
         const result: TopClicksData = await response.json();
         setData(result.items || []);
       } catch (error) {

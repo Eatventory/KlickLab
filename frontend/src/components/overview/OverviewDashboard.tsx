@@ -8,6 +8,8 @@ import { DropoffInsightsCard } from '../engagement/DropoffInsightsCard';
 import { getPageLabel } from '../../utils/getPageLabel';
 import { AverageSessionDurationCard } from './AverageSessionDurationCard';
 import { ConversionSummaryCard } from './ConversionSummaryCard';
+import { VisitorChart } from '../traffic/VisitorChart';
+import { TrendingUp } from 'lucide-react';
 
 interface PathData {
   from: string;
@@ -30,6 +32,7 @@ export const OverviewDashboard = forwardRef<any, { onLastUpdated?: (d: Date) => 
   const [visitorsData, setVisitorsData] = useState<VisitorsData | null>(null);
   const [clicksData, setClicksData] = useState<ClicksData | null>(null);
   const [userPathData, setUserPathData] = useState<any[]>([]);
+  const [visitorTrendData, setvisitorTrendData] = useState<any[]>([]);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -44,20 +47,25 @@ export const OverviewDashboard = forwardRef<any, { onLastUpdated?: (d: Date) => 
 
   const fetchStats = async () => {
     try {
-      const [visitorsResponse, clicksResponse, userPathResponse] = await Promise.all([
-        fetch(`/api/stats/visitors`),
-        fetch(`/api/stats/clicks`),
-        fetch(`/api/stats/userpath-summary`)
+      const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+      if (!token) throw new Error("No token");
+      const [visitorsResponse, clicksResponse, userPathResponse, visitorTrendResponse] = await Promise.all([
+        fetch(`/api/stats/visitors`, {headers: { Authorization: `Bearer ${token}` }}),
+        fetch(`/api/stats/clicks`, {headers: { Authorization: `Bearer ${token}` }}),
+        fetch(`/api/stats/userpath-summary`, {headers: { Authorization: `Bearer ${token}` }}),
+        fetch(`/api/traffic/daily-visitors`, {headers: { Authorization: `Bearer ${token}` }})
       ]);
       const visitors = await visitorsResponse.json();
       const clicks = await clicksResponse.json();
       const userPath = await userPathResponse.json();
+      const visitorTrend = await visitorTrendResponse.json();
       visitors.trend?.sort((a: { date: string }, b: { date: string }) => 
         new Date(a.date).getTime() - new Date(b.date).getTime()
       );
       setVisitorsData(visitors);
       setClicksData(clicks);
       setUserPathData(mapPathData(userPath.data || []));
+      setvisitorTrendData(visitorTrend.data || []);
       const now = new Date();
       setLastUpdated(now);
       props.onLastUpdated?.(now);
@@ -130,6 +138,13 @@ export const OverviewDashboard = forwardRef<any, { onLastUpdated?: (d: Date) => 
         />
         <AverageSessionDurationCard refreshKey={refreshKey} />
         <ConversionSummaryCard refreshKey={refreshKey} />
+      </div>
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <TrendingUp className="w-5 h-5 text-gray-600" />
+          <h2 className="text-lg font-semibold text-gray-900">일간 활성 이용자 수</h2>
+        </div>
+        <VisitorChart data={visitorTrendData} period='daily' refreshKey={refreshKey} />
       </div>
       <div className="w-full">
         <ClickTrend refreshKey={refreshKey} />

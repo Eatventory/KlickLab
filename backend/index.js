@@ -36,6 +36,10 @@ app.use('/api/users', usersRoutes);
 const trafficRoutes = require('./routes/traffic');
 app.use('/api/traffic', trafficRoutes);
 
+/* setting 라우팅 */
+const settingsRoutes = require('./routes/settings');
+app.use('/api/settings', settingsRoutes);
+
 /* ▼ 메트릭 연결 */
 const metricsPort = 9091; // 메트릭 전용 포트
 const client = require('prom-client');
@@ -97,55 +101,6 @@ app.get('/metrics', async (req, res) => {
   res.end(await register.metrics());
 });
 /* ▲ 메트릭 연결 */
-
-/* 데모용 테스트 API */
-app.get('/api/button-clicks', async (req, res) => {
-  const query = req.query;
-
-  try {
-    const where = [
-      `event_name = 'auto_click'`,
-      `is_button = 1`,
-      `target_text REGEXP '^button [1-7]$'`,
-      query.platform ? `(device_type = '${query.platform}' OR device_os = '${query.platform}')` : null
-    ].filter(Boolean).join(' AND ');
-
-    const result = await clickhouse.query({
-      query: `
-        SELECT element_path, target_text
-        FROM events
-        WHERE ${where}
-      `,
-      format: 'JSON',
-    });
-
-    const json = await result.json();
-    const { data } = json;
-
-    let clicks = [0, 0, 0, 0, 0, 0, 0, 0];
-    for (let i = 0; i < data.length; i++) {
-      const tmp = data[i].target_text;
-      clicks[Number(tmp.charAt(tmp.length - 1))]++;
-    }
-
-    const buttonClicks = Object.fromEntries(
-      Array.from({ length: 7 }, (_, i) => {
-        const index = i + 1;
-        return [`button${index}`, clicks[index]];
-      })
-    );
-
-    const clickEvents = data.map(q => ({
-      element_path: q.element_path ?? '',
-      target_text: q.target_text ?? '',
-    }));
-
-    res.status(200).json({ buttonClicks, clickEvents });
-  } catch (err) {
-    console.error('ClickHouse SELECT ERROR:', err);
-    res.status(500).json({ error: 'ClickHouse query failed' });
-  }
-});
 
 app.listen(PORT, () => {
   console.log(`KlickLab API server listening on port ${PORT}`);
