@@ -475,4 +475,69 @@ router.get("/", authMiddleware, async (req, res) => {
   }
 });
 
+/* 일별 방문 트렌드 단독 API */
+const { formatLocalDateDay } = require('../utils/formatLocalDateTime');
+router.get("/daily-visitors", authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+  try {
+    const now = new Date();
+    const localNow = formatLocalDateDay(now);
+
+    const query = `
+      SELECT
+        formatDateTime(date, '%Y-%m-%d') AS date_str,
+        toUInt64(visitors) AS visitors,
+        toUInt64(new_visitors) AS newVisitors,
+        toUInt64(existing_visitors) AS returningVisitors
+      FROM daily_metrics
+      WHERE date >= toDate('${localNow}') - 6
+        AND date < toDate('${localNow}')
+        AND sdk_key = '${sdk_key}'
+
+      UNION ALL
+
+      SELECT
+        formatDateTime(toDate(timestamp), '%Y-%m-%d') AS date_str,
+        countDistinct(client_id) AS visitors,
+        countDistinctIf(client_id, toDate(timestamp) = minDate) AS newVisitors,
+        countDistinctIf(client_id, toDate(timestamp) != minDate) AS returningVisitors
+      FROM (
+        SELECT
+          client_id,
+          timestamp,
+          min(toDate(timestamp)) OVER (PARTITION BY client_id) AS minDate
+        FROM events
+        WHERE event_name = 'auto_click'
+          AND toDate(timestamp) = toDate('${localNow}')
+          AND sdk_key = '${sdk_key}'
+      )
+      GROUP BY date_str
+      ORDER BY date_str ASC
+    `;
+
+    const visitorTrendResult = await clickhouse.query({ query, format: "JSON" });
+    const visitorTrendJson = await visitorTrendResult.json();
+
+    const visitorTrend = visitorTrendJson.data
+      .map((row) => {
+        const parse = (value) =>
+          Number.isFinite(Number(value)) && Number(value) >= 0 ? Number(value) : 0;
+
+        return {
+          date: row.date_str || row.date,
+          visitors: parse(row.visitors),
+          newVisitors: parse(row.newVisitors),
+          returningVisitors: parse(row.returningVisitors),
+        };
+      })
+      .slice(-7);
+
+    res.status(200).json({ data: visitorTrend });
+
+  } catch (err) {
+    console.error("Visitors Traffic API ERROR:", err);
+    res.status(500).json({ error: "Failed to get visitors traffic data" });
+  }
+});
+
 module.exports = router;
