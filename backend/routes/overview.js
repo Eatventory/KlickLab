@@ -2,52 +2,55 @@ const express = require("express");
 const router = express.Router();
 const clickhouse = require("../src/config/clickhouse");
 const authMiddleware = require('../middlewares/authMiddleware');
-// const { formatLocalDateDay } = require('../utils/formatLocalDateTime');
-// const now = new Date();
-// const localNow = formatLocalDateDay(now);
 
 router.get('/session-duration', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   try {
-    const todayQuery = `
-      SELECT avg(duration) AS avg_s FROM (
-        SELECT session_id, dateDiff(
-          'second',
-          min(toTimeZone(timestamp, 'Asia/Seoul')),
-          max(toTimeZone(timestamp, 'Asia/Seoul'))
-        ) AS duration
-        FROM events
-        WHERE toDate(toTimeZone(timestamp, 'Asia/Seoul')) >= now() - INTERVAL 1 DAY
-          AND sdk_key = '${sdk_key}'
-        GROUP BY session_id
-        HAVING count(*) > 1
-      )
+    const recentMinutesQuery = `
+      SELECT avg(avg_session_seconds) AS avg_s
+      FROM minutes_metrics
+      WHERE date_time >= now() - INTERVAL 50 MINUTE
+        AND date_time < now() - INTERVAL 10 MINUTE
+        AND sdk_key = '${sdk_key}'
     `;
 
-    const prevQuery = `
-      SELECT date, avg_session_seconds
+    const recentHoursQuery = `
+      SELECT avg(avg_session_seconds) AS avg_s
+      FROM hourly_metrics
+      WHERE date_time >= now() - INTERVAL 23 HOUR
+        AND date_time < now() - INTERVAL 1 HOUR
+        AND sdk_key = '${sdk_key}'
+    `;
+
+    const prevDayQuery = `
+      SELECT avg_session_seconds AS avg_s
       FROM daily_metrics
       WHERE date = yesterday()
         AND sdk_key = '${sdk_key}'
     `;
 
-    const [todayRes, prevRes] = await Promise.all([
-      clickhouse.query({ query: todayQuery, format: 'JSONEachRow' }).then(r => r.json()),
-      clickhouse.query({ query: prevQuery, format: 'JSONEachRow' }).then(r => r.json())
+    const [minutesRes, hoursRes, prevRes] = await Promise.all([
+      clickhouse.query({ query: recentMinutesQuery, format: 'JSONEachRow' }).then(r => r.json()),
+      clickhouse.query({ query: recentHoursQuery, format: 'JSONEachRow' }).then(r => r.json()),
+      clickhouse.query({ query: prevDayQuery, format: 'JSONEachRow' }).then(r => r.json()),
     ]);
 
-    const todayAvgSec = +(todayRes[0]?.avg_s || 0);
-    const prevAvgSec = +(prevRes[0]?.avg_session_seconds || 0);
+    const recentAvgSec = (
+      +(minutesRes[0]?.avg_s || 0) +
+      +(hoursRes[0]?.avg_s || 0)
+    ) / 2;
 
-    const deltaSec = todayAvgSec - prevAvgSec;
+    const prevAvgSec = +(prevRes[0]?.avg_s || 0);
+    const deltaSec = recentAvgSec - prevAvgSec;
 
     const data = {
-      averageDuration: todayAvgSec ? Math.round(todayAvgSec) : 0,
+      averageDuration: recentAvgSec ? Math.round(recentAvgSec) : 0,
       deltaDuration: Math.round(deltaSec),
       trend: deltaSec > 0 ? 'up' : deltaSec < 0 ? 'down' : 'flat',
-      period: '24h',
-      periodLabel: '최근 24시간'
-    }
+      period: '최근 약 24시간',
+      periodLabel: '10분~23시간 전 기준'
+    };
+
     res.status(200).json(data);
   } catch (err) {
     console.error('Session Duration API ERROR:', err);
@@ -64,69 +67,37 @@ router.get('/conversion-summary', authMiddleware, async (req, res) => {
 
   const query = `
     WITH
-      -- 오늘 포함 최근 7일 간 A, B 페이지 진입 세션
-      a_sessions AS (
-        SELECT session_id, min(timestamp) AS a_time
-        FROM events
-        WHERE page_path = '${fromPage}' AND toDate(timestamp) >= today() - 6
+      -- 최근 7일 전환
+      recent AS (
+        SELECT
+          sum(page_views) AS total_views,
+          sum(arrayElement(next_pages.count, indexOf(next_pages.to, '${toPage}'))) AS to_views
+        FROM daily_page_stats
+        WHERE page_path = '${fromPage}'
+          AND date >= today() - 6
           AND sdk_key = '${sdk_key}'
-        GROUP BY session_id
-      ),
-      b_sessions AS (
-        SELECT session_id, min(timestamp) AS b_time
-        FROM events
-        WHERE page_path = '${toPage}' AND toDate(timestamp) >= today() - 6
-          AND sdk_key = '${sdk_key}'
-        GROUP BY session_id
-      ),
-      joined AS (
-        SELECT a.session_id, a.a_time, b.b_time
-        FROM a_sessions a
-        INNER JOIN b_sessions b ON a.session_id = b.session_id AND a.a_time < b.b_time
       ),
 
-      -- 지난 7일간 데이터
-      recent_data AS (
-        SELECT 
-          (SELECT count() FROM joined) AS converted,
-          (SELECT count() FROM a_sessions) AS total
-      ),
-
-      -- 그 이전 7일간 데이터 (변화 비교용)
-      prev_a_sessions AS (
-        SELECT session_id, min(timestamp) AS a_time
-        FROM events
-        WHERE page_path = '${fromPage}' AND toDate(timestamp) BETWEEN today() - 13 AND today() - 7
+      -- 이전 7일 전환
+      prev AS (
+        SELECT
+          sum(page_views) AS total_views,
+          sum(arrayElement(next_pages.count, indexOf(next_pages.to, '${toPage}'))) AS to_views
+        FROM daily_page_stats
+        WHERE page_path = '${fromPage}'
+          AND date BETWEEN today() - 13 AND today() - 7
           AND sdk_key = '${sdk_key}'
-        GROUP BY session_id
-      ),
-      prev_b_sessions AS (
-        SELECT session_id, min(timestamp) AS b_time
-        FROM events
-        WHERE page_path = '${toPage}' AND toDate(timestamp) BETWEEN today() - 13 AND today() - 7
-          AND sdk_key = '${sdk_key}'
-        GROUP BY session_id
-      ),
-      prev_joined AS (
-        SELECT a.session_id, a.a_time, b.b_time
-        FROM prev_a_sessions a
-        INNER JOIN prev_b_sessions b ON a.session_id = b.session_id AND a.a_time < b.b_time
-      ),
-      prev_data AS (
-        SELECT 
-          (SELECT count() FROM prev_joined) AS converted,
-          (SELECT count() FROM prev_a_sessions) AS total
       )
 
-    SELECT 
-      r.converted AS converted,
-      r.total AS total,
-      round(r.converted / nullIf(r.total, 0) * 100, 1) AS conversion_rate,
-      p.converted AS past_converted,
-      p.total AS past_total,
-      round(p.converted / nullIf(p.total, 0) * 100, 1) AS past_rate
-    FROM recent_data r, prev_data p
-    `;
+    SELECT
+      r.to_views AS converted,
+      r.total_views AS total,
+      round(r.to_views / nullIf(r.total_views, 0) * 100, 1) AS conversion_rate,
+      p.to_views AS past_converted,
+      p.total_views AS past_total,
+      round(p.to_views / nullIf(p.total_views, 0) * 100, 1) AS past_rate
+    FROM recent r, prev p
+  `;
 
   try {
     const resultSet = await clickhouse.query({ query, format: 'JSONEachRow' });
