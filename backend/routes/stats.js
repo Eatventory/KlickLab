@@ -35,7 +35,7 @@ router.get('/visitors', authMiddleware, async (req, res) => {
     const trendRes = await clickhouse.query({
       query: `
         SELECT
-          formatDateTime(date, '%Y-%m-%d') AS date_str,
+          formatLocalDateTime(date, '%Y-%m-%d') AS date_str,
           toUInt64(visitors) AS visitors
         FROM ${table}
         WHERE date >= toDate('${localNow}') - 6
@@ -247,7 +247,7 @@ router.get('/click-trend', authMiddleware, async (req, res) => {
           ${step} AS step_minute,
           ${period} AS period_minute
         SELECT 
-          formatDateTime(
+          formatLocalDateTime(
             toDateTime(base_min * 60) 
               + toIntervalMinute(
                   intDiv(toRelativeMinuteNum(timestamp) - base_min, step_minute) * step_minute
