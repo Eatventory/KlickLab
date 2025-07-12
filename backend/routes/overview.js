@@ -17,8 +17,8 @@ const floorToNearest10Min = (date) => {
 const oneHourAgoDate = new Date(now);
 oneHourAgoDate.setHours(now.getHours() - 1, 0, 0, 0);
 
-const tenMinutesFloor = formatDateTime(floorToNearest10Min(now));
-const oneHourFloor = formatDateTime(oneHourAgoDate);
+const tenMinutesFloor = formatLocalDateTime(floorToNearest10Min(now));
+const oneHourFloor = formatLocalDateTime(oneHourAgoDate);
 const todayStart = formatLocalDateTime(new Date(new Date().setHours(0, 0, 0, 0)));
 
 router.get('/session-duration', authMiddleware, async (req, res) => {

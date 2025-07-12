@@ -17,8 +17,8 @@ const floorToNearest10Min = (date) => {
 const oneHourAgoDate = new Date(now);
 oneHourAgoDate.setHours(now.getHours() - 1, 0, 0, 0);
 
-const tenMinutesFloor = formatDateTime(floorToNearest10Min(now));
-const oneHourFloor = formatDateTime(oneHourAgoDate);
+const tenMinutesFloor = formatLocalDateTime(floorToNearest10Min(now));
+const oneHourFloor = formatLocalDateTime(oneHourAgoDate);
 const todayStart = formatLocalDateTime(new Date(new Date().setHours(0, 0, 0, 0)));
 
 const tableMap = {
@@ -38,7 +38,7 @@ router.get('/visitors', authMiddleware, async (req, res) => {
     const trendRes = await clickhouse.query({
       query: `
         SELECT
-          formatDateTime(date, '%Y-%m-%d') AS date_str,
+          formatLocalDateTime(date, '%Y-%m-%d') AS date_str,
           toUInt64(visitors) AS visitors
         FROM ${table}
         WHERE date >= toDate('${localNow}') - 6
@@ -250,7 +250,7 @@ router.get('/click-trend', authMiddleware, async (req, res) => {
           ${step} AS step_minute,
           ${period} AS period_minute
         SELECT 
-          formatDateTime(
+          formatLocalDateTime(
             toDateTime(base_min * 60) 
               + toIntervalMinute(
                   intDiv(toRelativeMinuteNum(timestamp) - base_min, step_minute) * step_minute
