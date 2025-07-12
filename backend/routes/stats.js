@@ -23,7 +23,7 @@ router.get('/visitors', authMiddleware, async (req, res) => {
   const table = tableMap[period] || 'daily_metrics';
   try {
     // 추이 데이터
-    console.time("1. visitors/trendRes");
+    // console.time("1. visitors/trendRes");
     const trendRes = await clickhouse.query({
       query: `
         SELECT
@@ -41,10 +41,10 @@ router.get('/visitors', authMiddleware, async (req, res) => {
       date: row.date_str,
       visitors: Number(row.visitors)
     }));
-    console.timeEnd("1. visitors/trendRes");
+    // console.timeEnd("1. visitors/trendRes");
 
     // 어제자
-    console.time("2. visitors/yesterdayRes");
+    // console.time("2. visitors/yesterdayRes");
     const yesterdayRes = await clickhouse.query({
       query: `
         SELECT visitors
@@ -55,10 +55,10 @@ router.get('/visitors', authMiddleware, async (req, res) => {
       format: 'JSON'
     });
     const yesterdayVisitors = (await yesterdayRes.json()).data[0]?.visitors ?? 0;
-    console.timeEnd("2. visitors/yesterdayRes");
+    // console.timeEnd("2. visitors/yesterdayRes");
 
     // 오늘 실시간
-    console.time("3. visitors/visitorRes");
+    // console.time("3. visitors/visitorRes");
 
     // 기준 시간 계산
     const now = new Date();
@@ -86,7 +86,7 @@ router.get('/visitors', authMiddleware, async (req, res) => {
     });
     const todayVisitors = +(await todayVisitorsRes.json()).data[0]?.visitors || 0;
 
-    console.timeEnd("3. visitors/visitorRes");
+    // console.timeEnd("3. visitors/visitorRes");
 
     res.status(200).json({
       today: todayVisitors,
@@ -106,7 +106,7 @@ router.get('/clicks', authMiddleware, async (req, res) => {
   const period = req.query.period || 'daily';
   const table = tableMap[period] || 'daily_metrics';
   try {
-    console.time("4. clicks/yesterdayRes");
+    // console.time("4. clicks/yesterdayRes");
     const yesterdayRes = await clickhouse.query({
       query: `
         SELECT clicks
@@ -117,7 +117,7 @@ router.get('/clicks', authMiddleware, async (req, res) => {
       format: 'JSON'
     });
     const yesterdayClicks = (await yesterdayRes.json()).data[0]?.clicks ?? 0;
-    console.timeEnd("4. clicks/yesterdayRes");
+    // console.timeEnd("4. clicks/yesterdayRes");
 
     // 기준 시간 계산
     const now = new Date();
@@ -125,7 +125,7 @@ router.get('/clicks', authMiddleware, async (req, res) => {
     const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ');
     const fiftyMinutesAgo = new Date(now.getTime() - 50 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ');
 
-    console.time("5. clicks/clickRes");
+    // console.time("5. clicks/clickRes");
     const clickRes = await clickhouse.query({
       query: `
         WITH
@@ -142,7 +142,7 @@ router.get('/clicks', authMiddleware, async (req, res) => {
       format: 'JSON'
     });
     const todayClicks = +(await clickRes.json()).data[0]?.clicks || 0;
-    console.timeEnd("5. clicks/clickRes");
+    // console.timeEnd("5. clicks/clickRes");
 
     res.status(200).json({
       today: todayClicks,
@@ -165,7 +165,7 @@ router.get('/top-clicks', authMiddleware, async (req, res) => {
     const oneHourAgo = formatLocalDateTime(new Date(now.getTime() - 60 * 60 * 1000));
     const twentyFourHoursAgo = formatLocalDateTime(new Date(now.getTime() - 24 * 60 * 60 * 1000));
 
-    console.time("6. top-clicks/hourlyRes");
+    // console.time("6. top-clicks/hourlyRes");
     const hourlyRes = await clickhouse.query({
       query: `
         SELECT segment_value AS target_text, sum(total_clicks) AS cnt
@@ -183,9 +183,9 @@ router.get('/top-clicks', authMiddleware, async (req, res) => {
       label: row.target_text,
       count: Number(row.cnt)
     }));
-    console.timeEnd("6. top-clicks/hourlyRes");
+    // console.timeEnd("6. top-clicks/hourlyRes");
 
-    console.time("7. top-clicks/minutesRes");
+    // console.time("7. top-clicks/minutesRes");
     const minutesRes = await clickhouse.query({
       query: `
         SELECT segment_value AS target_text, sum(total_clicks) AS cnt
@@ -203,9 +203,9 @@ router.get('/top-clicks', authMiddleware, async (req, res) => {
       label: row.target_text,
       count: Number(row.cnt)
     }));
-    console.timeEnd("7. top-clicks/minutesRes");
+    // console.timeEnd("7. top-clicks/minutesRes");
 
-    console.time("8. top-clicks/eventsRes");
+    // console.time("8. top-clicks/eventsRes");
     const eventsRes = await clickhouse.query({
       query: `
         SELECT target_text, count() AS cnt
@@ -223,7 +223,7 @@ router.get('/top-clicks', authMiddleware, async (req, res) => {
       label: row.target_text,
       count: Number(row.cnt)
     }));
-    console.timeEnd("8. top-clicks/eventsRes");
+    // console.timeEnd("8. top-clicks/eventsRes");
 
     const clickMap = new Map();
     [...hourlyClicks, ...minutesClicks, ...eventsClicks].forEach(({ label, count }) => {
@@ -251,7 +251,7 @@ router.get('/click-trend', authMiddleware, async (req, res) => {
     const period = parseInt(req.query.period) || 60; // 조회 범위 (분)
     const step = parseInt(req.query.step) || 5;      // 집계 단위 (분)
 
-    console.time("9. click-trend/clickTrendRes");
+    // console.time("9. click-trend/clickTrendRes");
     const clickTrendRes = await clickhouse.query({
       query: `
         WITH 
@@ -283,7 +283,7 @@ router.get('/click-trend', authMiddleware, async (req, res) => {
       time: row.time,
       count: Number(row.count)
     }));
-    console.timeEnd("9. click-trend/clickTrendRes");
+    // console.timeEnd("9. click-trend/clickTrendRes");
 
     res.status(200).json({ data: clickTrend });
   } catch (err) {
@@ -297,7 +297,7 @@ router.get('/click-trend', authMiddleware, async (req, res) => {
 router.get('/dropoff-summary', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   try {
-    console.time("10. dropoff-summary");
+    // console.time("10. dropoff-summary");
     const query = `
       WITH t AS (
         SELECT
@@ -319,7 +319,7 @@ router.get('/dropoff-summary', authMiddleware, async (req, res) => {
     `;
     const result = await clickhouse.query({ query, format: 'JSONEachRow' });
     const data = await result.json();
-    console.timeEnd("10. dropoff-summary");
+    // console.timeEnd("10. dropoff-summary");
     res.status(200).json({ data: data });
   } catch (err) {
     console.error('Dropoff Summary API ERROR:', err);
@@ -332,7 +332,8 @@ router.get('/dropoff-summary', authMiddleware, async (req, res) => {
 router.get('/userpath-summary', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   try {
-    console.time("11. userpath-summary");
+    // console.time("11. userpath-summary");
+
     const query = `
       SELECT
         from,
@@ -356,7 +357,8 @@ router.get('/userpath-summary', authMiddleware, async (req, res) => {
     `;
     const result = await clickhouse.query({ query, format: 'JSONEachRow' });
     const data = await result.json();
-    console.timeEnd("11. userpath-summary");
+
+    // console.timeEnd("11. userpath-summary");
     res.status(200).json({ data });
   } catch (err) {
     console.error('Userpath Summary API ERROR:', err);
