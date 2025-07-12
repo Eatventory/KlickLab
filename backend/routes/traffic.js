@@ -1,17 +1,24 @@
 const express = require("express");
 const router = express.Router();
-const clickhouse = require('../src/config/clickhouse');
-const authMiddleware = require('../middlewares/authMiddleware');
+const clickhouse = require("../src/config/clickhouse");
+const authMiddleware = require("../middlewares/authMiddleware");
 
 function getAgeCondition(ageGroup) {
   switch (ageGroup) {
-    case "10s": return "user_age >= 10 AND user_age < 20";
-    case "20s": return "user_age >= 20 AND user_age < 30";
-    case "30s": return "user_age >= 30 AND user_age < 40";
-    case "40s": return "user_age >= 40 AND user_age < 50";
-    case "50s": return "user_age >= 50 AND user_age < 60";
-    case "60s+": return "user_age >= 60";
-    default: return "";
+    case "10s":
+      return "user_age >= 10 AND user_age < 20";
+    case "20s":
+      return "user_age >= 20 AND user_age < 30";
+    case "30s":
+      return "user_age >= 30 AND user_age < 40";
+    case "40s":
+      return "user_age >= 40 AND user_age < 50";
+    case "50s":
+      return "user_age >= 50 AND user_age < 60";
+    case "60s+":
+      return "user_age >= 60";
+    default:
+      return "";
   }
 }
 
@@ -19,32 +26,36 @@ function getAgeCondition(ageGroup) {
 router.get("/", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   try {
-    const {
-      period = "daily",
-      gender = "all",
-      ageGroup = "all",
-    } = req.query;
+    const { period = "daily", gender = "all", ageGroup = "all" } = req.query;
     const now = new Date();
 
     // 집계 단위별 기간 보정
     let startDate, endDate;
-    if (period === 'weekly') {
+    if (period === "weekly") {
       // 최근 6주: 6주 전 월요일 ~ 이번주 일요일
       const nowDay = now.getDay() || 7;
       const thisMonday = new Date(now);
       thisMonday.setDate(now.getDate() - nowDay + 1);
       const sixWeeksAgoMonday = new Date(thisMonday);
       sixWeeksAgoMonday.setDate(thisMonday.getDate() - 35); // 5주 전 + 이번주 = 6주
-      startDate = new Date(sixWeeksAgoMonday.setHours(0,0,0,0));
+      startDate = new Date(sixWeeksAgoMonday.setHours(0, 0, 0, 0));
       endDate = new Date(thisMonday);
       endDate.setDate(thisMonday.getDate() + 6); // 이번주 일요일
-      endDate.setHours(23,59,59,999);
-    } else if (period === 'monthly') {
+      endDate.setHours(23, 59, 59, 999);
+    } else if (period === "monthly") {
       // 최근 12개월: 12개월 전 1일 ~ 이번달 말일
       const firstOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       startDate = new Date(firstOfThisMonth);
       startDate.setMonth(firstOfThisMonth.getMonth() - 11);
-      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999); // 이번달 말일
+      endDate = new Date(
+        now.getFullYear(),
+        now.getMonth() + 1,
+        0,
+        23,
+        59,
+        59,
+        999
+      ); // 이번달 말일
     } else {
       // 일별/시간별: 기존 로직 유지
       startDate = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000);
@@ -78,13 +89,14 @@ router.get("/", authMiddleware, async (req, res) => {
     const eventFormatExpr = {
       daily: "formatDateTime(timestamp, '%Y-%m-%d')",
       hourly: "formatDateTime(timestamp, '%Y-%m-%d %H:00')",
-      weekly: "concat(formatDateTime(timestamp, '%Y-%m'), '-', toString(toRelativeWeekNum(timestamp) - toRelativeWeekNum(toStartOfMonth(timestamp)) + 1), '주차')",
+      weekly:
+        "concat(formatDateTime(timestamp, '%Y-%m'), '-', toString(toRelativeWeekNum(timestamp) - toRelativeWeekNum(toStartOfMonth(timestamp)) + 1), '주차')",
       monthly: "formatDateTime(timestamp, '%Y-%m')",
     }[period];
-    
+
     // 방문자 추이 쿼리 (unique user_id, total count)
     let visitorTrendQuery;
-    if (period === 'weekly') {
+    if (period === "weekly") {
       visitorTrendQuery = `
         SELECT
           concat(formatDateTime(date, '%m'), '월 ', toString(toRelativeWeekNum(date) - toRelativeWeekNum(toStartOfMonth(date)) + 1), '주차') AS date_str,
@@ -100,7 +112,7 @@ router.get("/", authMiddleware, async (req, res) => {
         GROUP BY date_str
         ORDER BY date_str ASC
       `;
-    } else if (period === 'monthly') {
+    } else if (period === "monthly") {
       visitorTrendQuery = `
         SELECT
           formatDateTime(date, '%Y-%m') AS date_str,
@@ -116,7 +128,7 @@ router.get("/", authMiddleware, async (req, res) => {
         GROUP BY date_str
         ORDER BY date_str ASC
       `;
-    } else if (period === 'daily') {
+    } else if (period === "daily") {
       visitorTrendQuery = `
         SELECT
           formatDateTime(date, '%Y-%m-%d') AS date_str,
@@ -150,7 +162,7 @@ router.get("/", authMiddleware, async (req, res) => {
         GROUP BY date_str
         ORDER BY date_str ASC
       `;
-    } else if (period === 'hourly') {
+    } else if (period === "hourly") {
       visitorTrendQuery = `
         SELECT
           formatDateTime(timestamp, '%Y-%m-%d %H') AS date_str,
@@ -221,7 +233,10 @@ router.get("/", authMiddleware, async (req, res) => {
       // 음수, NaN, Infinity, null, undefined 방지
       visitors = visitors >= 0 && isFinite(visitors) ? visitors : 0;
       newVisitors = newVisitors >= 0 && isFinite(newVisitors) ? newVisitors : 0;
-      returningVisitors = returningVisitors >= 0 && isFinite(returningVisitors) ? returningVisitors : 0;
+      returningVisitors =
+        returningVisitors >= 0 && isFinite(returningVisitors)
+          ? returningVisitors
+          : 0;
       return {
         date: row.date_str || row.date,
         visitors,
@@ -231,52 +246,75 @@ router.get("/", authMiddleware, async (req, res) => {
     });
 
     // x축 보정: 기간별로 항상 일정 개수 보장 (hourly: 24, weekly: 6, monthly: 12, daily: 7)
-    if (period === 'hourly') {
+    if (period === "hourly") {
       // 24시간 key 생성 (끝이 현재 시각)
       const currentHour = now.getHours();
-      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      const todayStr = `${now.getFullYear()}-${String(
+        now.getMonth() + 1
+      ).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
       const hours = [];
       for (let i = 23; i >= 0; i--) {
         const hour = (currentHour - i + 24) % 24;
-        const dateStr = `${todayStr} ${String(hour).padStart(2, '0')}`;
+        const dateStr = `${todayStr} ${String(hour).padStart(2, "0")}`;
         hours.push(dateStr);
       }
-      visitorTrend = hours.map(dateStr => {
-        const found = visitorTrend.find(d => d.date === dateStr);
-        return found || { date: dateStr, visitors: 0, newVisitors: 0, returningVisitors: 0 };
+      visitorTrend = hours.map((dateStr) => {
+        const found = visitorTrend.find((d) => d.date === dateStr);
+        return (
+          found || {
+            date: dateStr,
+            visitors: 0,
+            newVisitors: 0,
+            returningVisitors: 0,
+          }
+        );
       });
-    } else if (period === 'weekly') {
+    } else if (period === "weekly") {
       // 최근 6주 주차 key 생성 및 데이터 없는 주는 0으로 보정
       const weeks = [];
       const now = new Date();
       for (let i = 5; i >= 0; i--) {
         const d = new Date(now);
         d.setDate(d.getDate() - i * 7);
-        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, "0");
         const firstOfMonth = new Date(d.getFullYear(), d.getMonth(), 1);
         const firstDayOfWeek = firstOfMonth.getDay() || 7;
         const weekOfMonth = Math.ceil((d.getDate() + firstDayOfWeek - 1) / 7);
         weeks.push(`${month}월 ${weekOfMonth}주차`);
       }
       // 6주 데이터 보정
-      visitorTrend = weeks.map(label => {
-        const found = visitorTrend.find(d => d.date === label);
-        return found || { date: label, visitors: 0, newVisitors: 0, returningVisitors: 0 };
+      visitorTrend = weeks.map((label) => {
+        const found = visitorTrend.find((d) => d.date === label);
+        return (
+          found || {
+            date: label,
+            visitors: 0,
+            newVisitors: 0,
+            returningVisitors: 0,
+          }
+        );
       });
-    } else if (period === 'monthly') {
+    } else if (period === "monthly") {
       // 최근 12개월 key 생성
       const months = [];
       for (let i = 11; i >= 0; i--) {
         const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
         const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, "0");
         months.push(`${year}-${month}`);
       }
-      visitorTrend = months.map(monthStr => {
-        const found = visitorTrend.find(d => d.date === monthStr);
-        return found || { date: monthStr, visitors: 0, newVisitors: 0, returningVisitors: 0 };
+      visitorTrend = months.map((monthStr) => {
+        const found = visitorTrend.find((d) => d.date === monthStr);
+        return (
+          found || {
+            date: monthStr,
+            visitors: 0,
+            newVisitors: 0,
+            returningVisitors: 0,
+          }
+        );
       });
-    } else if (period === 'daily' && visitorTrend.length > 7) {
+    } else if (period === "daily" && visitorTrend.length > 7) {
       visitorTrend = visitorTrend.slice(-7);
     }
 
@@ -301,31 +339,37 @@ router.get("/", authMiddleware, async (req, res) => {
       visitors: Number(row.visitors),
     }));
     // 24시간 보정 (데이터 없는 시간 0으로)
-    const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
-    hourlyTraffic = hours.map(hour => {
-      const found = hourlyTraffic.find(d => d.hour === hour);
+    const hours = Array.from({ length: 24 }, (_, i) =>
+      i.toString().padStart(2, "0")
+    );
+    hourlyTraffic = hours.map((hour) => {
+      const found = hourlyTraffic.find((d) => d.hour === hour);
       return found || { hour, visitors: 0 };
     });
 
     // 유입 채널 분포 쿼리 (traffic_source 기준)
     let sourceDistWhere = "event_name = 'auto_click'";
-    if (period === 'daily') {
+    if (period === "daily") {
       sourceDistWhere += " AND toDate(timestamp) = yesterday()";
-    } else if (period === 'hourly') {
+    } else if (period === "hourly") {
       // 직전 1시간 (예: 12:30이면 11:00~12:00)
       const now = new Date();
       const prevHour = new Date(now.getTime() - 60 * 60 * 1000);
       const year = prevHour.getFullYear();
-      const month = String(prevHour.getMonth() + 1).padStart(2, '0');
-      const day = String(prevHour.getDate()).padStart(2, '0');
-      const hour = String(prevHour.getHours()).padStart(2, '0');
-      sourceDistWhere += ` AND timestamp >= toDateTime('${year}-${month}-${day} ${hour}:00:00') AND timestamp < toDateTime('${year}-${month}-${day} ${String(Number(hour) + 1).padStart(2, '0')}:00:00')`;
-    } else if (period === 'weekly') {
+      const month = String(prevHour.getMonth() + 1).padStart(2, "0");
+      const day = String(prevHour.getDate()).padStart(2, "0");
+      const hour = String(prevHour.getHours()).padStart(2, "0");
+      sourceDistWhere += ` AND timestamp >= toDateTime('${year}-${month}-${day} ${hour}:00:00') AND timestamp < toDateTime('${year}-${month}-${day} ${String(
+        Number(hour) + 1
+      ).padStart(2, "0")}:00:00')`;
+    } else if (period === "weekly") {
       // 지난주 월~일
-      sourceDistWhere += " AND toDate(timestamp) >= toMonday(today() - INTERVAL 1 WEEK) AND toDate(timestamp) <= toMonday(today()) - INTERVAL 1 DAY";
-    } else if (period === 'monthly') {
+      sourceDistWhere +=
+        " AND toDate(timestamp) >= toMonday(today() - INTERVAL 1 WEEK) AND toDate(timestamp) <= toMonday(today()) - INTERVAL 1 DAY";
+    } else if (period === "monthly") {
       // 전달 1일~말일
-      sourceDistWhere += " AND toDate(timestamp) >= toStartOfMonth(today() - INTERVAL 1 MONTH) AND toDate(timestamp) <= toStartOfMonth(today()) - INTERVAL 1 DAY";
+      sourceDistWhere +=
+        " AND toDate(timestamp) >= toStartOfMonth(today() - INTERVAL 1 MONTH) AND toDate(timestamp) <= toStartOfMonth(today()) - INTERVAL 1 DAY";
     }
     const sourceDistQuery = `
     SELECT
@@ -416,20 +460,24 @@ router.get("/", authMiddleware, async (req, res) => {
 
     // 메인 페이지에서 이동하는 페이지 Top 10 쿼리
     let mainPageNavWhere = "event_name = 'auto_click' AND page_path != '/'";
-    if (period === 'daily') {
+    if (period === "daily") {
       mainPageNavWhere += " AND toDate(timestamp) = yesterday()";
-    } else if (period === 'hourly') {
+    } else if (period === "hourly") {
       const now = new Date();
       const prevHour = new Date(now.getTime() - 60 * 60 * 1000);
       const year = prevHour.getFullYear();
-      const month = String(prevHour.getMonth() + 1).padStart(2, '0');
-      const day = String(prevHour.getDate()).padStart(2, '0');
-      const hour = String(prevHour.getHours()).padStart(2, '0');
-      mainPageNavWhere += ` AND timestamp >= toDateTime('${year}-${month}-${day} ${hour}:00:00') AND timestamp < toDateTime('${year}-${month}-${day} ${String(Number(hour) + 1).padStart(2, '0')}:00:00')`;
-    } else if (period === 'weekly') {
-      mainPageNavWhere += " AND toDate(timestamp) >= toMonday(today() - INTERVAL 1 WEEK) AND toDate(timestamp) <= toMonday(today()) - INTERVAL 1 DAY";
-    } else if (period === 'monthly') {
-      mainPageNavWhere += " AND toDate(timestamp) >= toStartOfMonth(today() - INTERVAL 1 MONTH) AND toDate(timestamp) <= toStartOfMonth(today()) - INTERVAL 1 DAY";
+      const month = String(prevHour.getMonth() + 1).padStart(2, "0");
+      const day = String(prevHour.getDate()).padStart(2, "0");
+      const hour = String(prevHour.getHours()).padStart(2, "0");
+      mainPageNavWhere += ` AND timestamp >= toDateTime('${year}-${month}-${day} ${hour}:00:00') AND timestamp < toDateTime('${year}-${month}-${day} ${String(
+        Number(hour) + 1
+      ).padStart(2, "0")}:00:00')`;
+    } else if (period === "weekly") {
+      mainPageNavWhere +=
+        " AND toDate(timestamp) >= toMonday(today() - INTERVAL 1 WEEK) AND toDate(timestamp) <= toMonday(today()) - INTERVAL 1 DAY";
+    } else if (period === "monthly") {
+      mainPageNavWhere +=
+        " AND toDate(timestamp) >= toStartOfMonth(today() - INTERVAL 1 MONTH) AND toDate(timestamp) <= toStartOfMonth(today()) - INTERVAL 1 DAY";
     }
     const mainPageNavQuery = `
     SELECT
@@ -515,13 +563,18 @@ router.get("/daily-visitors", authMiddleware, async (req, res) => {
       ORDER BY date_str ASC
     `;
 
-    const visitorTrendResult = await clickhouse.query({ query, format: "JSON" });
+    const visitorTrendResult = await clickhouse.query({
+      query,
+      format: "JSON",
+    });
     const visitorTrendJson = await visitorTrendResult.json();
 
     const visitorTrend = visitorTrendJson.data
       .map((row) => {
         const parse = (value) =>
-          Number.isFinite(Number(value)) && Number(value) >= 0 ? Number(value) : 0;
+          Number.isFinite(Number(value)) && Number(value) >= 0
+            ? Number(value)
+            : 0;
 
         return {
           date: row.date_str || row.date,
@@ -534,7 +587,6 @@ router.get("/daily-visitors", authMiddleware, async (req, res) => {
     // console.timeEnd("12. daily-visitors");
 
     res.status(200).json({ data: visitorTrend });
-
   } catch (err) {
     console.error("Visitors Traffic API ERROR:", err);
     res.status(500).json({ error: "Failed to get visitors traffic data" });

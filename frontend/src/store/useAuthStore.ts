@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-type AuthState = 'loggedIn' | 'loggedOut' | 'checking';
+type AuthState = 'loggedIn' | 'loggedOut' | 'checking' | 'expired';
 
 interface AuthStore {
   authState: AuthState;
