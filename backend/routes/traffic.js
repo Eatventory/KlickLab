@@ -524,39 +524,39 @@ router.get("/", authMiddleware, async (req, res) => {
 });
 
 /* 일별 방문 트렌드 단독 API */
-const { formatLocalDateDay } = require("../utils/formatLocalDateTime");
+// ✅ 실행 시간 : 10.678s → 60.676ms (99.43% 감소)
+const { formatLocalDateDay } = require('../utils/formatLocalDateTime');
 router.get("/daily-visitors", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   try {
     const now = new Date();
     const localNow = formatLocalDateDay(now);
 
+    console.time("12. daily-visitors");
     const query = `
       SELECT
         formatDateTime(date, '%Y-%m-%d') AS date_str,
-        toUInt64(visitors) AS visitors,
-        toUInt64(new_visitors) AS newVisitors,
-        toUInt64(existing_visitors) AS returningVisitors
-      FROM daily_metrics
-      WHERE date >= toDate('${localNow}') - 6
-        AND date < toDate('${localNow}')
-        AND sdk_key = '${sdk_key}'
-
-      UNION ALL
-
-      SELECT
-        formatDateTime(toDate(timestamp), '%Y-%m-%d') AS date_str,
-        countDistinct(client_id) AS visitors,
-        countDistinctIf(client_id, toDate(timestamp) = minDate) AS newVisitors,
-        countDistinctIf(client_id, toDate(timestamp) != minDate) AS returningVisitors
+        toUInt64(sum(visitors)) AS visitors,
+        toUInt64(sum(new_visitors)) AS newVisitors,
+        toUInt64(sum(existing_visitors)) AS returningVisitors
       FROM (
         SELECT
-          client_id,
-          timestamp,
-          min(toDate(timestamp)) OVER (PARTITION BY client_id) AS minDate
-        FROM events
-        WHERE event_name = 'auto_click'
-          AND toDate(timestamp) = toDate('${localNow}')
+          date,
+          visitors,
+          new_visitors,
+          existing_visitors
+        FROM klicklab.daily_metrics
+        WHERE date >= toDate('${localNow}') - 6
+          AND date < toDate('${localNow}')
+          AND sdk_key = '${sdk_key}'
+        UNION ALL
+        SELECT
+          toDate(date_time) AS date,
+          visitors,
+          new_visitors,
+          existing_visitors
+        FROM klicklab.hourly_metrics
+        WHERE toDate(date_time) = toDate('${localNow}')
           AND sdk_key = '${sdk_key}'
       )
       GROUP BY date_str
@@ -584,6 +584,7 @@ router.get("/daily-visitors", authMiddleware, async (req, res) => {
         };
       })
       .slice(-7);
+    console.timeEnd("12. daily-visitors");
 
     res.status(200).json({ data: visitorTrend });
   } catch (err) {

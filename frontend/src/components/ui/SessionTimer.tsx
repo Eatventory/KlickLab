@@ -88,7 +88,10 @@ export default function SessionTimer() {
   }
 
   return (
-    <div className="fixed top-4 right-0 z-50 flex items-center bg-white border rounded-l-xl shadow-lg overflow-hidden">
+    <div
+      className={`fixed top-4 right-0 z-50 flex items-center border rounded-l-xl shadow-lg overflow-hidden
+        ${timeLeft <= 60000 ? 'bg-red-400' : 'bg-white'}`}
+    >
       {/* 접기 버튼 */}
       {isOpen && (
         <button
@@ -101,37 +104,45 @@ export default function SessionTimer() {
 
       {/* 슬라이딩 콘텐츠 */}
       <div
-        className={`transition-all duration-300 flex items-center gap-2 ${
+        className={`transition-all duration-300 flex items-center gap-2 justify-between ${
           isOpen
             ? "w-[340px] opacity-100 px-4 py-2"
             : "w-0 opacity-0 px-0 py-0 overflow-hidden"
         }`}
       >
-        <span className="text-gray-800 text-sm font-medium whitespace-nowrap">
-          세션 만료까지 {minutes}:{seconds.toString().padStart(2, "0")}
+        <span className="text-gray-800 text-sm font-medium whitespace-nowrap w-[100px] text-right">
+          세션 만료까지 {minutes.toString().padStart(2, "0")}:{seconds.toString().padStart(2, "0")}
         </span>
-        <button
-          onClick={handleExtend}
-          className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1 rounded-md whitespace-nowrap"
-        >
-          시간 연장
-        </button>
-        <button
-          onClick={handleLogout}
-          className="text-gray-400 hover:text-gray-500 underline text-sm px-3 py-1 rounded-md whitespace-nowrap"
-        >
-          로그아웃
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleExtend}
+            className={`text-white text-sm px-3 py-1 rounded-md whitespace-nowrap
+              ${timeLeft <= 60000 ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+          >
+            시간 연장
+          </button>
+          <button
+            onClick={handleLogout}
+            className="text-gray-400 hover:text-gray-500 underline text-sm px-3 py-1 rounded-md whitespace-nowrap"
+          >
+            로그아웃
+          </button>
+        </div>
       </div>
 
       {/* 펼치기 버튼 */}
       {!isOpen && (
-        <button
-          onClick={() => setIsOpen(true)}
-          className="px-2 py-2 text-gray-500 hover:text-gray-700 text-sm"
-        >
-          ➡
-        </button>
+        <>
+          <button
+            onClick={() => setIsOpen(true)}
+            className="px-2 py-2 text-gray-500 hover:text-gray-700 text-sm"
+          >
+            ➡
+          </button>
+          <span className="text-gray-800 text-sm font-medium whitespace-nowrap w-[50px] text-center">
+            {minutes.toString().padStart(2, "0")}:{seconds.toString().padStart(2, "0")}
+          </span>
+        </>
       )}
     </div>
   );
