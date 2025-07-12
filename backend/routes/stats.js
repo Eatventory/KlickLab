@@ -2,14 +2,13 @@ const express = require("express");
 const router = express.Router();
 const clickhouse = require('../src/config/clickhouse');
 const authMiddleware = require('../middlewares/authMiddleware');
-
+const { formatLocalDateTime } = require('../utils/formatLocalDateTime');
 const {
   getLocalNow,
   getIsoNow,
   floorToNearest10Min,
   getOneHourAgo,
   getTodayStart,
-  formatLocalDateTime,
 } = require('../utils/timeUtils');
 
 const localNow = getLocalNow();
@@ -35,7 +34,7 @@ router.get('/visitors', authMiddleware, async (req, res) => {
     const trendRes = await clickhouse.query({
       query: `
         SELECT
-          formatLocalDateTime(date, '%Y-%m-%d') AS date_str,
+          formatDateTime(date, '%Y-%m-%d') AS date_str,
           toUInt64(visitors) AS visitors
         FROM ${table}
         WHERE date >= toDate('${localNow}') - 6
@@ -247,7 +246,7 @@ router.get('/click-trend', authMiddleware, async (req, res) => {
           ${step} AS step_minute,
           ${period} AS period_minute
         SELECT 
-          formatLocalDateTime(
+          formatDateTime(
             toDateTime(base_min * 60) 
               + toIntervalMinute(
                   intDiv(toRelativeMinuteNum(timestamp) - base_min, step_minute) * step_minute
