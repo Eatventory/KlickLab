@@ -41,21 +41,8 @@ export const SettingsDashboard: React.FC = () => {
   ]);
 
   const sdkCode = `
-    <script>
-      (function() {
-        var script = document.createElement('script');
-        script.src = 'https://klicklab-sdk.pages.dev/klicklab_sdk.js';
-        script.async = true;
-        document.head.appendChild(script);
-        
-        script.onload = function() {
-          window.KlickLab.init({
-            projectId: 'your-project-id',
-            endpoint: 'https://your-api-endpoint.com'
-          });
-        };
-      })();
-    </script>
+    <script type="module" src="https://klicklab-sdk.pages.dev/klicklab_sdk.js"
+    data-sdk-key="여기에-발급받은-키"></script>
   `;
 
   const [showToast, setShowToast] = useState(false);
