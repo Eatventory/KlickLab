@@ -1,25 +1,22 @@
 const express = require("express");
 const router = express.Router();
 const clickhouse = require("../src/config/clickhouse");
-const { formatLocalDateDay, formatLocalDateTime } = require('../utils/formatLocalDateTime');
 const authMiddleware = require('../middlewares/authMiddleware');
 
-const now = new Date();
-const localNow = formatLocalDateDay(now);
-const isoNow = formatLocalDateTime(now);
+const {
+  getLocalNow,
+  getIsoNow,
+  floorToNearest10Min,
+  getOneHourAgo,
+  getTodayStart,
+  formatLocalDateTime,
+} = require('../utils/timeUtils');
 
-const floorToNearest10Min = (date) => {
-  const d = new Date(date);
-  d.setMinutes(Math.floor(d.getMinutes() / 10) * 10, 0, 0);
-  return d;
-};
-
-const oneHourAgoDate = new Date(now);
-oneHourAgoDate.setHours(now.getHours() - 1, 0, 0, 0);
-
-const tenMinutesFloor = formatDateTime(floorToNearest10Min(now));
-const oneHourFloor = formatDateTime(oneHourAgoDate);
-const todayStart = formatLocalDateTime(new Date(new Date().setHours(0, 0, 0, 0)));
+const localNow = getLocalNow();
+const isoNow = getIsoNow();
+const tenMinutesFloor = formatLocalDateTime(floorToNearest10Min());
+const oneHourFloor = formatLocalDateTime(getOneHourAgo());
+const todayStart = formatLocalDateTime(getTodayStart());
 
 router.get('/session-duration', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
