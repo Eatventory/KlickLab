@@ -532,7 +532,7 @@ router.get("/daily-visitors", authMiddleware, async (req, res) => {
     const now = new Date();
     const localNow = formatLocalDateDay(now);
 
-    console.time("12. daily-visitors");
+    // console.time("12. daily-visitors");
     const query = `
       SELECT
         formatDateTime(date, '%Y-%m-%d') AS date_str,
@@ -584,7 +584,7 @@ router.get("/daily-visitors", authMiddleware, async (req, res) => {
         };
       })
       .slice(-7);
-    console.timeEnd("12. daily-visitors");
+    // console.timeEnd("12. daily-visitors");
 
     res.status(200).json({ data: visitorTrend });
   } catch (err) {
