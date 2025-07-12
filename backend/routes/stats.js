@@ -6,6 +6,20 @@ const authMiddleware = require('../middlewares/authMiddleware');
 
 const now = new Date();
 const localNow = formatLocalDateDay(now);
+const isoNow = formatLocalDateTime(now);
+
+const floorToNearest10Min = (date) => {
+  const d = new Date(date);
+  d.setMinutes(Math.floor(d.getMinutes() / 10) * 10, 0, 0);
+  return d;
+};
+
+const oneHourAgoDate = new Date(now);
+oneHourAgoDate.setHours(now.getHours() - 1, 0, 0, 0);
+
+const tenMinutesFloor = formatDateTime(floorToNearest10Min(now));
+const oneHourFloor = formatDateTime(oneHourAgoDate);
+const todayStart = formatLocalDateTime(new Date(new Date().setHours(0, 0, 0, 0)));
 
 const tableMap = {
   minutes: 'minutes_metrics',
@@ -14,9 +28,6 @@ const tableMap = {
   weekly: 'weekly_metrics'
 };
 
-// ✅ UNION ALL 제거: 오늘과 이전 데이터 분리 조회
-// ✅ ORDER BY 제거
-// ✅ toDate()로 파티션 활용
 router.get('/visitors', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   const period = req.query.period || 'daily';
@@ -60,27 +71,23 @@ router.get('/visitors', authMiddleware, async (req, res) => {
     // 오늘 실시간
     // console.time("3. visitors/visitorRes");
 
-    // 기준 시간 계산
-    const now = new Date();
-    const isoNow = now.toISOString().slice(0, 19).replace('T', ' ');
-    const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ');
-    const fiftyMinutesAgo = new Date(now.getTime() - 50 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ');
-
     // hourly + minutes sum
     const todayVisitorsRes = await clickhouse.query({
       query: `
         WITH
-          (SELECT sum(visitors) FROM hourly_metrics
-          WHERE toDate(date_time) = toDate('${localNow}')
-            AND date_time < toDateTime('${tenMinutesAgo}')
-            AND sdk_key = '${sdk_key}') AS hourly_visitors,
-            
-          (SELECT sum(visitors) FROM minutes_metrics
-          WHERE date_time >= toDateTime('${fiftyMinutesAgo}')
-            AND date_time < toDateTime('${isoNow}')
-            AND sdk_key = '${sdk_key}') AS minutes_visitors
-            
-        SELECT hourly_visitors + minutes_visitors AS visitors
+          (
+            SELECT sum(visitors) FROM hourly_metrics
+            WHERE toDate(date_time) = toDate('${localNow}')
+              AND date_time <= toDateTime('${oneHourFloor}')
+              AND sdk_key = '${sdk_key}'
+          ) AS hourly_visitors,
+          (
+            SELECT sum(visitors) FROM minutes_metrics
+            WHERE date_time > toDateTime('${oneHourFloor}')
+              AND date_time <= toDateTime('${tenMinutesFloor}')
+              AND sdk_key = '${sdk_key}'
+          ) AS minutes_visitors
+        SELECT hourly_visitors + minutes_visitors AS visitors;
       `,
       format: 'JSON'
     });
@@ -99,8 +106,6 @@ router.get('/visitors', authMiddleware, async (req, res) => {
   }
 });
 
-// ✅ event_name = 'auto_click' + toDate(timestamp) 사용
-// ✅ 어제 데이터는 daily_metrics 테이블로 빠르게 조회
 router.get('/clicks', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   const period = req.query.period || 'daily';
@@ -119,23 +124,18 @@ router.get('/clicks', authMiddleware, async (req, res) => {
     const yesterdayClicks = (await yesterdayRes.json()).data[0]?.clicks ?? 0;
     // console.timeEnd("4. clicks/yesterdayRes");
 
-    // 기준 시간 계산
-    const now = new Date();
-    const isoNow = now.toISOString().slice(0, 19).replace('T', ' ');
-    const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ');
-    const fiftyMinutesAgo = new Date(now.getTime() - 50 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ');
-
+    // 10분 전 데이터부터 top clicks에 반영됨
     // console.time("5. clicks/clickRes");
     const clickRes = await clickhouse.query({
       query: `
         WITH
           (SELECT sum(clicks) FROM hourly_metrics
-          WHERE toDate(date_time) = toDate('${localNow}')
-            AND date_time < toDateTime('${tenMinutesAgo}')
+          WHERE date_time >= toDateTime('${todayStart}')
+            AND date_time <= toDateTime('${oneHourFloor}')
             AND sdk_key = '${sdk_key}') AS hourly_clicks,
           (SELECT sum(clicks) FROM minutes_metrics
-          WHERE date_time >= toDateTime('${fiftyMinutesAgo}')
-            AND date_time < toDateTime('${isoNow}')
+          WHERE date_time > toDateTime('${oneHourFloor}')
+            AND date_time <= toDateTime('${tenMinutesFloor}')
             AND sdk_key = '${sdk_key}') AS minutes_clicks
         SELECT hourly_clicks + minutes_clicks AS clicks
       `,
@@ -154,24 +154,16 @@ router.get('/clicks', authMiddleware, async (req, res) => {
   }
 });
 
-// ✅ event_name = 'auto_click' AND target_text != ''로 필터링
-// ✅ GROUP BY target_text, LIMIT 5만 수행 → 비교적 가벼움
-// ✅ toDate(timestamp) 사용으로 파티션 최적화
 router.get('/top-clicks', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   try {
-    const isoNow = formatLocalDateTime(now);
-    const tenMinutesAgo = formatLocalDateTime(new Date(now.getTime() - 10 * 60 * 1000));
-    const oneHourAgo = formatLocalDateTime(new Date(now.getTime() - 60 * 60 * 1000));
-    const twentyFourHoursAgo = formatLocalDateTime(new Date(now.getTime() - 24 * 60 * 60 * 1000));
-
     // console.time("6. top-clicks/hourlyRes");
     const hourlyRes = await clickhouse.query({
       query: `
         SELECT segment_value AS target_text, sum(total_clicks) AS cnt
         FROM hourly_top_elements
-        WHERE date_time >= parseDateTimeBestEffort('${twentyFourHoursAgo}')
-          AND date_time < parseDateTimeBestEffort('${oneHourAgo}')
+        WHERE date_time >= toDateTime('${todayStart}')
+          AND date_time < toDateTime('${oneHourFloor}')
           AND sdk_key = '${sdk_key}'
           AND segment_type = 'target_text'
           AND segment_value != ''
@@ -190,8 +182,8 @@ router.get('/top-clicks', authMiddleware, async (req, res) => {
       query: `
         SELECT segment_value AS target_text, sum(total_clicks) AS cnt
         FROM minutes_top_elements
-        WHERE date_time >= parseDateTimeBestEffort('${oneHourAgo}')
-          AND date_time < parseDateTimeBestEffort('${tenMinutesAgo}')
+        WHERE date_time > toDateTime('${oneHourFloor}')
+          AND date_time <= toDateTime('${tenMinutesFloor}')
           AND sdk_key = '${sdk_key}'
           AND segment_type = 'target_text'
           AND segment_value != ''
@@ -210,8 +202,8 @@ router.get('/top-clicks', authMiddleware, async (req, res) => {
       query: `
         SELECT target_text, count() AS cnt
         FROM events
-        WHERE timestamp >= parseDateTimeBestEffort('${tenMinutesAgo}')
-          AND timestamp < parseDateTimeBestEffort('${isoNow}')
+        WHERE timestamp > toDateTime('${tenMinutesFloor}')
+          AND timestamp <= toDateTime('${isoNow}')
           AND event_name = 'auto_click'
           AND sdk_key = '${sdk_key}'
           AND target_text != ''
@@ -242,8 +234,6 @@ router.get('/top-clicks', authMiddleware, async (req, res) => {
   }
 });
 
-// ✅ timestamp 스캔을 base - interval 범위로 제한
-// ✅ 시간 블록 계산을 상대값 기반으로 처리 → 정렬 성능 개선
 router.get('/click-trend', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   try {
@@ -292,8 +282,6 @@ router.get('/click-trend', authMiddleware, async (req, res) => {
   }
 });
 
-// ✅ countIf() + count() 중복 제거 → WITH로 합쳐서 처리
-// ✅ toDate(timestamp) 사용, page != ''로 사전 필터링
 router.get('/dropoff-summary', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   try {
@@ -305,7 +293,7 @@ router.get('/dropoff-summary', authMiddleware, async (req, res) => {
           sum(page_exits) AS exit_count,
           sum(page_views) AS total_count
         FROM klicklab.hourly_page_stats
-        WHERE toDate(date_time) = toDate('${localNow}')
+        WHERE date_time >= toDateTime('${todayStart}')
           AND page_path != ''
           AND sdk_key = '${sdk_key}'
         GROUP BY page_path
@@ -327,8 +315,6 @@ router.get('/dropoff-summary', authMiddleware, async (req, res) => {
   }
 });
 
-// ✅ groupArray + ARRAY JOIN 조합에 LIMIT 1000으로 유저 수 제한
-// ✅ ORDER BY user_id, timestamp로 정렬은 유지하되 스캔 범위 최소화
 router.get('/userpath-summary', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   try {
@@ -346,7 +332,7 @@ router.get('/userpath-summary', authMiddleware, async (req, res) => {
           pair.1 AS to,
           pair.2 AS count
         FROM klicklab.hourly_page_stats
-        WHERE toDate(date_time) = today()
+        WHERE date_time >= toDateTime('${todayStart}')
           AND page_path != ''
           AND sdk_key = '${sdk_key}'
           AND length(next_pages.to) > 0

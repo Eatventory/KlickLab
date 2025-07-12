@@ -1,7 +1,25 @@
 const express = require("express");
 const router = express.Router();
 const clickhouse = require("../src/config/clickhouse");
+const { formatLocalDateDay, formatLocalDateTime } = require('../utils/formatLocalDateTime');
 const authMiddleware = require('../middlewares/authMiddleware');
+
+const now = new Date();
+const localNow = formatLocalDateDay(now);
+const isoNow = formatLocalDateTime(now);
+
+const floorToNearest10Min = (date) => {
+  const d = new Date(date);
+  d.setMinutes(Math.floor(d.getMinutes() / 10) * 10, 0, 0);
+  return d;
+};
+
+const oneHourAgoDate = new Date(now);
+oneHourAgoDate.setHours(now.getHours() - 1, 0, 0, 0);
+
+const tenMinutesFloor = formatDateTime(floorToNearest10Min(now));
+const oneHourFloor = formatDateTime(oneHourAgoDate);
+const todayStart = formatLocalDateTime(new Date(new Date().setHours(0, 0, 0, 0)));
 
 router.get('/session-duration', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
@@ -9,16 +27,16 @@ router.get('/session-duration', authMiddleware, async (req, res) => {
     const recentMinutesQuery = `
       SELECT avg(avg_session_seconds) AS avg_s
       FROM minutes_metrics
-      WHERE date_time >= now() - INTERVAL 50 MINUTE
-        AND date_time < now() - INTERVAL 10 MINUTE
+      WHERE date_time > toDateTime('${oneHourFloor}')
+        AND date_time < toDateTime('${tenMinutesFloor}')
         AND sdk_key = '${sdk_key}'
     `;
 
     const recentHoursQuery = `
       SELECT avg(avg_session_seconds) AS avg_s
       FROM hourly_metrics
-      WHERE date_time >= now() - INTERVAL 23 HOUR
-        AND date_time < now() - INTERVAL 1 HOUR
+      WHERE date_time >= toDateTime('${todayStart}')
+        AND date_time < toDateTime('${oneHourFloor}')
         AND sdk_key = '${sdk_key}'
     `;
 
@@ -67,36 +85,75 @@ router.get('/conversion-summary', authMiddleware, async (req, res) => {
 
   const query = `
     WITH
-      -- 최근 7일 전환
-      recent AS (
-        SELECT
-          sum(page_views) AS total_views,
-          sum(arrayElement(next_pages.count, indexOf(next_pages.to, '${toPage}'))) AS to_views
-        FROM daily_page_stats
-        WHERE page_path = '${fromPage}'
-          AND date >= today() - 6
+      -- 최근 7일 필터링된 로그만
+      recent_filtered AS (
+        SELECT session_id, page_path, timestamp
+        FROM events
+        WHERE page_path IN ('${fromPage}', '${toPage}')
+          AND toDate(timestamp) BETWEEN today() - 6 AND today()
           AND sdk_key = '${sdk_key}'
       ),
-
-      -- 이전 7일 전환
-      prev AS (
-        SELECT
-          sum(page_views) AS total_views,
-          sum(arrayElement(next_pages.count, indexOf(next_pages.to, '${toPage}'))) AS to_views
-        FROM daily_page_stats
+      recent_a AS (
+        SELECT session_id, min(timestamp) AS a_time
+        FROM recent_filtered
         WHERE page_path = '${fromPage}'
-          AND date BETWEEN today() - 13 AND today() - 7
+        GROUP BY session_id
+      ),
+      recent_b AS (
+        SELECT session_id, min(timestamp) AS b_time
+        FROM recent_filtered
+        WHERE page_path = '${toPage}'
+        GROUP BY session_id
+      ),
+      recent_joined AS (
+        SELECT a.session_id
+        FROM recent_a a
+        INNER JOIN recent_b b ON a.session_id = b.session_id AND a.a_time < b.b_time
+      ),
+      -- 이전 7일
+      prev_filtered AS (
+        SELECT session_id, page_path, timestamp
+        FROM events
+        WHERE page_path IN ('${fromPage}', '${toPage}')
+          AND toDate(timestamp) BETWEEN today() - 13 AND today() - 7
           AND sdk_key = '${sdk_key}'
+      ),
+      prev_a AS (
+        SELECT session_id, min(timestamp) AS a_time
+        FROM prev_filtered
+        WHERE page_path = '${fromPage}'
+        GROUP BY session_id
+      ),
+      prev_b AS (
+        SELECT session_id, min(timestamp) AS b_time
+        FROM prev_filtered
+        WHERE page_path = '${toPage}'
+        GROUP BY session_id
+      ),
+      prev_joined AS (
+        SELECT a.session_id
+        FROM prev_a a
+        INNER JOIN prev_b b ON a.session_id = b.session_id AND a.a_time < b.b_time
+      ),
+      -- 집계
+      recent_data AS (
+        SELECT 
+          (SELECT count() FROM recent_joined) AS converted,
+          (SELECT count() FROM recent_a) AS total
+      ),
+      prev_data AS (
+        SELECT 
+          (SELECT count() FROM prev_joined) AS converted,
+          (SELECT count() FROM prev_a) AS total
       )
-
-    SELECT
-      r.to_views AS converted,
-      r.total_views AS total,
-      round(r.to_views / nullIf(r.total_views, 0) * 100, 1) AS conversion_rate,
-      p.to_views AS past_converted,
-      p.total_views AS past_total,
-      round(p.to_views / nullIf(p.total_views, 0) * 100, 1) AS past_rate
-    FROM recent r, prev p
+    SELECT 
+      r.converted AS converted,
+      r.total AS total,
+      round(r.converted / nullIf(r.total, 0) * 100, 1) AS conversion_rate,
+      p.converted AS past_converted,
+      p.total AS past_total,
+      round(p.converted / nullIf(p.total, 0) * 100, 1) AS past_rate
+    FROM recent_data r, prev_data p
   `;
 
   try {
