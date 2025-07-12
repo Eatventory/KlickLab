@@ -59,16 +59,33 @@ router.get('/visitors', authMiddleware, async (req, res) => {
 
     // 오늘 실시간
     console.time("3. visitors/visitorRes");
-    const visitorRes = await clickhouse.query({
+
+    // 기준 시간 계산
+    const now = new Date();
+    const isoNow = now.toISOString().slice(0, 19).replace('T', ' ');
+    const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ');
+    const fiftyMinutesAgo = new Date(now.getTime() - 50 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ');
+
+    // hourly + minutes sum
+    const todayVisitorsRes = await clickhouse.query({
       query: `
-        SELECT countDistinct(client_id) AS visitors
-        FROM events
-        WHERE timestamp >= '${localNow} 00:00:00'
-          AND sdk_key = '${sdk_key}'
+        WITH
+          (SELECT sum(visitors) FROM hourly_metrics
+          WHERE toDate(date_time) = toDate('${localNow}')
+            AND date_time < toDateTime('${tenMinutesAgo}')
+            AND sdk_key = '${sdk_key}') AS hourly_visitors,
+            
+          (SELECT sum(visitors) FROM minutes_metrics
+          WHERE date_time >= toDateTime('${fiftyMinutesAgo}')
+            AND date_time < toDateTime('${isoNow}')
+            AND sdk_key = '${sdk_key}') AS minutes_visitors
+            
+        SELECT hourly_visitors + minutes_visitors AS visitors
       `,
       format: 'JSON'
     });
-    const todayVisitors = +(await visitorRes.json()).data[0]?.visitors || 0;
+    const todayVisitors = +(await todayVisitorsRes.json()).data[0]?.visitors || 0;
+
     console.timeEnd("3. visitors/visitorRes");
 
     res.status(200).json({
@@ -102,14 +119,25 @@ router.get('/clicks', authMiddleware, async (req, res) => {
     const yesterdayClicks = (await yesterdayRes.json()).data[0]?.clicks ?? 0;
     console.timeEnd("4. clicks/yesterdayRes");
 
+    // 기준 시간 계산
+    const now = new Date();
+    const isoNow = now.toISOString().slice(0, 19).replace('T', ' ');
+    const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ');
+    const fiftyMinutesAgo = new Date(now.getTime() - 50 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ');
+
     console.time("5. clicks/clickRes");
     const clickRes = await clickhouse.query({
       query: `
-        SELECT count() AS clicks
-        FROM events
-        WHERE toDate(timestamp) = toDate('${localNow}')
-          AND event_name = 'auto_click'
-          AND sdk_key = '${sdk_key}'
+        WITH
+          (SELECT sum(clicks) FROM hourly_metrics
+          WHERE toDate(date_time) = toDate('${localNow}')
+            AND date_time < toDateTime('${tenMinutesAgo}')
+            AND sdk_key = '${sdk_key}') AS hourly_clicks,
+          (SELECT sum(clicks) FROM minutes_metrics
+          WHERE date_time >= toDateTime('${fiftyMinutesAgo}')
+            AND date_time < toDateTime('${isoNow}')
+            AND sdk_key = '${sdk_key}') AS minutes_clicks
+        SELECT hourly_clicks + minutes_clicks AS clicks
       `,
       format: 'JSON'
     });
@@ -274,10 +302,12 @@ router.get('/dropoff-summary', authMiddleware, async (req, res) => {
       WITH t AS (
         SELECT
           page_path,
-          countIf(event_name = 'page_exit') AS exit_count,
-          count(*) AS total_count
-        FROM events
-        WHERE toDate(timestamp) = toDate('${localNow}') AND page_path != '' AND sdk_key = '${sdk_key}'
+          sum(page_exits) AS exit_count,
+          sum(page_views) AS total_count
+        FROM klicklab.hourly_page_stats
+        WHERE toDate(date_time) = toDate('${localNow}')
+          AND page_path != ''
+          AND sdk_key = '${sdk_key}'
         GROUP BY page_path
       )
       SELECT 
@@ -303,38 +333,33 @@ router.get('/userpath-summary', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   try {
     console.time("11. userpath-summary");
-    const pathQuery = `
-      SELECT 
-        tuple.1 AS from,
-        tuple.2 AS to,
-        count(*) AS value
+    const query = `
+      SELECT
+        from,
+        to,
+        sum(count) AS value
       FROM (
-        SELECT 
-          user_id,
-          groupArray(page_path) AS path
-        FROM (
-          SELECT 
-            user_id,
-            page_path
-          FROM events
-          WHERE event_name IN ('page_view', 'auto_click')
-            AND toDate(timestamp) = toDate('${localNow}')
-            AND sdk_key = '${sdk_key}'
-          ORDER BY user_id, timestamp
-        )
-        GROUP BY user_id
-        LIMIT 1000
+        SELECT
+          page_path AS from,
+          arrayJoin(arrayZip(next_pages.to, next_pages.count)) AS pair,
+          pair.1 AS to,
+          pair.2 AS count
+        FROM klicklab.hourly_page_stats
+        WHERE toDate(date_time) = today()
+          AND page_path != ''
+          AND sdk_key = '${sdk_key}'
+          AND length(next_pages.to) > 0
       )
-      ARRAY JOIN arrayZip(arraySlice(path, 1, length(path) - 1), arraySlice(path, 2)) AS tuple
       GROUP BY from, to
       ORDER BY value DESC
+      LIMIT 1000
     `;
-    const resultSet = await clickhouse.query({ query: pathQuery, format: "JSON" });
-    const result = await resultSet.json();
+    const result = await clickhouse.query({ query, format: 'JSONEachRow' });
+    const data = await result.json();
     console.timeEnd("11. userpath-summary");
-    res.status(200).json({ data: result.data });
+    res.status(200).json({ data });
   } catch (err) {
-    console.error('User Path Summary API ERROR:', err);
+    console.error('Userpath Summary API ERROR:', err);
     res.status(500).json({ error: 'Failed to get userpath summary data' });
   }
 });
