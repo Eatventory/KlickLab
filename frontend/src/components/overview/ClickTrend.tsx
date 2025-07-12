@@ -14,11 +14,12 @@ interface ClickTrendData {
 interface ClickTrendProps {
   period?: number;
   step?: number;
+  refreshKey?: number;
+  loading?: boolean;
 }
 
-export const ClickTrend: React.FC<ClickTrendProps> = ({ period = 60, step = 5 }) => {
+export const ClickTrend: React.FC<ClickTrendProps> = ({ period = 60, step = 5, refreshKey, loading }) => {
   const [data, setData] = useState<TrendDataPoint[]>([]);
-  const [loading, setLoading] = useState(true);
   const [hoveredPoint, setHoveredPoint] = useState<TrendDataPoint | null>(null);
   const [timeBins, setTimeBins] = useState<string[]>([]);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -26,6 +27,8 @@ export const ClickTrend: React.FC<ClickTrendProps> = ({ period = 60, step = 5 })
   useEffect(() => {
     const fetchClickTrend = async () => {
       try {
+        const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+        if (!token) throw new Error("No token");
         const now = new Date();
         const end = now;
         const start = subMinutes(end, period);
@@ -33,10 +36,11 @@ export const ClickTrend: React.FC<ClickTrendProps> = ({ period = 60, step = 5 })
         const bins = points.map((d: Date) => format(d, 'HH:mm'));
         setTimeBins(bins);
         const iso = now.toISOString();
-        const response = await fetch(`http://localhost:3000/api/stats/click-trend?period=${period}&step=${step}&baseTime=${encodeURIComponent(iso)}`);
+        const response = await fetch(`/api/stats/click-trend?period=${period}&step=${step}&baseTime=${encodeURIComponent(iso)}`, {headers: { Authorization: `Bearer ${token}` }});
         const result: ClickTrendData = await response.json();
         setData(result.data || []);
       } catch (error) {
+        console.log("Failed to fetch click trends:", error);
         const now = new Date();
         const end = now;
         const start = subMinutes(end, period);
@@ -55,13 +59,11 @@ export const ClickTrend: React.FC<ClickTrendProps> = ({ period = 60, step = 5 })
         });
         setData(mockData);
       } finally {
-        setLoading(false);
+        // setLoading(false); // This line was removed as per the edit hint.
       }
     };
     fetchClickTrend();
-    const interval = setInterval(fetchClickTrend, 30000);
-    return () => clearInterval(interval);
-  }, [period, step]);
+  }, [refreshKey]);
 
   const filledData = useMemo(() => {
     return timeBins.map((bin: string) => data.find((d: TrendDataPoint) => d.time === bin) || { time: bin, count: 0 });
@@ -80,13 +82,6 @@ export const ClickTrend: React.FC<ClickTrendProps> = ({ period = 60, step = 5 })
     return { chartMax, chartMin, range };
   }, [filledData]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-32">
-        <div className="text-gray-500">데이터 로딩 중...</div>
-      </div>
-    );
-  }
   if (!chartData || filledData.length === 0) {
     return (
       <div className="flex items-center justify-center h-32">
