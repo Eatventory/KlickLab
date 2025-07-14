@@ -9,32 +9,60 @@ interface Metric {
   label: string;
 }
 
+interface SummaryResponse {
+  success: boolean;
+  data: {
+    metrics: Metric[];
+    topClicks: Array<{ label: string; count: number }>;
+    totalClicks: number;
+  };
+}
+
 export const Summary: React.FC<{ refreshKey?: number }> = ({ refreshKey }) => {
   const [summaryArr, setSummaryArr] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const metrics: Metric[] = [
-      { name: '방문자 수', value: 1200, prevValue: 1043, unit: '명', label: 'visitors' },
-      { name: '전환율', value: 8.2, prevValue: 10.3, unit: '%', label: 'conversionRate' },
-      { name: '클릭 수', value: 9800, prevValue: 9333, unit: '회', label: 'clicks' },
-      { name: '세션 시간', value: 192, prevValue: 192, unit: '초', label: 'sessionDuration' },
-    ];
-    const mockTopClicks = [
-      { label: '구매하기', count: 1203 },
-      { label: '장바구니', count: 987 },
-      { label: '로그인', count: 756 }
-    ];
-    const mockTotalClicks = 5000;
-    let clickSummary = '';
-    if (mockTopClicks.length > 0 && mockTotalClicks > 0) {
-      const topItem = mockTopClicks[0];
-      const percentage = ((topItem.count / mockTotalClicks) * 100).toFixed(1);
-      clickSummary = `오늘 가장 많이 클릭된 요소는 <strong>${topItem.label}</strong>로, 전체 클릭의 <strong>${percentage}%</strong>를 차지했습니다.`;
-    }
-    const kpiLine = generateKpiLine(metrics);
-    const { comment } = generateInsightSummary(metrics);
-    const arr = [clickSummary, kpiLine, comment].filter(Boolean);
-    setSummaryArr(arr);
+    const fetchSummaryData = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        const response = await fetch('/api/overview/summary');
+        if (!response.ok) {
+          throw new Error('데이터를 불러올 수 없습니다.');
+        }
+        
+        const data: SummaryResponse = await response.json();
+        
+        if (!data.success) {
+          throw new Error('데이터 처리 중 오류가 발생했습니다.');
+        }
+
+        const { metrics, topClicks, totalClicks } = data.data;
+        
+        let clickSummary = '';
+        if (topClicks.length > 0 && totalClicks > 0) {
+          const topItem = topClicks[0];
+          const percentage = ((topItem.count / totalClicks) * 100).toFixed(1);
+          clickSummary = `오늘 가장 많이 클릭된 요소는 <strong>${topItem.label}</strong>로, 전체 클릭의 <strong>${percentage}%</strong>를 차지했습니다.`;
+        }
+        
+        const kpiLine = generateKpiLine(metrics);
+        const { comment } = generateInsightSummary(metrics);
+        const arr = [clickSummary, kpiLine, comment].filter(Boolean);
+        setSummaryArr(arr);
+      } catch (err) {
+        console.error('Summary API Error:', err);
+        setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.');
+        setSummaryArr([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchSummaryData();
   }, [refreshKey]);
 
   function getChangeRate(today: number, yesterday: number): number {
@@ -118,11 +146,15 @@ export const Summary: React.FC<{ refreshKey?: number }> = ({ refreshKey }) => {
         </div>
         <div className="flex-1">
           <div className="text-sm leading-relaxed space-y-1" style={{ color: '#111' }}>
-            {summaryArr.length > 0
+            {isLoading ? (
+              <div>데이터를 불러오는 중입니다...</div>
+            ) : error ? (
+              <div style={{ color: 'red' }}>{error}</div>
+            ) : summaryArr.length > 0
               ? summaryArr.map((line, idx) => (
                   <div key={idx} dangerouslySetInnerHTML={{ __html: line }} />
                 ))
-              : <div>오늘의 데이터를 분석 중입니다.</div>
+              : <div>오늘의 데이터를 분석할 수 없습니다.</div>
             }
           </div>
         </div>
