@@ -321,4 +321,133 @@ router.get('/conversion-by-source', authMiddleware, async (req, res) => {
 ]
 */
 
+/* 인사이트 summary */
+router.get('/summary', authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+  const date = req.query.date || localNow;
+  const period = req.query.period || 'daily';
+
+  try {
+    // 오늘 metric 쿼리 (hourly + minutes)
+    const metricQuery = `
+      SELECT
+        toUInt64(sum(clicks)) AS clicks,
+        toUInt64(sum(visitors)) AS visitors,
+        toUInt64(avg(avg_session_seconds)) AS sessionDuration
+      FROM (
+        SELECT clicks, visitors, avg_session_seconds
+        FROM hourly_metrics
+        WHERE date_time >= toDateTime('${todayStart}')
+          AND date_time <= toDateTime('${oneHourFloor}')
+          AND sdk_key = '${sdk_key}'
+
+        UNION ALL
+
+        SELECT clicks, visitors, avg_session_seconds
+        FROM minutes_metrics
+        WHERE date_time >= toDateTime('${NearestHourFloor}')
+          AND date_time <= toDateTime('${tenMinutesFloor}')
+          AND sdk_key = '${sdk_key}'
+      )
+    `;
+
+    // 어제 metric 쿼리
+    const prevMetricQuery = `
+      SELECT
+        toUInt64(clicks) AS clicks,
+        toUInt64(visitors) AS visitors,
+        toUInt64(avg_session_seconds) AS sessionDuration
+      FROM daily_metrics
+      WHERE date = toDate('${localNow}') - 1
+        AND sdk_key = '${sdk_key}'
+    `;
+
+    // top 클릭 요소 (오늘 기준)
+    const topClickQuery = `
+      SELECT element AS label, sum(total_clicks) AS count
+      FROM (
+        SELECT element, total_clicks
+        FROM hourly_top_elements
+        WHERE date_time >= toDateTime('${todayStart}')
+          AND date_time <= toDateTime('${oneHourFloor}')
+          AND sdk_key = '${sdk_key}'
+          AND segment_type = 'user_age' -- 중복 집계 방지
+          AND element != ''
+
+        UNION ALL
+
+        SELECT element, total_clicks
+        FROM minutes_top_elements
+        WHERE date_time >= toDateTime('${NearestHourFloor}')
+          AND date_time <= toDateTime('${tenMinutesFloor}')
+          AND sdk_key = '${sdk_key}'
+          AND segment_type = 'user_age' -- 중복 집계 방지
+          AND element != ''
+      )
+      GROUP BY element
+      ORDER BY count DESC
+      LIMIT 3
+    `;
+
+    const [metricRes, prevMetricRes, topClickRes] = await Promise.all([
+      clickhouse.query({ query: metricQuery, format: 'JSON' }),
+      clickhouse.query({ query: prevMetricQuery, format: 'JSON' }),
+      clickhouse.query({ query: topClickQuery, format: 'JSON' })
+    ]);
+
+    const [current] = await metricRes.json();
+    const [previous] = await prevMetricRes.json();
+    const topClicks = await topClickRes.json();
+
+    // TODO: 실제 계산 로직으로 교체
+    const currentConversionRate = 8.2;
+    const prevConversionRate = 10.3;
+
+    const totalClicks = Number(current?.clicks || 0);
+
+    const response = {
+      success: true,
+      data: {
+        metrics: [
+          {
+            name: '방문자 수',
+            value: Number(current?.visitors || 0),
+            prevValue: Number(previous?.visitors || 0),
+            unit: '명',
+            label: 'visitors'
+          },
+          {
+            name: '전환율',
+            value: currentConversionRate,
+            prevValue: prevConversionRate,
+            unit: '%',
+            label: 'conversionRate'
+          },
+          {
+            name: '클릭 수',
+            value: Number(current?.clicks || 0),
+            prevValue: Number(previous?.clicks || 0),
+            unit: '회',
+            label: 'clicks'
+          },
+          {
+            name: '세션 시간',
+            value: Number(current?.sessionDuration || 0),
+            prevValue: Number(previous?.sessionDuration || 0),
+            unit: '초',
+            label: 'sessionDuration'
+          }
+        ],
+        topClicks,
+        totalClicks
+      }
+    };
+
+    res.status(200).json(response);
+  } catch (error) {
+    console.error('Error in /summary:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
 module.exports = router;
