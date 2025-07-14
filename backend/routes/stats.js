@@ -135,71 +135,41 @@ router.get('/clicks', authMiddleware, async (req, res) => {
 router.get('/top-clicks', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   try {
-    const hourlyRes = await clickhouse.query({
-      query: `
-        SELECT element, sum(total_clicks) AS cnt
+    const query = `
+      SELECT 
+        element, 
+        sum(total_clicks) AS cnt
+      FROM (
+        SELECT element, total_clicks
         FROM hourly_top_elements
         WHERE date_time >= toDateTime('${todayStart}')
           AND date_time <= toDateTime('${oneHourFloor}')
           AND sdk_key = '${sdk_key}'
-          AND segment_type = 'user_age' -- 중복 집계 방지
+          AND segment_type = 'user_age'
           AND element != ''
-        GROUP BY element
-      `,
-      format: 'JSONEachRow'
-    });
-    const hourlyClicks = (await hourlyRes.json()).map(row => ({
-      label: row.element,
-      count: Number(row.cnt)
-    }));
 
-    const minutesRes = await clickhouse.query({
-      query: `
-        SELECT element, sum(total_clicks) AS cnt
+        UNION ALL
+
+        SELECT element, total_clicks
         FROM minutes_top_elements
         WHERE date_time >= toDateTime('${NearestHourFloor}')
           AND date_time < toDateTime('${tenMinutesFloor}')
           AND sdk_key = '${sdk_key}'
-          AND segment_type = 'user_age' -- 중복 집계 방지
+          AND segment_type = 'user_age'
           AND element != ''
-        GROUP BY element
-      `,
-      format: 'JSONEachRow'
-    });
-    const minutesClicks = (await minutesRes.json()).map(row => ({
+      )
+      GROUP BY element
+      ORDER BY cnt DESC
+      LIMIT 5
+    `;
+
+    const clickRes = await clickhouse.query({ query, format: 'JSONEachRow' });
+    const topClicks = (await clickRes.json()).map(row => ({
       label: row.element,
       count: Number(row.cnt)
     }));
 
-    const eventsRes = await clickhouse.query({
-      query: `
-        SELECT target_text, count() AS cnt
-        FROM events
-        WHERE timestamp > toDateTime('${tenMinutesFloor}')
-          AND timestamp <= toDateTime('${isoNow}')
-          AND event_name = 'auto_click'
-          AND sdk_key = '${sdk_key}'
-          AND target_text != ''
-        GROUP BY target_text
-      `,
-      format: 'JSONEachRow'
-    });
-    const eventsClicks = (await eventsRes.json()).map(row => ({
-      label: row.target_text,
-      count: Number(row.cnt)
-    }));
-
-    const clickMap = new Map();
-    [...hourlyClicks, ...minutesClicks, ...eventsClicks].forEach(({ label, count }) => {
-      clickMap.set(label, (clickMap.get(label) || 0) + count);
-    });
-
-    const merged = [...clickMap.entries()]
-      .map(([label, count]) => ({ label, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
-
-    res.status(200).json({ items: merged });
+    res.status(200).json({ items: topClicks });
   } catch (err) {
     console.error('Top Clicks API ERROR:', err);
     res.status(500).json({ error: 'Failed to get top clicks data' });
