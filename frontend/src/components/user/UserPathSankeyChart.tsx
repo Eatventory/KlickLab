@@ -50,6 +50,9 @@ interface UserPathSankeyChartProps {
 
 export const UserPathSankeyChart: React.FC<UserPathSankeyChartProps> = ({ data: propData, refreshKey, loading }) => {
   const [data, setData] = useState<any[]>(propData || []);
+  const [selectedSegment, setSelectedSegment] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // propData가 변경되면 내부 상태도 업데이트
   useEffect(() => {
@@ -61,19 +64,48 @@ export const UserPathSankeyChart: React.FC<UserPathSankeyChartProps> = ({ data: 
   // propData가 없고 refreshKey가 있을 때만 자체 API 호출
   useEffect(() => {
     if (!propData && refreshKey !== undefined) {
-      // fetch user path data
       const fetchUserPath = async () => {
         try {
-          const response = await fetch(`/api/stats/userpath-summary`);
+          setIsLoading(true);
+          setError(null);
+          
+          const url = selectedSegment 
+            ? `/api/stats/userpath-summary?segment=${selectedSegment}`
+            : '/api/stats/userpath-summary';
+            
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error('데이터를 불러올 수 없습니다.');
+          }
+          
           const result = await response.json();
           setData(result.data || []);
         } catch (error) {
+          console.error('Sankey API Error:', error);
+          setError(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
           setData([]);
+        } finally {
+          setIsLoading(false);
         }
       };
       fetchUserPath();
     }
-  }, [refreshKey, propData]);
+  }, [refreshKey, propData, selectedSegment]);
+
+  const handleSegmentChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedSegment(event.target.value);
+  };
+
+  const getSegmentTitle = () => {
+    switch (selectedSegment) {
+      case 'converted':
+        return '전환 완료 사용자 경로';
+      case 'abandoned_cart':
+        return '장바구니 이탈 사용자 경로';
+      default:
+        return '전체 사용자 경로';
+    }
+  };
 
   const safeData = Array.isArray(data) ? data : [];
   const [hoverLinkIdx, setHoverLinkIdx] = useState<number | null>(null);
@@ -141,105 +173,148 @@ export const UserPathSankeyChart: React.FC<UserPathSankeyChartProps> = ({ data: 
   }
 
   return (
-    <div className="flex justify-center">
-      <svg width={chartWidth} height={chartHeight} style={{ position: 'relative', zIndex: 0 }}>
-        <defs>
-          <linearGradient id="nodeGradient" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#e0edff" />
-            <stop offset="100%" stopColor="#c7d2fe" />
-          </linearGradient>
-          <filter id="nodeShadow" x="-20%" y="-20%" width="140%" height="140%">
-            <feDropShadow dx="0" dy="2" stdDeviation="4" floodColor="#2563eb22" />
-          </filter>
-        </defs>
-        {safeData.map((path, idx) => {
-          const from = nodePositions.get(path.from);
-          const to = nodePositions.get(path.to);
-          if (!from || !to) return null;
-          const strokeWidth = (path.value / maxValue) * 32 + 4.5;
-          const opacity = hoverLinkIdx === null
-            ? (path.value / maxValue) * 0.5 + 0.3
-            : (hoverLinkIdx === idx ? 0.95 : 0.15);
-          const color = hoverLinkIdx === idx ? '#2563eb' : '#bdbdbd';
-          
-          const x1 = from.x + nodeWidth - 5;
-          const y1 = from.y + nodeHeight / 2;
-          const x2 = to.x + 5;
-          const y2 = to.y + nodeHeight / 2;
-          const mx = (x1 + x2) / 2;
-          
-          return (
-            <path
-              key={idx}
-              d={`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`}
-              stroke={color}
-              strokeWidth={hoverLinkIdx === idx ? strokeWidth + 7.8 : strokeWidth}
-              strokeLinecap="round"
-              fill="none"
-              opacity={opacity}
-              style={{ transition: 'all 0.2s', cursor: 'pointer' }}
-              onMouseEnter={() => setHoverLinkIdx(idx)}
-              onMouseLeave={() => setHoverLinkIdx(null)}
-            />
-          );
-        })}
-        {Array.from(nodeMap.values()).map((node) => {
-          const pos = nodePositions.get(node.name)!;
-          const isStart = node.depth === 0;
-          const isEnd = node.totalOut === 0;
-          const isActive = hoverLinkIdx !== null && safeData[hoverLinkIdx] && (safeData[hoverLinkIdx].from === node.name || safeData[hoverLinkIdx].to === node.name);
-          return (
-            <g key={node.name} transform={`translate(${pos.x},${pos.y})`} style={{ zIndex: isActive ? 2 : 1 }}>
-              <rect
-                width={nodeWidth}
-                height={nodeHeight}
-                rx={nodeHeight / 2}
-                fill={isActive ? '#e0edff' : '#f3f4f6'}
-                stroke={isActive ? '#2563eb' : '#d1d5db'}
-                strokeWidth={isActive ? 3.5 : 1.5}
-                filter="url(#nodeShadow)"
-                style={{ transition: 'all 0.2s', cursor: 'pointer' }}
-              />
-              <circle
-                cx={23.4}
-                cy={nodeHeight / 2}
-                r={9.1}
-                fill={isStart ? '#3b82f6' : isEnd ? '#22c55e' : '#bdbdbd'}
-              />
-              <text x={46.8} y={nodeHeight / 2 - 2} fontSize={15} fontWeight="bold" fill={isActive ? '#2563eb' : '#222'} style={{ letterSpacing: 0.5 }}>
-                {node.name}
-              </text>
-              <text x={46.8} y={nodeHeight / 2 + 18} fontSize={12} fontWeight="light" fill={isActive ? '#2563eb' : '#222'}>
-                {isStart ? node.totalOut : node.totalIn}명
-              </text>
-            </g>
-          );
-        })}
-        {tooltip && (
-          <g style={{ pointerEvents: 'none' }}>
-            <rect
-              x={tooltip.x - 78}
-              y={tooltip.y - 85}
-              width={170}
-              height={65}
-              rx={12}
-              fill="white"
-              stroke="#e5e7eb"
-              strokeWidth={1}
-              filter="drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))"
-            />
-            <text x={tooltip.x} y={tooltip.y - 65} textAnchor="middle" fontSize={14} fontWeight="bold" fill="#1f2937">
-              {tooltip.from} → {tooltip.to}
-            </text>
-            <text x={tooltip.x} y={tooltip.y - 45} textAnchor="middle" fontSize={16} fontWeight="bold" fill="#2563eb">
-              {tooltip.value}명
-            </text>
-            <text x={tooltip.x} y={tooltip.y - 25} textAnchor="middle" fontSize={12} fill="#6b7280">
-              전체의 {tooltip.percent}
-            </text>
-          </g>
-        )}
-      </svg>
+    <div className="w-full">
+      {/* 세그먼트 선택 UI */}
+      <div className="flex justify-end items-center mb-4">
+        <select
+          value={selectedSegment}
+          onChange={handleSegmentChange}
+          className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        >
+          <option value="">전체 사용자</option>
+          <option value="converted">전환 완료 사용자</option>
+          <option value="abandoned_cart">장바구니 이탈 사용자</option>
+        </select>
+      </div>
+
+      {/* 로딩 상태 */}
+      {isLoading && (
+        <div className="flex justify-center items-center h-64">
+          <div className="text-gray-500">데이터를 불러오는 중...</div>
+        </div>
+      )}
+
+      {/* 에러 상태 */}
+      {error && (
+        <div className="flex justify-center items-center h-64">
+          <div className="text-red-500 text-center">
+            <div className="text-sm">{error}</div>
+          </div>
+        </div>
+      )}
+
+      {/* 데이터 없음 상태 */}
+      {!isLoading && !error && safeData.length === 0 && (
+        <div className="flex justify-center items-center h-64">
+          <div className="text-gray-500 text-center">
+            <div className="text-sm">표시할 경로 데이터가 없습니다.</div>
+          </div>
+        </div>
+      )}
+
+      {/* Sankey 차트 */}
+      {!isLoading && !error && safeData.length > 0 && (
+        <div className="flex justify-center">
+          <svg width={chartWidth} height={chartHeight} style={{ position: 'relative', zIndex: 0 }}>
+            <defs>
+              <linearGradient id="nodeGradient" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#e0edff" />
+                <stop offset="100%" stopColor="#c7d2fe" />
+              </linearGradient>
+              <filter id="nodeShadow" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="2" stdDeviation="4" floodColor="#2563eb22" />
+              </filter>
+            </defs>
+            {safeData.map((path, idx) => {
+              const from = nodePositions.get(path.from);
+              const to = nodePositions.get(path.to);
+              if (!from || !to) return null;
+              const strokeWidth = (path.value / maxValue) * 32 + 4.5;
+              const opacity = hoverLinkIdx === null
+                ? (path.value / maxValue) * 0.5 + 0.3
+                : (hoverLinkIdx === idx ? 0.95 : 0.15);
+              const color = hoverLinkIdx === idx ? '#2563eb' : '#bdbdbd';
+              
+              const x1 = from.x + nodeWidth - 5;
+              const y1 = from.y + nodeHeight / 2;
+              const x2 = to.x + 5;
+              const y2 = to.y + nodeHeight / 2;
+              const mx = (x1 + x2) / 2;
+              
+              return (
+                <path
+                  key={idx}
+                  d={`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`}
+                  stroke={color}
+                  strokeWidth={hoverLinkIdx === idx ? strokeWidth + 7.8 : strokeWidth}
+                  strokeLinecap="round"
+                  fill="none"
+                  opacity={opacity}
+                  style={{ transition: 'all 0.2s', cursor: 'pointer' }}
+                  onMouseEnter={() => setHoverLinkIdx(idx)}
+                  onMouseLeave={() => setHoverLinkIdx(null)}
+                />
+              );
+            })}
+            {Array.from(nodeMap.values()).map((node) => {
+              const pos = nodePositions.get(node.name)!;
+              const isStart = node.depth === 0;
+              const isEnd = node.totalOut === 0;
+              const isActive = hoverLinkIdx !== null && safeData[hoverLinkIdx] && (safeData[hoverLinkIdx].from === node.name || safeData[hoverLinkIdx].to === node.name);
+              return (
+                <g key={node.name} transform={`translate(${pos.x},${pos.y})`} style={{ zIndex: isActive ? 2 : 1 }}>
+                  <rect
+                    width={nodeWidth}
+                    height={nodeHeight}
+                    rx={nodeHeight / 2}
+                    fill={isActive ? '#e0edff' : '#f3f4f6'}
+                    stroke={isActive ? '#2563eb' : '#d1d5db'}
+                    strokeWidth={isActive ? 3.5 : 1.5}
+                    filter="url(#nodeShadow)"
+                    style={{ transition: 'all 0.2s', cursor: 'pointer' }}
+                  />
+                  <circle
+                    cx={23.4}
+                    cy={nodeHeight / 2}
+                    r={9.1}
+                    fill={isStart ? '#3b82f6' : isEnd ? '#22c55e' : '#bdbdbd'}
+                  />
+                  <text x={46.8} y={nodeHeight / 2 - 2} fontSize={15} fontWeight="bold" fill={isActive ? '#2563eb' : '#222'} style={{ letterSpacing: 0.5 }}>
+                    {node.name}
+                  </text>
+                  <text x={46.8} y={nodeHeight / 2 + 18} fontSize={12} fontWeight="light" fill={isActive ? '#2563eb' : '#222'}>
+                    {isStart ? node.totalOut : node.totalIn}명
+                  </text>
+                </g>
+              );
+            })}
+            {tooltip && (
+              <g style={{ pointerEvents: 'none' }}>
+                <rect
+                  x={tooltip.x - 78}
+                  y={tooltip.y - 85}
+                  width={170}
+                  height={65}
+                  rx={12}
+                  fill="white"
+                  stroke="#e5e7eb"
+                  strokeWidth={1}
+                  filter="drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))"
+                />
+                <text x={tooltip.x} y={tooltip.y - 65} textAnchor="middle" fontSize={14} fontWeight="bold" fill="#1f2937">
+                  {tooltip.from} → {tooltip.to}
+                </text>
+                <text x={tooltip.x} y={tooltip.y - 45} textAnchor="middle" fontSize={16} fontWeight="bold" fill="#2563eb">
+                  {tooltip.value}명
+                </text>
+                <text x={tooltip.x} y={tooltip.y - 25} textAnchor="middle" fontSize={12} fill="#6b7280">
+                  전체의 {tooltip.percent}
+                </text>
+              </g>
+            )}
+          </svg>
+        </div>
+      )}
     </div>
   );
 }; 
