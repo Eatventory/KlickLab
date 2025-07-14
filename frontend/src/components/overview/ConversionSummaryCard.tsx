@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'; // React에서 컴포넌트 생성 및 상태/라이프사이클 훅 불러오기
 import { TrendingUp, TrendingDown, Minus, Target } from 'lucide-react'; // lucide-react 아이콘들 불러오기
 import clsx from 'clsx'; // 조건부 클래스 이름을 쉽게 관리하는 유틸
+import { useConversionEvent } from '../../context/ConversionEventContext';
 
 // API 응답 데이터 구조 정의
 interface ConversionSummaryData {
@@ -17,15 +18,17 @@ export const ConversionSummaryCard: React.FC = () => {
   const [loading, setLoading] = useState(true);                         // 로딩 상태 선언
   const [error, setError] = useState<string | null>(null);              // 에러 상태 선언
   const [isHovered, setIsHovered] = useState(false);                    // 호버 상태 선언
+  const { currentEvent } = useConversionEvent();
 
   // 데이터를 API에서 불러오는 비동기 함수
   const fetchConversionSummary = async () => {
+    if (!currentEvent) return;
     const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
     try {
       setLoading(true); // 로딩 상태 설정
       setError(null);   // 에러 상태 초기화
       if (!token) throw new Error("No token");
-      const response = await fetch(`/api/overview/conversion-summary`, {headers: { Authorization: `Bearer ${token}` }}); // API 엔드포인트에서 데이터 가져오기
+      const response = await fetch(`/api/overview/conversion-summary?event=${currentEvent}`, {headers: { Authorization: `Bearer ${token}` }}); // API 엔드포인트에서 데이터 가져오기
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`); // 응답이 성공하지 않으면 에러 발생
@@ -53,7 +56,7 @@ export const ConversionSummaryCard: React.FC = () => {
   // 컴포넌트 마운트 시 한 번만 fetch 실행
   useEffect(() => {
     fetchConversionSummary();
-  }, []); // 의존성 배열에 빈 배열 전달하여 컴포넌트 마운트 시 한 번만 실행
+  }, [currentEvent]); // 의존성 배열에 빈 배열 전달하여 컴포넌트 마운트 시 한 번만 실행
 
   // 트렌드 방향에 따라 아이콘 반환
   const getTrendIcon = (trend: string) => {

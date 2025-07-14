@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, Code, Globe, Users, Bell, IdCard } from 'lucide-react';
 import Toast from "../ui/Toast";
+import { ConversionEventMapping } from './ConversionEventMapping';
+import SegmentFilterManager from './SegmentFilterManager';
 
 // 타입 정의
 interface DomainData {
@@ -53,7 +55,17 @@ export const SettingsDashboard: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
+      {/* 2분할 카드 wrapper에는 bg/padding/rounded 없음 */}
+      <div className="flex flex-col lg:flex-row gap-6">
+        <div className="w-full lg:w-1/2">
+          <ConversionEventMapping />
+        </div>
+        <div className="w-full lg:w-1/2">
+          <SegmentFilterManager />
+        </div>
+      </div>
+
       {/* SDK 설치 가이드 */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex items-center gap-2 mb-4">
