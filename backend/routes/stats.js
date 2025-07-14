@@ -257,7 +257,7 @@ router.get('/dropoff-summary', authMiddleware, async (req, res) => {
 router.get('/userpath-summary', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   const segment = req.query.segment; // e.g. "converted", "abandoned_cart"
-  const fromPage = '/';
+  const fromPage = '/cart';
   const toPage = '/checkout/success';
 
   let segmentFilter = '';
@@ -335,10 +335,11 @@ router.get('/userpath-summary', authMiddleware, async (req, res) => {
 router.get('/userpath-summary/conversion-top3', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   const {
+    fromPage = '/cart',
+    toPage = '/checkout/success',
     limit = 3,
     startDate,
-    endDate,
-    event = '/checkout/success'
+    endDate
   } = req.query;
 
   const start = startDate ? `toDate('${startDate}')` : `today() - 6`;
@@ -346,33 +347,53 @@ router.get('/userpath-summary/conversion-top3', authMiddleware, async (req, res)
 
   const query = `
     WITH
-      -- 전환 세션
-      converted_sessions AS (
-        SELECT DISTINCT session_id
+      -- A: fromPage 도달 세션
+      a_sessions AS (
+        SELECT session_id, min(timestamp) AS a_time
         FROM events
-        WHERE page_path = '${event}'
+        WHERE page_path = '${fromPage}'
           AND toDate(timestamp) BETWEEN ${start} AND ${end}
-          AND sdk_key = '${sdk_key}'
-      ),
-      
-      -- 세션별 전체 경로
-      session_paths AS (
-        SELECT
-          session_id,
-          groupArray(page_path ORDER BY timestamp) AS path
-        FROM events
-        WHERE toDate(timestamp) BETWEEN ${start} AND ${end}
           AND sdk_key = '${sdk_key}'
         GROUP BY session_id
       ),
 
-      -- 전환 여부 포함한 세션 경로 요약
+      -- B: toPage 도달 세션
+      b_sessions AS (
+        SELECT session_id, min(timestamp) AS b_time
+        FROM events
+        WHERE page_path = '${toPage}'
+          AND toDate(timestamp) BETWEEN ${start} AND ${end}
+          AND sdk_key = '${sdk_key}'
+        GROUP BY session_id
+      ),
+
+      -- A → B를 만족하는 전환 세션
+      ab_sessions AS (
+        SELECT a.session_id
+        FROM a_sessions a
+        INNER JOIN b_sessions b USING (session_id)
+        WHERE b.b_time > a.a_time
+      ),
+
+      -- A 세션 기준 전체 경로 복원
+      full_paths AS (
+        SELECT
+          session_id,
+          arrayMap(x -> x.2, arraySort(x -> x.1, groupArray((timestamp, page_path)))) AS path
+        FROM events
+        WHERE session_id IN (SELECT session_id FROM a_sessions)
+          AND toDate(timestamp) BETWEEN ${start} AND ${end}
+          AND sdk_key = '${sdk_key}'
+        GROUP BY session_id
+      ),
+
+      -- 라벨링: 전환 여부
       labeled_paths AS (
         SELECT
-          path,
-          has(converted_sessions.session_id, sp.session_id) AS is_converted
-        FROM session_paths sp
-        LEFT JOIN converted_sessions USING (session_id)
+          fp.path,
+          isNotNull(ab.session_id) AS is_converted
+        FROM full_paths fp
+        LEFT JOIN ab_sessions ab USING (session_id)
       ),
 
       -- 경로별 집계
@@ -386,7 +407,7 @@ router.get('/userpath-summary/conversion-top3', authMiddleware, async (req, res)
         GROUP BY path
       ),
 
-      -- 전체 전환 수 및 평균 전환율
+      -- 총 전환 수 및 평균 전환율
       total_stats AS (
         SELECT
           sum(conversion_count) AS total_conversion,
@@ -409,16 +430,7 @@ router.get('/userpath-summary/conversion-top3', authMiddleware, async (req, res)
     const resultSet = await clickhouse.query({ query, format: 'JSONEachRow' });
     const rows = await resultSet.json();
 
-    // totalConversion 별도 재쿼리
-    const totalQuery = `
-      SELECT count(DISTINCT session_id) AS total_conversion
-      FROM events
-      WHERE page_path = '${event}'
-        AND toDate(timestamp) BETWEEN ${start} AND ${end}
-        AND sdk_key = '${sdk_key}'
-    `;
-    const totalRes = await clickhouse.query({ query: totalQuery, format: 'JSONEachRow' });
-    const totalConversion = (await totalRes.json())[0]?.total_conversion || 0;
+    const totalConversion = rows.reduce((acc, row) => acc + Number(row.conversion_count || 0), 0);
 
     const data = rows.map((row, index) => ({
       path: row.path_string.split(' → '),
