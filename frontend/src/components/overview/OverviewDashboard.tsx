@@ -8,6 +8,7 @@ import { DropoffInsightsCard } from '../engagement/DropoffInsightsCard';
 import { getPageLabel } from '../../utils/getPageLabel';
 import { AverageSessionDurationCard } from './AverageSessionDurationCard';
 import { ConversionSummaryCard } from './ConversionSummaryCard';
+import ConversionPathsCard from './ConversionPathsCard';
 import { VisitorChart } from '../traffic/VisitorChart';
 import { TrendingUp } from 'lucide-react';
 
@@ -157,11 +158,14 @@ export const OverviewDashboard = forwardRef<any, { onLastUpdated?: (d: Date) => 
           <DropoffInsightsCard refreshKey={refreshKey} />
         </div>
       </div>
-      <div className="w-full">
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 w-full">
-          <div className="text-lg font-bold mb-2">사용자 방문 경로</div>
-          <UserPathSankeyChart data={userPathData} refreshKey={refreshKey} />
-        </div>
+      {/* 전환 경로 Top 3 카드 단독 행 */}
+      <div>
+        <ConversionPathsCard refreshKey={refreshKey} />
+      </div>
+      {/* Sankey 차트 단독 행 */}
+      <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 mt-6">
+        <div className="text-lg font-bold mb-2">사용자 방문 경로</div>
+        <UserPathSankeyChart data={userPathData} refreshKey={refreshKey} />
       </div>
     </div>
   );
