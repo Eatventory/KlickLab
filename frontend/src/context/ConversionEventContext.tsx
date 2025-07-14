@@ -11,8 +11,10 @@ export const ConversionEventProvider = ({ children }) => {
   const [currentEvent, setCurrentEvent] = useState<string | null>(null);
 
   // 앱 시작 시 서버에서 현재 전환 이벤트 불러오기
+  const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+  if (!token) throw new Error("No token");
   useEffect(() => {
-    fetch('/api/settings/current-conversion-event')
+    fetch('/api/settings/current-conversion-event', { headers: { Authorization: `Bearer ${token}` } })
       .then(res => res.json())
       .then(data => setCurrentEvent(data.currentEvent));
   }, []);
@@ -21,7 +23,7 @@ export const ConversionEventProvider = ({ children }) => {
   const updateEvent = (event: string) => {
     fetch('/api/settings/conversion-event', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ event }),
     }).then(() => setCurrentEvent(event));
   };
