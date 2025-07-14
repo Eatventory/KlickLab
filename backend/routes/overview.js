@@ -3,17 +3,12 @@ const router = express.Router();
 const clickhouse = require("../src/config/clickhouse");
 const authMiddleware = require('../middlewares/authMiddleware');
 const { formatLocalDateTime } = require('../utils/formatLocalDateTime');
-const {
-  getLocalNow,
-  getIsoNow,
-  floorToNearest10Min,
-  getOneHourAgo,
-  getTodayStart,
-} = require('../utils/timeUtils');
+const { getLocalNow, getIsoNow, floorToNearest10Min, getNearestHourFloor, getOneHourAgo, getTodayStart } = require('../utils/timeUtils');
 
 const localNow = getLocalNow();
 const isoNow = getIsoNow();
 const tenMinutesFloor = formatLocalDateTime(floorToNearest10Min());
+const NearestHourFloor = formatLocalDateTime(getNearestHourFloor());
 const oneHourFloor = formatLocalDateTime(getOneHourAgo());
 const todayStart = formatLocalDateTime(getTodayStart());
 
@@ -23,7 +18,7 @@ router.get('/session-duration', authMiddleware, async (req, res) => {
     const recentMinutesQuery = `
       SELECT avg(avg_session_seconds) AS avg_s
       FROM minutes_metrics
-      WHERE date_time > toDateTime('${oneHourFloor}')
+      WHERE date_time >= toDateTime('${NearestHourFloor}')
         AND date_time < toDateTime('${tenMinutesFloor}')
         AND sdk_key = '${sdk_key}'
     `;
@@ -178,5 +173,152 @@ router.get('/conversion-summary', authMiddleware, async (req, res) => {
     res.status(500).json({ error: 'Failed to get conversion rate data' });
   }
 });
+
+/* 첫 랜딩 페이지 기준 전환율 */
+router.get('/conversion-by-landing', authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+  const toPage = req.query.to || '/checkout/success';
+  const days = parseInt(req.query.days) || 7;
+
+  const query = `
+    WITH
+      -- 세션별 첫 방문 페이지 및 전환 여부
+      session_summary AS (
+        SELECT
+          session_id,
+          any(page_path) AS first_page,
+          max(if(page_path = '${toPage}', 1, 0)) AS is_converted
+        FROM (
+          SELECT session_id, page_path, timestamp
+          FROM events
+          WHERE toDate(timestamp) BETWEEN today() - ${days - 1} AND today()
+            AND sdk_key = '${sdk_key}'
+          ORDER BY timestamp
+        )
+        GROUP BY session_id
+      )
+
+    -- 랜딩 페이지별 전환율 집계
+    SELECT
+      first_page,
+      count() AS total_sessions,
+      sum(is_converted) AS converted_sessions,
+      round(sum(is_converted) / nullIf(count(), 0) * 100, 1) AS conversion_rate
+    FROM session_summary
+    GROUP BY first_page
+    ORDER BY conversion_rate DESC, total_sessions DESC
+    LIMIT 10
+  `;
+
+  try {
+    const resultSet = await clickhouse.query({ query, format: 'JSONEachRow' });
+    const data = await resultSet.json();
+
+    const response = {
+      summary: data.map(row => ({
+        firstPage: row.first_page,
+        totalSessions: row.total_sessions,
+        convertedSessions: row.converted_sessions,
+        conversionRate: row.conversion_rate,
+      })),
+      period: `최근 ${days}일`,
+      conversionTarget: toPage
+    };
+
+    res.status(200).json(response);
+  } catch (err) {
+    console.error('Landing Page Conversion API ERROR:', err);
+    res.status(500).json({ error: 'Failed to get landing page conversion data' });
+  }
+});
+/* 응답 예시 :
+{
+  "summary": [
+    { "firstPage": "/product/airpods", "totalSessions": 102, "convertedSessions": 36, "conversionRate": 35.3 },
+    { "firstPage": "/main", "totalSessions": 224, "convertedSessions": 59, "conversionRate": 26.3 },
+    ...
+  ],
+  "period": "최근 7일",
+  "conversionTarget": "/checkout/success"
+}
+*/
+
+/* UTM 및 referrer 기준 전환율 */
+router.get('/conversion-by-source', authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+  const toPage = req.query.to || '/checkout/success';
+  const days = parseInt(req.query.days) || 7;
+
+  const query = `
+    WITH
+      -- 각 세션의 최초 이벤트 정보 (유입 경로)
+      session_entry AS (
+        SELECT
+          session_id,
+          any(utm_params) AS utm,
+          any(referrer) AS referrer,
+          maxIf(page_path = '${toPage}', 1, 0) AS is_converted
+        FROM (
+          SELECT session_id, utm_params, referrer, page_path, timestamp
+          FROM events
+          WHERE toDate(timestamp) BETWEEN today() - ${days - 1} AND today()
+            AND sdk_key = '${sdk_key}'
+          ORDER BY timestamp
+        )
+        GROUP BY session_id
+      )
+
+    SELECT
+      referrer,
+      utm,
+      count() AS total_sessions,
+      sum(is_converted) AS converted_sessions,
+      round(sum(is_converted) / nullIf(count(), 0) * 100, 1) AS conversion_rate
+    FROM session_entry
+    GROUP BY referrer, utm
+    ORDER BY conversion_rate DESC, total_sessions DESC
+    LIMIT 20
+  `;
+
+  try {
+    const resultSet = await clickhouse.query({ query, format: 'JSONEachRow' });
+    const data = await resultSet.json();
+
+    const response = {
+      summary: data.map(row => ({
+        utm: row.utm,
+        referrer: row.referrer,
+        totalSessions: row.total_sessions,
+        convertedSessions: row.converted_sessions,
+        conversionRate: row.conversion_rate,
+      })),
+      period: `최근 ${days}일`,
+      conversionTarget: toPage
+    };
+
+    res.status(200).json(response);
+  } catch (err) {
+    console.error('Source Conversion API ERROR:', err);
+    res.status(500).json({ error: 'Failed to get source-based conversion data' });
+  }
+});
+/* 응답 예시 :
+[
+  {
+    "utm": "utm_source=google&utm_campaign=summer",
+    "referrer": "https://google.com",
+    "totalSessions": 83,
+    "convertedSessions": 30,
+    "conversionRate": 36.1
+  },
+  {
+    "utm": "utm_source=instagram&utm_campaign=launch",
+    "referrer": "https://instagram.com",
+    "totalSessions": 52,
+    "convertedSessions": 9,
+    "conversionRate": 17.3
+  }
+]
+*/
 
 module.exports = router;
