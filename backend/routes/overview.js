@@ -27,7 +27,7 @@ router.get('/session-duration', authMiddleware, async (req, res) => {
       SELECT avg(avg_session_seconds) AS avg_s
       FROM hourly_metrics
       WHERE date_time >= toDateTime('${todayStart}')
-        AND date_time < toDateTime('${oneHourFloor}')
+        AND date_time <= toDateTime('${oneHourFloor}')
         AND sdk_key = '${sdk_key}'
     `;
 
@@ -68,7 +68,7 @@ router.get('/session-duration', authMiddleware, async (req, res) => {
 });
 
 router.get('/conversion-summary', authMiddleware, async (req, res) => {
-  const fromPage = req.query.from || '/cart';
+  const fromPage = req.query.from || '/';
   const toPage = req.query.to || '/checkout/success';
   const period = '7d';
   const periodLabel = '최근 7일';

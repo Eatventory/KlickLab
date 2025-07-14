@@ -55,8 +55,7 @@ router.get('/visitors', authMiddleware, async (req, res) => {
     });
     const yesterdayVisitors = (await yesterdayRes.json()).data[0]?.visitors ?? 0;
 
-    // 오늘 실시간
-    // hourly + minutes sum
+    // 오늘 실시간 (hourly + minutes)
     const todayVisitorsRes = await clickhouse.query({
       query: `
         WITH
@@ -138,37 +137,37 @@ router.get('/top-clicks', authMiddleware, async (req, res) => {
   try {
     const hourlyRes = await clickhouse.query({
       query: `
-        SELECT segment_value AS target_text, sum(total_clicks) AS cnt
+        SELECT element, sum(total_clicks) AS cnt
         FROM hourly_top_elements
         WHERE date_time >= toDateTime('${todayStart}')
-          AND date_time < toDateTime('${oneHourFloor}')
+          AND date_time <= toDateTime('${oneHourFloor}')
           AND sdk_key = '${sdk_key}'
-          AND segment_type = 'target_text'
-          AND segment_value != ''
-        GROUP BY segment_value
+          AND segment_type = 'user_age' -- 중복 집계 방지
+          AND element != ''
+        GROUP BY element
       `,
       format: 'JSONEachRow'
     });
     const hourlyClicks = (await hourlyRes.json()).map(row => ({
-      label: row.target_text,
+      label: row.element,
       count: Number(row.cnt)
     }));
 
     const minutesRes = await clickhouse.query({
       query: `
-        SELECT segment_value AS target_text, sum(total_clicks) AS cnt
+        SELECT element, sum(total_clicks) AS cnt
         FROM minutes_top_elements
         WHERE date_time >= toDateTime('${NearestHourFloor}')
-          AND date_time <= toDateTime('${tenMinutesFloor}')
+          AND date_time < toDateTime('${tenMinutesFloor}')
           AND sdk_key = '${sdk_key}'
-          AND segment_type = 'target_text'
-          AND segment_value != ''
-        GROUP BY segment_value
+          AND segment_type = 'user_age' -- 중복 집계 방지
+          AND element != ''
+        GROUP BY element
       `,
       format: 'JSONEachRow'
     });
     const minutesClicks = (await minutesRes.json()).map(row => ({
-      label: row.target_text,
+      label: row.element,
       count: Number(row.cnt)
     }));
 
@@ -288,7 +287,7 @@ router.get('/dropoff-summary', authMiddleware, async (req, res) => {
 router.get('/userpath-summary', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   const segment = req.query.segment; // e.g. "converted", "abandoned_cart"
-  const fromPage = '/cart';
+  const fromPage = '/';
   const toPage = '/checkout/success';
 
   let segmentFilter = '';
@@ -573,7 +572,7 @@ router.get('/insight-summary', authMiddleware, async (req, res) => {
       const percent = yesterday === 0 ? 0 : (delta / yesterday) * 100;
       const absPercent = Math.abs(percent).toFixed(precision);
       const trend = delta > 0 ? '증가' : delta < 0 ? '감소' : '변동 없음';
-      const sign = delta > 0 ? '+' : delta < 0 ? '−' : '';
+      const sign = delta > 0 ? '+' : delta < 0 ? '-' : '';
       return { trend, sentence: `오늘 ${unit} ${absPercent}% ${trend}했습니다.`, absPercent };
     }
 
