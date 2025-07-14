@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const clickhouse = require("../src/config/clickhouse");
 const authMiddleware = require('../middlewares/authMiddleware');
+const { formatLocalDateTime } = require('../utils/formatLocalDateTime');
 const { getLocalNow, getIsoNow, floorToNearest10Min, getNearestHourFloor, getOneHourAgo, getTodayStart } = require('../utils/timeUtils');
 
 const localNow = getLocalNow();

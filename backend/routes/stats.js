@@ -257,7 +257,7 @@ router.get('/dropoff-summary', authMiddleware, async (req, res) => {
 router.get('/userpath-summary', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   const segment = req.query.segment; // e.g. "converted", "abandoned_cart"
-  const fromPage = '/';
+  const fromPage = '/cart';
   const toPage = '/checkout/success';
 
   let segmentFilter = '';
@@ -359,7 +359,7 @@ router.get('/userpath-summary/conversion-top3', authMiddleware, async (req, res)
       session_paths AS (
         SELECT
           session_id,
-          groupArray(page_path ORDER BY timestamp) AS path
+          arrayMap(x -> x.2, arraySort(x -> x.1, groupArray((timestamp, page_path)))) AS path
         FROM events
         WHERE toDate(timestamp) BETWEEN ${start} AND ${end}
           AND sdk_key = '${sdk_key}'
@@ -369,10 +369,10 @@ router.get('/userpath-summary/conversion-top3', authMiddleware, async (req, res)
       -- 전환 여부 포함한 세션 경로 요약
       labeled_paths AS (
         SELECT
-          path,
-          has(converted_sessions.session_id, sp.session_id) AS is_converted
+          sp.path,
+          isNotNull(cs.session_id) AS is_converted
         FROM session_paths sp
-        LEFT JOIN converted_sessions USING (session_id)
+        LEFT JOIN converted_sessions cs USING (session_id)
       ),
 
       -- 경로별 집계
