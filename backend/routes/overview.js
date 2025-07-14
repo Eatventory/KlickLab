@@ -155,8 +155,8 @@ router.get('/conversion-summary', authMiddleware, async (req, res) => {
 /* 첫 랜딩 페이지 기준 전환율 */
 router.get('/conversion-by-landing', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
-  const { start_date, end_date, period = 'daily' } = req.query;
-  const toPage = '/checkout/success';
+  const { start_date, end_date, period = 'daily', to = '/checkout/success' } = req.query;
+  const toPage = to;
 
   // 날짜 필터링 조건 구성
   const dateFilter = start_date && end_date
@@ -224,8 +224,8 @@ router.get('/conversion-by-landing', authMiddleware, async (req, res) => {
 /* 채널별 전환율 */
 router.get('/conversion-by-channel', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
-  const { start_date, end_date, period = 'daily' } = req.query;
-  const toPage = '/checkout/success';
+  const { start_date, end_date, period = 'daily', to = '/checkout/success' } = req.query;
+  const toPage = to;
 
   // 날짜 필터 구성
   const dateFilter = start_date && end_date
@@ -383,21 +383,91 @@ router.get('/summary', authMiddleware, async (req, res) => {
       LIMIT 3
     `;
 
+    const conversionRateQuery = `
+      WITH
+        filtered_events AS (
+          SELECT session_id, page_path, timestamp
+          FROM events
+          WHERE page_path IN ('/cart', '/checkout/success')
+            AND timestamp >= toDateTime('${todayStart}')
+            AND timestamp <= toDateTime('${oneHourFloor}')
+            AND sdk_key = '${sdk_key}'
+        ),
+        a_sessions AS (
+          SELECT session_id, min(timestamp) AS a_time
+          FROM filtered_events
+          WHERE page_path = '/cart'
+          GROUP BY session_id
+        ),
+        b_sessions AS (
+          SELECT session_id, min(timestamp) AS b_time
+          FROM filtered_events
+          WHERE page_path = '/checkout/success'
+          GROUP BY session_id
+        ),
+        joined_sessions AS (
+          SELECT a.session_id
+          FROM a_sessions a
+          INNER JOIN b_sessions b ON a.session_id = b.session_id AND a.a_time < b.b_time
+        )
+      SELECT
+        (SELECT count() FROM joined_sessions) AS converted,
+        (SELECT count() FROM a_sessions) AS total,
+        round(100.0 * (SELECT count() FROM joined_sessions) / nullIf((SELECT count() FROM a_sessions), 0), 1) AS conversion_rate
+    `;
+
+    const prevConversionRateQuery = `
+      WITH
+        filtered_events AS (
+          SELECT session_id, page_path, timestamp
+          FROM events
+          WHERE page_path IN ('/cart', '/checkout/success')
+            AND toDate(timestamp) = toDate('${localNow}') - 1
+            AND sdk_key = '${sdk_key}'
+        ),
+        a_sessions AS (
+          SELECT session_id, min(timestamp) AS a_time
+          FROM filtered_events
+          WHERE page_path = '/cart'
+          GROUP BY session_id
+        ),
+        b_sessions AS (
+          SELECT session_id, min(timestamp) AS b_time
+          FROM filtered_events
+          WHERE page_path = '/checkout/success'
+          GROUP BY session_id
+        ),
+        joined_sessions AS (
+          SELECT a.session_id
+          FROM a_sessions a
+          INNER JOIN b_sessions b ON a.session_id = b.session_id AND a.a_time < b.b_time
+        )
+      SELECT
+        (SELECT count() FROM joined_sessions) AS converted,
+        (SELECT count() FROM a_sessions) AS total,
+        round(100.0 * (SELECT count() FROM joined_sessions) / nullIf((SELECT count() FROM a_sessions), 0), 1) AS conversion_rate
+    `;
+
     const metricRes = await clickhouse.query({ query: metricQuery, format: 'JSON' });
     const prevMetricRes = await clickhouse.query({ query: prevMetricQuery, format: 'JSON' });
     const topClickRes = await clickhouse.query({ query: topClickQuery, format: 'JSON' });
+    const conversionRes = await clickhouse.query({ query: conversionRateQuery, format: 'JSON' });
+    const prevConversionRes = await clickhouse.query({ query: prevConversionRateQuery, format: 'JSON' });
 
     const metricData = await metricRes.json();
     const prevMetricData = await prevMetricRes.json();
     const topClickData = await topClickRes.json();
+    const conversionData = await conversionRes.json();
+    const prevConversionData = await prevConversionRes.json();
 
     const [current] = metricData.data || [{}];
     const [previous] = prevMetricData.data || [{}];
     const topClicks = topClickData.data || [];
+    const [conversion] = conversionData.data || [{}];
+    const [prevConversion] = prevConversionData.data || [{}];
 
-    // TODO: 실제 계산 로직으로 교체
-    const currentConversionRate = 18.2;
-    const prevConversionRate = 10.3;
+    const currentConversionRate = conversion?.conversion_rate || 0;
+    const prevConversionRate = prevConversion?.conversion_rate || 0;
 
     const totalClicks = Number(current?.clicks || 0);
 

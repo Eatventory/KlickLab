@@ -305,4 +305,83 @@ router.get('/returning', authMiddleware, async (req, res) => {
   }
 });
 
+async function getBackwardPath(sdkKey, toPage, depth = 3) {
+  let currentTarget = toPage;
+  const path = [toPage];
+
+  for (let i = 0; i < depth; i++) {
+    const query = `
+      SELECT source
+      FROM funnel_links_daily
+      WHERE event_date >= today() - 6
+        AND target = '${currentTarget}'
+        AND sdk_key = '${sdkKey}'
+      GROUP BY source
+      ORDER BY sum(sessions) DESC
+      LIMIT 1;
+    `;
+
+    const res = await clickhouse.query({ query, format: 'JSON' }).then(r => r.json());
+    const topSource = res.data?.[0]?.source;
+    if (!topSource) break;
+
+    path.unshift(topSource);
+    currentTarget = topSource;
+  }
+
+  return path;
+}
+
+router.get('/common-paths', authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+  const toPage = req.query.to || '/checkout/success';
+
+  try {
+    const path = await getBackwardPath(sdk_key, toPage, 3);
+    res.status(200).json({ success: true, data: path });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: '경로 추적 실패' });
+  }
+
+  // const query = `
+  //   WITH converted_sessions AS (
+  //     SELECT DISTINCT session_id
+  //     FROM events
+  //     WHERE timestamp >= now() - INTERVAL 7 DAY
+  //       AND page_path = '${toPage}' -- conversion 범위
+  //       AND sdk_key = '${sdk_key}'
+  //   ),
+  //   session_paths AS (
+  //     SELECT
+  //       session_id,
+  //       groupArray(page_path) AS path
+  //     FROM events
+  //     WHERE timestamp >= now() - INTERVAL 7 DAY
+  //       AND session_id IN (SELECT session_id FROM converted_sessions)
+  //       AND sdk_key = '${sdk_key}'
+  //     GROUP BY session_id
+  //   ),
+  //   path_stats AS (
+  //     SELECT
+  //       arrayStringConcat(path, ' → ') AS path_string,
+  //       count() AS count
+  //     FROM session_paths
+  //     GROUP BY path_string
+  //   )
+  //   SELECT *
+  //   FROM path_stats
+  //   ORDER BY count DESC
+  //   LIMIT 3;
+  // `;
+
+  // try {
+  //   const result = await clickhouse.query({ query, format: 'JSON' }).then(r => r.json());
+  //   res.status(200).json({ success: true, data: result.data });
+  // } catch (err) {
+  //   console.error(err);
+  //   res.status(500).json({ success: false, message: '쿼리 실행 실패' });
+  // }
+});
+
 module.exports = router;
