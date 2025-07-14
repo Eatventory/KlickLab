@@ -36,6 +36,10 @@ app.use('/api/users', usersRoutes);
 const trafficRoutes = require('./routes/traffic');
 app.use('/api/traffic', trafficRoutes);
 
+/* report 라우팅 */
+const reportRoutes = require('./routes/report');
+app.use('/api/report', reportRoutes);
+
 /* setting 라우팅 */
 const settingsRoutes = require('./routes/settings');
 app.use('/api/settings', settingsRoutes);

@@ -2,6 +2,20 @@ const express = require("express");
 const router = express.Router();
 const clickhouse = require("../src/config/clickhouse");
 const authMiddleware = require("../middlewares/authMiddleware");
+const { formatLocalDateTime } = require("../utils/formatLocalDateTime");
+const {
+  getLocalNow,
+  getIsoNow,
+  floorToNearest10Min,
+  getOneHourAgo,
+  getTodayStart,
+} = require("../utils/timeUtils");
+
+const localNow = getLocalNow();
+const isoNow = getIsoNow();
+const tenMinutesFloor = formatLocalDateTime(floorToNearest10Min());
+const oneHourFloor = formatLocalDateTime(getOneHourAgo());
+const todayStart = formatLocalDateTime(getTodayStart());
 
 function getAgeCondition(ageGroup) {
   switch (ageGroup) {
@@ -158,11 +172,27 @@ function fixVisitorTrend(period, visitorTrend, now) {
   return visitorTrend;
 }
 
+// 캐시 관련 상수 및 함수 추가
+const dashboardCache = new Map();
+const CACHE_TTL = 60 * 1000; // 60초
+function getCacheKey({ sdk_key, period, gender, ageGroup }) {
+  return `${sdk_key}|${period}|${gender}|${ageGroup}`;
+}
+
 /* Traffic 탭 통합 API */
 router.get("/", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
+  const { period = "daily", gender = "all", ageGroup = "all" } = req.query;
+  const cacheKey = getCacheKey({ sdk_key, period, gender, ageGroup });
+  const nowTime = Date.now();
+  // 캐시 hit 시 바로 응답
+  if (dashboardCache.has(cacheKey)) {
+    const { data, timestamp } = dashboardCache.get(cacheKey);
+    if (nowTime - timestamp < CACHE_TTL) {
+      return res.status(200).json(data);
+    }
+  }
   try {
-    const { period = "daily", gender = "all", ageGroup = "all" } = req.query;
     const now = new Date();
     const { startDateStr, endDateStr } = getPeriodRange(period, now);
     const whereClause = getWhereClause({
@@ -522,7 +552,8 @@ router.get("/", authMiddleware, async (req, res) => {
       id: (idx + 1).toString(),
     }));
 
-    res.status(200).json({
+    // (응답 직전 캐시 저장)
+    const responseData = {
       visitorTrend,
       mainPageNavigation,
       filters: { period, gender, ageGroup },
@@ -531,7 +562,9 @@ router.get("/", authMiddleware, async (req, res) => {
       mediumDistribution,
       campaignDistribution,
       referrerDistribution,
-    });
+    };
+    dashboardCache.set(cacheKey, { data: responseData, timestamp: nowTime });
+    res.status(200).json(responseData);
   } catch (err) {
     console.error("Traffic Dashboard API ERROR:", err);
     res.status(500).json({ error: "Failed to get traffic dashboard data" });
@@ -571,7 +604,8 @@ router.get("/daily-visitors", authMiddleware, async (req, res) => {
           new_visitors,
           existing_visitors
         FROM klicklab.hourly_metrics
-        WHERE toDate(date_time) = toDate('${localNow}')
+        WHERE date_time >= toDateTime('${todayStart}')
+          AND date_time <= toDateTime('${oneHourFloor}')
           AND sdk_key = '${sdk_key}'
       )
       GROUP BY date_str
