@@ -8,6 +8,7 @@ import { DropoffInsightsCard } from '../engagement/DropoffInsightsCard';
 import { getPageLabel } from '../../utils/getPageLabel';
 import { AverageSessionDurationCard } from './AverageSessionDurationCard';
 import { ConversionSummaryCard } from './ConversionSummaryCard';
+import ConversionPathsCard from './ConversionPathsCard';
 import { VisitorChart } from '../traffic/VisitorChart';
 import { TrendingUp } from 'lucide-react';
 
@@ -157,17 +158,23 @@ export const OverviewDashboard = forwardRef<any, { onLastUpdated?: (d: Date) => 
           <DropoffInsightsCard refreshKey={refreshKey} />
         </div>
       </div>
-      <div className="w-full">
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 w-full">
-          <div className="text-lg font-bold mb-2">사용자 방문 경로</div>
-          <UserPathSankeyChart data={userPathData} refreshKey={refreshKey} />
-        </div>
+      {/* 전환 경로 Top 3 카드 단독 행 */}
+      <div>
+        <ConversionPathsCard refreshKey={refreshKey} />
+      </div>
+      {/* Sankey 차트 단독 행 */}
+      <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 mt-6">
+        <div className="text-lg font-bold mb-2">사용자 방문 경로</div>
+        <UserPathSankeyChart data={userPathData} refreshKey={refreshKey} />
       </div>
     </div>
   );
 
   function calculateChange(today: number, yesterday: number): number {
-    if (yesterday === 0) return 0;
+    if (yesterday === 0) {
+      if (today === 0) return 0;
+      return 100; // 또는: return Infinity, return null 등 UI 표현 목적에 따라
+    }
     return Math.round(((today - yesterday) / yesterday) * 100 * 10) / 10;
   }
   function getChangeType(change: number): 'increase' | 'decrease' | 'neutral' {
