@@ -69,11 +69,16 @@ export const UserPathSankeyChart: React.FC<UserPathSankeyChartProps> = ({ data: 
           setIsLoading(true);
           setError(null);
           
+          const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+          if (!token) throw new Error("No token");
+          
           const url = selectedSegment 
             ? `/api/stats/userpath-summary?segment=${selectedSegment}`
             : '/api/stats/userpath-summary';
             
-          const response = await fetch(url);
+          const response = await fetch(url, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
           if (!response.ok) {
             throw new Error('데이터를 불러올 수 없습니다.');
           }
