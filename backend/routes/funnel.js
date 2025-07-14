@@ -26,7 +26,7 @@ const router = express.Router();
  *   { "target": "drop_after_01",  "sessions":  9000 }
  * ]
  */
-router.get('/path/next', async (req, res) => {
+router.get('/path/next', authMiddleware, async (req, res) => {
     try {
         const { page, from, to, limit } = req.query;
         if (!page || !from || !to) {
@@ -40,7 +40,7 @@ router.get('/path/next', async (req, res) => {
     }
 });
 
-router.get('/start-pages', async (req, res) => {
+router.get('/start-pages', authMiddleware, async (req, res) => {
     try {
         const rows = await getStartPages(req.query);
         res.json(rows);

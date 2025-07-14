@@ -3,6 +3,7 @@ import { VisitorChart } from './VisitorChart';
 import { TopPageFromMainPage } from './TopPageFromMainPage';
 import { TrendingUp, Globe, Clock } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line } from 'recharts';
+import PathExplorer from './PathExplorer';
 
 // 타입 정의
 interface FilterOptions {
@@ -104,8 +105,8 @@ export const TrafficDashboard: React.FC = () => {
           gender: filters.gender,
           ageGroup: filters.ageGroup
         });
-        
-        const response = await fetch(`/api/traffic?${queryParams}`, {headers: { Authorization: `Bearer ${token}` }});
+
+        const response = await fetch(`/api/traffic?${queryParams}`, { headers: { Authorization: `Bearer ${token}` } });
         const data: TrafficData = await response.json();
         setTrafficData(data);
       } catch (error) {
@@ -117,7 +118,7 @@ export const TrafficDashboard: React.FC = () => {
     };
 
     fetchTrafficData();
-    
+
     // 30초마다 데이터 갱신
     const interval = setInterval(fetchTrafficData, 30000);
     return () => clearInterval(interval);
@@ -161,7 +162,7 @@ export const TrafficDashboard: React.FC = () => {
           <h2 className="text-lg font-semibold text-gray-900">트래픽 분석 필터</h2>
         </div>
         <div className="flex gap-4">
-          <select 
+          <select
             value={filters.period}
             onChange={(e) => handleFilterChange('period', e.target.value)}
             className="px-3 py-2 border border-gray-300 rounded-md text-sm"
@@ -171,7 +172,7 @@ export const TrafficDashboard: React.FC = () => {
             <option value="weekly">주별</option>
             <option value="monthly">월별</option>
           </select>
-          <select 
+          <select
             value={filters.gender}
             onChange={(e) => handleFilterChange('gender', e.target.value)}
             className="px-3 py-2 border border-gray-300 rounded-md text-sm"
@@ -180,7 +181,7 @@ export const TrafficDashboard: React.FC = () => {
             <option value="male">남성</option>
             <option value="female">여성</option>
           </select>
-          <select 
+          <select
             value={filters.ageGroup}
             onChange={(e) => handleFilterChange('ageGroup', e.target.value)}
             className="px-3 py-2 border border-gray-300 rounded-md text-sm"
@@ -253,12 +254,24 @@ export const TrafficDashboard: React.FC = () => {
       </div>
 
       {/* 메인 페이지에서 이동하는 페이지 Top */}
-      <TopPageFromMainPage 
+      <TopPageFromMainPage
         data={trafficData.mainPageNavigation}
         period={filters.period}
         gender={filters.gender}
         ageGroup={filters.ageGroup}
       />
+
+
+      {/* 방문 경로 탐색 Sankey */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="w-5 h-5 text-gray-600">
+            {/* 아이콘은 취향에 따라 (Lucide 'Share2' 등) */}
+          </span>
+          <h3 className="text-lg font-semibold text-gray-900">방문 경로 탐색</h3>
+        </div>
+        <PathExplorer />
+      </div>
 
     </div>
   );

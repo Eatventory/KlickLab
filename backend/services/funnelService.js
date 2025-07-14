@@ -11,7 +11,7 @@ const clickhouse = require('../src/config/clickhouse'); // 싱글턴 클라이�
 /**
  * 특정 퍼널 단계(Step)에서 사용자들이 가장 많이 이동한 '다음 단계 Top N'을 조회하는 함수.
  * @param {Object} params
- * @param {string} params.step   클릭한 노드(예: '01_view')
+ * @param {string} params.page   클릭한 노드(예: '/cart')
  * @param {string} params.from   조회 시작일(YYYY-MM-DD)
  * @param {string} params.to     조회 종료일(YYYY-MM-DD)
  * @param {number} [params.limit=5] 반환할 결과 개수
@@ -19,7 +19,8 @@ const clickhouse = require('../src/config/clickhouse'); // 싱글턴 클라이�
  */
 async function getNextSteps({ page, from, to, limit = 5 }) {
     const sql = `
-      SELECT target, sum(sessions) AS sessions
+      SELECT target,
+      toUInt64(sum(sessions)) AS sessions
       FROM   klicklab.funnel_links_daily
       WHERE  source = {page:String}
         AND  event_date BETWEEN {from:Date} AND {to:Date}
