@@ -155,91 +155,96 @@ router.get('/conversion-summary', authMiddleware, async (req, res) => {
 /* 첫 랜딩 페이지 기준 전환율 */
 router.get('/conversion-by-landing', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
-  const toPage = req.query.to || '/checkout/success';
-  const days = parseInt(req.query.days) || 7;
+  const { start_date, end_date, period = 'daily' } = req.query;
+  const toPage = '/checkout/success';
+
+  // 날짜 필터링 조건 구성
+  const dateFilter = start_date && end_date
+    ? `toDate(timestamp) BETWEEN toDate('${start_date}') AND toDate('${end_date}')`
+    : `toDate(timestamp) >= today() - INTERVAL 6 DAY`;
 
   const query = `
     WITH
-      -- 세션별 첫 방문 페이지 및 전환 여부
-      session_summary AS (
+      session_pages AS (
         SELECT
           session_id,
-          any(page_path) AS first_page,
+          page_path,
+          timestamp,
+          traffic_source,
+          traffic_medium
+        FROM klicklab.events
+        WHERE ${dateFilter}
+          AND sdk_key = '${sdk_key}'
+        ORDER BY timestamp
+      ),
+      session_first_last AS (
+        SELECT
+          session_id,
+          any(page_path) AS landing,
+          any(traffic_source) AS source,
+          any(traffic_medium) AS medium,
           max(if(page_path = '${toPage}', 1, 0)) AS is_converted
-        FROM (
-          SELECT session_id, page_path, timestamp
-          FROM events
-          WHERE toDate(timestamp) BETWEEN today() - ${days - 1} AND today()
-            AND sdk_key = '${sdk_key}'
-          ORDER BY timestamp
-        )
+        FROM session_pages
         GROUP BY session_id
       )
-
-    -- 랜딩 페이지별 전환율 집계
     SELECT
-      first_page,
-      count() AS total_sessions,
-      sum(is_converted) AS converted_sessions,
-      round(sum(is_converted) / nullIf(count(), 0) * 100, 1) AS conversion_rate
-    FROM session_summary
-    GROUP BY first_page
-    ORDER BY conversion_rate DESC, total_sessions DESC
-    LIMIT 10
+      landing,
+      source,
+      medium,
+      count() AS totalSessions,
+      sum(is_converted) AS convertedSessions,
+      round(sum(is_converted) / nullIf(count(), 0) * 100, 1) AS conversionRate
+    FROM session_first_last
+    GROUP BY landing, source, medium
+    ORDER BY conversionRate DESC, totalSessions DESC
+    LIMIT 50
   `;
 
   try {
     const resultSet = await clickhouse.query({ query, format: 'JSONEachRow' });
     const data = await resultSet.json();
 
-    const response = {
-      summary: data.map(row => ({
-        firstPage: row.first_page,
-        totalSessions: row.total_sessions,
-        convertedSessions: row.converted_sessions,
-        conversionRate: row.conversion_rate,
-      })),
-      period: `최근 ${days}일`,
-      conversionTarget: toPage
-    };
-
-    res.status(200).json(response);
+    res.status(200).json({
+      success: true,
+      data: data.map(row => ({
+        landing: row.landing,
+        source: row.source,
+        medium: row.medium,
+        totalSessions: row.totalSessions,
+        convertedSessions: row.convertedSessions,
+        conversionRate: row.conversionRate
+      }))
+    });
   } catch (err) {
     console.error('Landing Page Conversion API ERROR:', err);
-    res.status(500).json({ error: 'Failed to get landing page conversion data' });
+    res.status(500).json({ success: false, error: 'Failed to get landing page conversion data' });
   }
 });
-/* 응답 예시 :
-{
-  "summary": [
-    { "firstPage": "/product/airpods", "totalSessions": 102, "convertedSessions": 36, "conversionRate": 35.3 },
-    { "firstPage": "/main", "totalSessions": 224, "convertedSessions": 59, "conversionRate": 26.3 },
-    ...
-  ],
-  "period": "최근 7일",
-  "conversionTarget": "/checkout/success"
-}
-*/
 
-/* UTM 및 referrer 기준 전환율 */
-router.get('/conversion-by-source', authMiddleware, async (req, res) => {
+/* 채널별 전환율 */
+router.get('/conversion-by-channel', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
-  const toPage = req.query.to || '/checkout/success';
-  const days = parseInt(req.query.days) || 7;
+  const { start_date, end_date, period = 'daily' } = req.query;
+  const toPage = '/checkout/success';
+
+  // 날짜 필터 구성
+  const dateFilter = start_date && end_date
+    ? `toDate(timestamp) BETWEEN toDate('${start_date}') AND toDate('${end_date}')`
+    : `toDate(timestamp) >= today() - INTERVAL 6 DAY`;
 
   const query = `
     WITH
-      -- 각 세션의 최초 이벤트 정보 (유입 경로)
-      session_entry AS (
+      session_info AS (
         SELECT
           session_id,
-          any(utm_params) AS utm,
-          any(referrer) AS referrer,
+          any(traffic_source) AS source,
+          any(traffic_medium) AS medium,
+          any(traffic_campaign) AS campaign,
           maxIf(page_path = '${toPage}', 1, 0) AS is_converted
         FROM (
-          SELECT session_id, utm_params, referrer, page_path, timestamp
-          FROM events
-          WHERE toDate(timestamp) BETWEEN today() - ${days - 1} AND today()
+          SELECT session_id, page_path, traffic_source, traffic_medium, traffic_campaign, timestamp
+          FROM klicklab.events
+          WHERE ${dateFilter}
             AND sdk_key = '${sdk_key}'
           ORDER BY timestamp
         )
@@ -247,57 +252,39 @@ router.get('/conversion-by-source', authMiddleware, async (req, res) => {
       )
 
     SELECT
-      referrer,
-      utm,
-      count() AS total_sessions,
-      sum(is_converted) AS converted_sessions,
-      round(sum(is_converted) / nullIf(count(), 0) * 100, 1) AS conversion_rate
-    FROM session_entry
-    GROUP BY referrer, utm
-    ORDER BY conversion_rate DESC, total_sessions DESC
-    LIMIT 20
+      source,
+      medium,
+      campaign,
+      count() AS totalSessions,
+      sum(is_converted) AS convertedSessions,
+      round(sum(is_converted) / nullIf(count(), 0) * 100, 1) AS conversionRate
+    FROM session_info
+    GROUP BY source, medium, campaign
+    ORDER BY conversionRate DESC, totalSessions DESC
+    LIMIT 50
   `;
 
   try {
     const resultSet = await clickhouse.query({ query, format: 'JSONEachRow' });
     const data = await resultSet.json();
 
-    const response = {
-      summary: data.map(row => ({
-        utm: row.utm,
-        referrer: row.referrer,
-        totalSessions: row.total_sessions,
-        convertedSessions: row.converted_sessions,
-        conversionRate: row.conversion_rate,
-      })),
-      period: `최근 ${days}일`,
-      conversionTarget: toPage
-    };
-
-    res.status(200).json(response);
+    res.status(200).json({
+      success: true,
+      data: data.map(row => ({
+        channel: row.source || 'Unknown',
+        source: row.source,
+        medium: row.medium,
+        campaign: row.campaign,
+        totalSessions: row.totalSessions,
+        convertedSessions: row.convertedSessions,
+        conversionRate: row.conversionRate,
+      }))
+    });
   } catch (err) {
     console.error('Source Conversion API ERROR:', err);
-    res.status(500).json({ error: 'Failed to get source-based conversion data' });
+    res.status(500).json({ success: false, error: 'Failed to get source-based conversion data' });
   }
 });
-/* 응답 예시 :
-[
-  {
-    "utm": "utm_source=google&utm_campaign=summer",
-    "referrer": "https://google.com",
-    "totalSessions": 83,
-    "convertedSessions": 30,
-    "conversionRate": 36.1
-  },
-  {
-    "utm": "utm_source=instagram&utm_campaign=launch",
-    "referrer": "https://instagram.com",
-    "totalSessions": 52,
-    "convertedSessions": 9,
-    "conversionRate": 17.3
-  }
-]
-*/
 
 /* 인사이트 summary */
 router.get('/summary', authMiddleware, async (req, res) => {
@@ -308,12 +295,33 @@ router.get('/summary', authMiddleware, async (req, res) => {
   try {
     // 오늘 metric 쿼리 (hourly + minutes)
     const metricQuery = `
+      WITH (
+        SELECT avg(avg_session_seconds)
+        FROM (
+          SELECT avg_session_seconds
+          FROM hourly_metrics
+          WHERE date_time >= toDateTime('${todayStart}')
+            AND date_time <= toDateTime('${oneHourFloor}')
+            AND sdk_key = '${sdk_key}'
+            AND avg_session_seconds > 0
+
+          UNION ALL
+
+          SELECT avg_session_seconds
+          FROM minutes_metrics
+          WHERE date_time >= toDateTime('${NearestHourFloor}')
+            AND date_time <= toDateTime('${tenMinutesFloor}')
+            AND sdk_key = '${sdk_key}'
+            AND avg_session_seconds > 0
+        )
+      ) AS raw_avg_session_seconds
+
       SELECT
         toUInt64(sum(clicks)) AS clicks,
         toUInt64(sum(visitors)) AS visitors,
-        toUInt64(avg(avg_session_seconds)) AS sessionDuration
+        toUInt64(multiIf(isFinite(raw_avg_session_seconds), raw_avg_session_seconds, 0)) AS sessionDuration
       FROM (
-        SELECT clicks, visitors, avg_session_seconds
+        SELECT clicks, visitors
         FROM hourly_metrics
         WHERE date_time >= toDateTime('${todayStart}')
           AND date_time <= toDateTime('${oneHourFloor}')
@@ -321,7 +329,7 @@ router.get('/summary', authMiddleware, async (req, res) => {
 
         UNION ALL
 
-        SELECT clicks, visitors, avg_session_seconds
+        SELECT clicks, visitors
         FROM minutes_metrics
         WHERE date_time >= toDateTime('${NearestHourFloor}')
           AND date_time <= toDateTime('${tenMinutesFloor}')
@@ -331,10 +339,18 @@ router.get('/summary', authMiddleware, async (req, res) => {
 
     // 어제 metric 쿼리
     const prevMetricQuery = `
+      WITH (
+        SELECT avg(avg_session_seconds)
+        FROM daily_metrics
+        WHERE date = toDate('${localNow}') - 1
+          AND sdk_key = '${sdk_key}'
+          AND avg_session_seconds > 0
+      ) AS raw_avg_session_seconds
+
       SELECT
         toUInt64(clicks) AS clicks,
         toUInt64(visitors) AS visitors,
-        toUInt64(avg_session_seconds) AS sessionDuration
+        toUInt64(multiIf(isFinite(raw_avg_session_seconds), raw_avg_session_seconds, 0)) AS sessionDuration
       FROM daily_metrics
       WHERE date = toDate('${localNow}') - 1
         AND sdk_key = '${sdk_key}'
