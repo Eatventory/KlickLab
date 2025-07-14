@@ -108,7 +108,7 @@ export default function PathExplorer() {
                 <option value="">— Start URL 선택 —</option>
                 {startPages.map(p => (
                     <option key={p.page_path} value={p.page_path}>
-                        {p.page_path} ({p.sessions.toLocaleString()})
+                        {p.page_path}
                     </option>
                 ))}
             </select>
