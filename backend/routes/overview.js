@@ -68,7 +68,7 @@ router.get('/session-duration', authMiddleware, async (req, res) => {
 });
 
 router.get('/conversion-summary', authMiddleware, async (req, res) => {
-  const fromPage = req.query.from || '/';
+  const fromPage = req.query.from || '/cart';
   const toPage = req.query.to || '/checkout/success';
   const period = '7d';
   const periodLabel = '최근 7일';
@@ -389,15 +389,17 @@ router.get('/summary', authMiddleware, async (req, res) => {
       LIMIT 3
     `;
 
-    const [metricRes, prevMetricRes, topClickRes] = await Promise.all([
-      clickhouse.query({ query: metricQuery, format: 'JSON' }),
-      clickhouse.query({ query: prevMetricQuery, format: 'JSON' }),
-      clickhouse.query({ query: topClickQuery, format: 'JSON' })
-    ]);
+    const metricRes = await clickhouse.query({ query: metricQuery, format: 'JSON' });
+    const prevMetricRes = await clickhouse.query({ query: prevMetricQuery, format: 'JSON' });
+    const topClickRes = await clickhouse.query({ query: topClickQuery, format: 'JSON' });
 
-    const [current] = await metricRes.json();
-    const [previous] = await prevMetricRes.json();
-    const topClicks = await topClickRes.json();
+    const metricData = await metricRes.json();
+    const prevMetricData = await prevMetricRes.json();
+    const topClickData = await topClickRes.json();
+
+    const [current] = metricData.data || [{}];
+    const [previous] = prevMetricData.data || [{}];
+    const topClicks = topClickData.data || [];
 
     // TODO: 실제 계산 로직으로 교체
     const currentConversionRate = 8.2;
