@@ -7,7 +7,8 @@ type NextLink = { target: string; sessions: number };
 
 interface SankeyNode { name: string }
 interface SankeyLink { source: number; target: number; value: number }
-
+import CustomNode from '../sankey/CustomNode';
+import CustomLink from '../sankey/CustomLink';
 
 /** YYYY-MM-DD 헬퍼 (오늘) */
 const today = () => new Date().toISOString().slice(0, 10);
@@ -65,8 +66,8 @@ export default function PathExplorer() {
             })
             .then((data: NextLink[]) =>
                 data.
-                filter(l => l.sessions > 0) // 0세션 제거
-                .map(l => ({ ...l, sessions: Number(l.sessions) })) // 문자열→숫자
+                    filter(l => l.sessions > 0) // 0세션 제거
+                    .map(l => ({ ...l, sessions: Number(l.sessions) })) // 문자열→숫자
             )
             .then(setLinks)
             .catch(console.error);
@@ -120,8 +121,24 @@ export default function PathExplorer() {
                     data={{ nodes, links: sankeyLinks }}
                     nodePadding={30}
                     iterations={32}
+                    node={<CustomNode />}  // 커스텀 노드 추가
+                    link={<CustomLink />}  // 커스텀 링크 추가
                 >
-                    <Tooltip />
+                    <Tooltip
+                        content={({ active, payload }: any) => {
+                            if (!active || !payload || !payload[0]) return null;
+                            const data = payload[0].payload;
+                            if (data.source && data.target) {
+                                // 링크 툴팁
+                                return (
+                                    <div className="bg-white p-2 border rounded shadow text-sm">
+                                        {data.source.name} → {data.target.name}: {data.value} 세션
+                                    </div>
+                                );
+                            }
+                            return null;
+                        }}
+                    />
                 </Sankey>
             ) : selected ? (
                 /* 선택했는데 링크가 하나도 없을 때 */
