@@ -67,7 +67,8 @@ router.get('/page-times', authMiddleware, async (req, res) => {
   `;
 
   try {
-    const data = await clickhouse.query(query).toPromise();
+    const dataRes = await clickhouse.query({query, format: 'JSONEachRow'});
+    const data = await dataRes.json();
     res.status(200).json(data);
   } catch (err) {
     console.error("Page Times API ERROR:", err);
