@@ -45,8 +45,10 @@ const ConversionPathsCard: React.FC<ConversionPathsCardProps> = ({ className, re
       try {
         setLoading(true);
         setError(null);
+        const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+        if (!token) throw new Error("No token");
         
-        const response = await fetch('/api/stats/userpath-summary/conversion-top3');
+        const response = await fetch('/api/stats/userpath-summary/conversion-top3', {headers: { Authorization: `Bearer ${token}` }});
         if (!response.ok) {
           throw new Error('전환 경로 데이터를 불러올 수 없습니다.');
         }
