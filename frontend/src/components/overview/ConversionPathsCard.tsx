@@ -10,6 +10,11 @@ interface ConversionPath {
   compareToAvg?: number; // 평균 대비 배수
 }
 
+interface ConversionPathsResponse {
+  data: ConversionPath[];
+  totalConversion: number;
+}
+
 interface ConversionPathsCardProps {
   className?: string;
   refreshKey?: number;
@@ -33,40 +38,39 @@ const chipStyle =
 const ConversionPathsCard: React.FC<ConversionPathsCardProps> = ({ className, refreshKey }) => {
   const [paths, setPaths] = useState<ConversionPath[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Mock 데이터 사용 (비중, 평균 대비 추가)
-    const total = 156 + 89 + 67;
-    const avgRate = (12.8 + 8.2 + 6.1) / 3;
-    const mockPaths: ConversionPath[] = [
-      {
-        path: ['/home', '/products', '/product-detail', '/cart', '/checkout'],
-        conversionCount: 156,
-        conversionRate: 12.8,
-        rank: 1,
-        share: Math.round((156 / total) * 100),
-        compareToAvg: +(12.8 / avgRate).toFixed(1),
-      },
-      {
-        path: ['/home', '/categories', '/products', '/cart', '/checkout'],
-        conversionCount: 89,
-        conversionRate: 8.2,
-        rank: 2,
-        share: Math.round((89 / total) * 100),
-        compareToAvg: +(8.2 / avgRate).toFixed(1),
-      },
-      {
-        path: ['/home', '/search', '/product-detail', '/cart', '/checkout'],
-        conversionCount: 67,
-        conversionRate: 6.1,
-        rank: 3,
-        share: Math.round((67 / total) * 100),
-        compareToAvg: +(6.1 / avgRate).toFixed(1),
-      },
-    ];
+    const fetchConversionPaths = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+        if (!token) throw new Error("No token");
+        
+        const response = await fetch('/api/stats/userpath-summary/conversion-top3', {headers: { Authorization: `Bearer ${token}` }});
+        if (!response.ok) {
+          throw new Error('전환 경로 데이터를 불러올 수 없습니다.');
+        }
+        
+        const data: ConversionPathsResponse = await response.json();
+        
+        if (!data.data || data.data.length === 0) {
+          setPaths([]);
+          return;
+        }
 
-    setPaths(mockPaths);
-    setLoading(false);
+        setPaths(data.data);
+      } catch (err) {
+        console.error('Conversion Paths API Error:', err);
+        setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.');
+        setPaths([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchConversionPaths();
   }, [refreshKey]);
 
   const formatPath = (path: string[]) => (
@@ -96,6 +100,34 @@ const ConversionPathsCard: React.FC<ConversionPathsCardProps> = ({ className, re
               <div className="h-3 bg-gray-200 rounded w-1/2"></div>
             </div>
           ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className={`bg-white rounded-xl border border-gray-200 shadow-sm p-6 ${className || ''}`}>
+        <div className="flex items-center gap-2 mb-4">
+          <TrendingUp className="w-5 h-5 text-gray-600" />
+          <h3 className="text-lg font-semibold text-gray-900">전환 경로 Top 3</h3>
+        </div>
+        <div className="text-center py-8">
+          <div className="text-red-500 text-sm">{error}</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (paths.length === 0) {
+    return (
+      <div className={`bg-white rounded-xl border border-gray-200 shadow-sm p-6 ${className || ''}`}>
+        <div className="flex items-center gap-2 mb-4">
+          <TrendingUp className="w-5 h-5 text-gray-600" />
+          <h3 className="text-lg font-semibold text-gray-900">전환 경로 Top 3</h3>
+        </div>
+        <div className="text-center py-8">
+          <div className="text-gray-500 text-sm">전환 경로 데이터가 없습니다.</div>
         </div>
       </div>
     );

@@ -14,6 +14,7 @@ const {
 const localNow = getLocalNow();
 const isoNow = getIsoNow();
 const tenMinutesFloor = formatLocalDateTime(floorToNearest10Min());
+const NearestHourFloor = formatLocalDateTime(getNearestHourFloor());
 const oneHourFloor = formatLocalDateTime(getOneHourAgo());
 const todayStart = formatLocalDateTime(getTodayStart());
 
@@ -584,20 +585,23 @@ router.get("/daily-visitors", authMiddleware, async (req, res) => {
     const query = `
       SELECT
         formatDateTime(date, '%Y-%m-%d') AS date_str,
-        toUInt64(sum(visitors)) AS visitors,
-        toUInt64(sum(new_visitors)) AS newVisitors,
-        toUInt64(sum(existing_visitors)) AS returningVisitors
+        sum(toUInt64(visitors)) AS visitors,
+        sum(toUInt64(new_visitors)) AS newVisitors,
+        sum(toUInt64(existing_visitors)) AS returningVisitors
       FROM (
+        -- 이전 날짜: daily_metrics만 사용
         SELECT
           date,
           visitors,
           new_visitors,
           existing_visitors
         FROM klicklab.daily_metrics
-        WHERE date >= toDate('${localNow}') - 6
-          AND date < toDate('${localNow}')
+        WHERE date BETWEEN toDate('${localNow}') - 6 AND toDate('${localNow}') - 1
           AND sdk_key = '${sdk_key}'
+
         UNION ALL
+
+        -- 오늘 날짜: 실시간 계산 (hourly + minutes)
         SELECT
           toDate(date_time) AS date,
           visitors,
@@ -607,9 +611,21 @@ router.get("/daily-visitors", authMiddleware, async (req, res) => {
         WHERE date_time >= toDateTime('${todayStart}')
           AND date_time <= toDateTime('${oneHourFloor}')
           AND sdk_key = '${sdk_key}'
+
+        UNION ALL
+
+        SELECT
+          toDate(date_time) AS date,
+          visitors,
+          new_visitors,
+          existing_visitors
+        FROM klicklab.minutes_metrics
+        WHERE date_time > toDateTime('${oneHourFloor}')
+          AND date_time <= toDateTime('${tenMinutesFloor}')
+          AND sdk_key = '${sdk_key}'
       )
-      GROUP BY date_str
-      ORDER BY date_str ASC
+      GROUP BY date
+      ORDER BY date ASC
     `;
 
     const visitorTrendResult = await clickhouse.query({
