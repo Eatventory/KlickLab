@@ -44,6 +44,10 @@ app.use('/api/report', reportRoutes);
 const settingsRoutes = require('./routes/settings');
 app.use('/api/settings', settingsRoutes);
 
+/* funnel 라우팅 */
+const funnelRouter = require('./routes/funnel');
+app.use('/api/funnel', funnelRouter);
+
 /* ▼ 메트릭 연결 */
 const metricsPort = 9091; // 메트릭 전용 포트
 const client = require('prom-client');
