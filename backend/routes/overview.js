@@ -155,8 +155,8 @@ router.get('/conversion-summary', authMiddleware, async (req, res) => {
 /* 첫 랜딩 페이지 기준 전환율 */
 router.get('/conversion-by-landing', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
-  const { start_date, end_date, period = 'daily' } = req.query;
-  const toPage = '/checkout/success';
+  const { start_date, end_date, period = 'daily', to = '/checkout/success' } = req.query;
+  const toPage = to;
 
   // 날짜 필터링 조건 구성
   const dateFilter = start_date && end_date
@@ -224,8 +224,8 @@ router.get('/conversion-by-landing', authMiddleware, async (req, res) => {
 /* 채널별 전환율 */
 router.get('/conversion-by-channel', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
-  const { start_date, end_date, period = 'daily' } = req.query;
-  const toPage = '/checkout/success';
+  const { start_date, end_date, period = 'daily', to = '/checkout/success' } = req.query;
+  const toPage = to;
 
   // 날짜 필터 구성
   const dateFilter = start_date && end_date
@@ -460,11 +460,9 @@ router.get('/summary', authMiddleware, async (req, res) => {
     const conversionData = await conversionRes.json();
     const prevConversionData = await prevConversionRes.json();
 
-
     const [current] = metricData.data || [{}];
     const [previous] = prevMetricData.data || [{}];
     const topClicks = topClickData.data || [];
-
     const [conversion] = conversionData.data || [{}];
     const [prevConversion] = prevConversionData.data || [{}];
 
