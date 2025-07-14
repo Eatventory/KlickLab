@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ExitPageChart } from './ExitPageChart';
 import { PageTimeChart } from './PageTimeChart';
 import { DropoffInsightsCard } from './DropoffInsightsCard';
@@ -12,12 +12,45 @@ interface FilterOptions {
   sessionLength: 'all' | 'short' | 'medium' | 'long';
 }
 
+interface PageTimeData {
+  page: string;
+  averageTime: number;
+  visitCount: number;
+}
+
 export const EngagementDashboard: React.FC = () => {
   const [filters, setFilters] = useState<FilterOptions>({
     period: '1day',
     pageType: 'all',
     sessionLength: 'all'
   });
+
+  const [pageTimes, setPageTimes] = useState<PageTimeData[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchData = async () => {
+    try {
+      const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+      if (!token) throw new Error("No token");
+      setLoading(true);
+      setError(null);
+      const params = new URLSearchParams(filters as any).toString();
+      const res = await fetch(`/api/engagement/page-times?${params}`, {headers: { Authorization: `Bearer ${token}` }});
+      if (!res.ok) throw new Error('페이지 체류시간 데이터를 불러오지 못했습니다.');
+      const data = await res.json();
+      setPageTimes(data);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || '알 수 없는 오류');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [filters]);
 
   const handleFilterChange = (key: keyof FilterOptions, value: string) => {
     setFilters(prev => ({
@@ -83,7 +116,7 @@ export const EngagementDashboard: React.FC = () => {
             <Clock className="w-5 h-5 text-gray-600" />
             <h2 className="text-lg font-semibold text-gray-900">페이지별 체류시간</h2>
           </div>
-          <PageTimeChart data={mockDashboardData.pageTimes} />
+          <PageTimeChart data={pageTimes} />
         </div>
       </div>
 
