@@ -308,12 +308,33 @@ router.get('/summary', authMiddleware, async (req, res) => {
   try {
     // 오늘 metric 쿼리 (hourly + minutes)
     const metricQuery = `
+      WITH (
+        SELECT avg(avg_session_seconds)
+        FROM (
+          SELECT avg_session_seconds
+          FROM hourly_metrics
+          WHERE date_time >= toDateTime('${todayStart}')
+            AND date_time <= toDateTime('${oneHourFloor}')
+            AND sdk_key = '${sdk_key}'
+            AND avg_session_seconds > 0
+
+          UNION ALL
+
+          SELECT avg_session_seconds
+          FROM minutes_metrics
+          WHERE date_time >= toDateTime('${NearestHourFloor}')
+            AND date_time <= toDateTime('${tenMinutesFloor}')
+            AND sdk_key = '${sdk_key}'
+            AND avg_session_seconds > 0
+        )
+      ) AS raw_avg_session_seconds
+
       SELECT
         toUInt64(sum(clicks)) AS clicks,
         toUInt64(sum(visitors)) AS visitors,
-        toUInt64(avg(avg_session_seconds)) AS sessionDuration
+        toUInt64(multiIf(isFinite(raw_avg_session_seconds), raw_avg_session_seconds, 0)) AS sessionDuration
       FROM (
-        SELECT clicks, visitors, avg_session_seconds
+        SELECT clicks, visitors
         FROM hourly_metrics
         WHERE date_time >= toDateTime('${todayStart}')
           AND date_time <= toDateTime('${oneHourFloor}')
@@ -321,7 +342,7 @@ router.get('/summary', authMiddleware, async (req, res) => {
 
         UNION ALL
 
-        SELECT clicks, visitors, avg_session_seconds
+        SELECT clicks, visitors
         FROM minutes_metrics
         WHERE date_time >= toDateTime('${NearestHourFloor}')
           AND date_time <= toDateTime('${tenMinutesFloor}')
@@ -331,10 +352,18 @@ router.get('/summary', authMiddleware, async (req, res) => {
 
     // 어제 metric 쿼리
     const prevMetricQuery = `
+      WITH (
+        SELECT avg(avg_session_seconds)
+        FROM daily_metrics
+        WHERE date = toDate('${localNow}') - 1
+          AND sdk_key = '${sdk_key}'
+          AND avg_session_seconds > 0
+      ) AS raw_avg_session_seconds
+
       SELECT
         toUInt64(clicks) AS clicks,
         toUInt64(visitors) AS visitors,
-        toUInt64(avg_session_seconds) AS sessionDuration
+        toUInt64(multiIf(isFinite(raw_avg_session_seconds), raw_avg_session_seconds, 0)) AS sessionDuration
       FROM daily_metrics
       WHERE date = toDate('${localNow}') - 1
         AND sdk_key = '${sdk_key}'
