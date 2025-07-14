@@ -13,10 +13,10 @@ const oneHourFloor = formatLocalDateTime(getOneHourAgo());
 const todayStart = formatLocalDateTime(getTodayStart());
 
 const PERIOD_MAP = {
-  '1hour': 'now() - INTERVAL 1 HOUR',
-  '1day': 'now() - INTERVAL 1 DAY',
-  '1week': 'now() - INTERVAL 7 DAY',
-  '1month': 'now() - INTERVAL 1 MONTH',
+  '1hour': `toDateTime(${isoNow}) - INTERVAL 1 HOUR`,
+  '1day': `toDateTime(${isoNow}) - INTERVAL 1 DAY`,
+  '1week': `toDateTime(${isoNow}) - INTERVAL 7 DAY`,
+  '1month': `toDateTime(${isoNow}) - INTERVAL 1 MONTH`,
 };
 
 const SESSION_LENGTH_CLAUSE = {
