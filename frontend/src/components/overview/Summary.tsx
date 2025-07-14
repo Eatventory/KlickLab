@@ -26,10 +26,12 @@ export const Summary: React.FC<{ refreshKey?: number }> = ({ refreshKey }) => {
   useEffect(() => {
     const fetchSummaryData = async () => {
       try {
+        const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+        if (!token) throw new Error("No token");
         setIsLoading(true);
         setError(null);
         
-        const response = await fetch('/api/overview/summary');
+        const response = await fetch('/api/overview/summary', {headers: { Authorization: `Bearer ${token}` }});
         if (!response.ok) {
           throw new Error('데이터를 불러올 수 없습니다.');
         }
