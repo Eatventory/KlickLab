@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { VisitorChart } from './VisitorChart';
 import { TopPageFromMainPage } from './TopPageFromMainPage';
+import { ChannelConversionTable } from './ChannelConversionTable';
 import { TrendingUp, Globe, Clock } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line } from 'recharts';
 
@@ -205,6 +206,8 @@ export const TrafficDashboard: React.FC = () => {
         <VisitorChart data={visitorTrendData} period={filters.period} />
       </div>
 
+      {/* 채널별 전환율 테이블 */}
+      <ChannelConversionTable />
 
       {/* 향후 구현 예정 컴포넌트들 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
