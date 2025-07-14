@@ -74,69 +74,44 @@ router.get('/conversion-summary', authMiddleware, async (req, res) => {
   const periodLabel = '최근 7일';
   const { sdk_key } = req.user;
 
+  function buildConversionSubQuery(alias, startOffset, endOffset) {
+    return `
+      ${alias}_filtered AS (
+        SELECT session_id, page_path, timestamp
+        FROM events
+        WHERE page_path IN ('${fromPage}', '${toPage}')
+          AND toDate(timestamp) BETWEEN today() - ${startOffset} AND today() - ${endOffset}
+          AND sdk_key = '${sdk_key}'
+      ),
+      ${alias}_a AS (
+        SELECT session_id, min(timestamp) AS a_time
+        FROM ${alias}_filtered
+        WHERE page_path = '${fromPage}'
+        GROUP BY session_id
+      ),
+      ${alias}_b AS (
+        SELECT session_id, min(timestamp) AS b_time
+        FROM ${alias}_filtered
+        WHERE page_path = '${toPage}'
+        GROUP BY session_id
+      ),
+      ${alias}_joined AS (
+        SELECT a.session_id
+        FROM ${alias}_a a
+        INNER JOIN ${alias}_b b ON a.session_id = b.session_id AND a.a_time < b.b_time
+      ),
+      ${alias}_data AS (
+        SELECT 
+          (SELECT count() FROM ${alias}_joined) AS converted,
+          (SELECT count() FROM ${alias}_a) AS total
+      )
+    `;
+  }
+
   const query = `
     WITH
-      -- 최근 7일 필터링된 로그만
-      recent_filtered AS (
-        SELECT session_id, page_path, timestamp
-        FROM events
-        WHERE page_path IN ('${fromPage}', '${toPage}')
-          AND toDate(timestamp) BETWEEN today() - 6 AND today()
-          AND sdk_key = '${sdk_key}'
-      ),
-      recent_a AS (
-        SELECT session_id, min(timestamp) AS a_time
-        FROM recent_filtered
-        WHERE page_path = '${fromPage}'
-        GROUP BY session_id
-      ),
-      recent_b AS (
-        SELECT session_id, min(timestamp) AS b_time
-        FROM recent_filtered
-        WHERE page_path = '${toPage}'
-        GROUP BY session_id
-      ),
-      recent_joined AS (
-        SELECT a.session_id
-        FROM recent_a a
-        INNER JOIN recent_b b ON a.session_id = b.session_id AND a.a_time < b.b_time
-      ),
-      -- 이전 7일
-      prev_filtered AS (
-        SELECT session_id, page_path, timestamp
-        FROM events
-        WHERE page_path IN ('${fromPage}', '${toPage}')
-          AND toDate(timestamp) BETWEEN today() - 13 AND today() - 7
-          AND sdk_key = '${sdk_key}'
-      ),
-      prev_a AS (
-        SELECT session_id, min(timestamp) AS a_time
-        FROM prev_filtered
-        WHERE page_path = '${fromPage}'
-        GROUP BY session_id
-      ),
-      prev_b AS (
-        SELECT session_id, min(timestamp) AS b_time
-        FROM prev_filtered
-        WHERE page_path = '${toPage}'
-        GROUP BY session_id
-      ),
-      prev_joined AS (
-        SELECT a.session_id
-        FROM prev_a a
-        INNER JOIN prev_b b ON a.session_id = b.session_id AND a.a_time < b.b_time
-      ),
-      -- 집계
-      recent_data AS (
-        SELECT 
-          (SELECT count() FROM recent_joined) AS converted,
-          (SELECT count() FROM recent_a) AS total
-      ),
-      prev_data AS (
-        SELECT 
-          (SELECT count() FROM prev_joined) AS converted,
-          (SELECT count() FROM prev_a) AS total
-      )
+      ${buildConversionSubQuery('recent', 6, 0)},
+      ${buildConversionSubQuery('prev', 13, 7)}
     SELECT 
       r.converted AS converted,
       r.total AS total,
@@ -149,25 +124,28 @@ router.get('/conversion-summary', authMiddleware, async (req, res) => {
 
   try {
     const resultSet = await clickhouse.query({ query, format: 'JSONEachRow' });
-    const [data] = await resultSet.json();
+    const rows = await resultSet.json();
+    const data = rows[0] || {};
 
-    const { converted, total, conversion_rate, past_rate } = data;
+    const converted = data.converted || 0;
+    const total = data.total || 0;
+    const conversionRate = total === 0 ? 0 : (data.conversion_rate || 0);
+    const pastRate = data.past_rate || 0;
 
-    const delta = isFinite(conversion_rate - past_rate) ? +(conversion_rate - past_rate).toFixed(1) : 0;
-    const trend =
-      delta > 0 ? 'up' :
-      delta < 0 ? 'down' : 'flat';
+    const delta = isFinite(conversionRate - pastRate)
+      ? +(conversionRate - pastRate).toFixed(1)
+      : 0;
+    const trend = delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat';
 
-    const response = {
-      conversionRate: total === 0 ? 0 : (conversion_rate ? conversion_rate : 0),
-      convertedSessions: converted ?? 0,
-      totalSessions: total ?? 0,
+    res.status(200).json({
+      conversionRate,
+      convertedSessions: converted,
+      totalSessions: total,
       deltaRate: delta,
       trend,
       period,
-      periodLabel,
-    };
-    res.status(200).json(response);
+      periodLabel
+    });
   } catch (err) {
     console.error('Conversion Rate API ERROR:', err);
     res.status(500).json({ error: 'Failed to get conversion rate data' });
@@ -402,7 +380,7 @@ router.get('/summary', authMiddleware, async (req, res) => {
     const topClicks = topClickData.data || [];
 
     // TODO: 실제 계산 로직으로 교체
-    const currentConversionRate = 8.2;
+    const currentConversionRate = 18.2;
     const prevConversionRate = 10.3;
 
     const totalClicks = Number(current?.clicks || 0);
