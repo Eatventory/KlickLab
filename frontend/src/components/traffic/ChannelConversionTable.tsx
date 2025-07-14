@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { BarChart3, Trophy } from 'lucide-react';
 import { Tooltip } from 'react-tooltip';
+import { useConversionEvent } from '../../context/ConversionEventContext';
 
 interface ChannelData {
   channel: string;
@@ -65,6 +66,8 @@ const mockChannelData: ChannelData[] = [
 ];
 
 export const ChannelConversionTable: React.FC<ChannelConversionTableProps> = ({ className }) => {
+  const { currentEvent } = useConversionEvent();
+  // 추후 fetch 시 currentEvent를 쿼리파라미터 등으로 넘길 수 있도록 준비
   const [sortBy, setSortBy] = useState<'conversionRate' | 'totalSessions' | 'convertedSessions'>('conversionRate');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 

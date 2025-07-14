@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Sparkles } from 'lucide-react';
+import { useConversionEvent } from '../../context/ConversionEventContext';
 
 interface Metric {
   name: string;
@@ -19,6 +20,7 @@ interface SummaryResponse {
 }
 
 export const Summary: React.FC<{ refreshKey?: number }> = ({ refreshKey }) => {
+  const { currentEvent } = useConversionEvent();
   const [summaryArr, setSummaryArr] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
