@@ -2,6 +2,14 @@ const express = require("express");
 const router = express.Router();
 const clickhouse = require("../src/config/clickhouse");
 const authMiddleware = require("../middlewares/authMiddleware");
+const { formatLocalDateTime } = require('../utils/formatLocalDateTime');
+const { getLocalNow, getIsoNow, floorToNearest10Min, getOneHourAgo, getTodayStart } = require('../utils/timeUtils');
+
+const localNow = getLocalNow();
+const isoNow = getIsoNow();
+const tenMinutesFloor = formatLocalDateTime(floorToNearest10Min());
+const oneHourFloor = formatLocalDateTime(getOneHourAgo());
+const todayStart = formatLocalDateTime(getTodayStart());
 
 function getAgeCondition(ageGroup) {
   switch (ageGroup) {
@@ -525,14 +533,9 @@ router.get("/", authMiddleware, async (req, res) => {
 
 /* 일별 방문 트렌드 단독 API */
 // ✅ 실행 시간 : 10.678s → 60.676ms (99.43% 감소)
-const { formatLocalDateDay } = require('../utils/formatLocalDateTime');
 router.get("/daily-visitors", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   try {
-    const now = new Date();
-    const localNow = formatLocalDateDay(now);
-
-    // console.time("12. daily-visitors");
     const query = `
       SELECT
         formatDateTime(date, '%Y-%m-%d') AS date_str,
@@ -556,7 +559,8 @@ router.get("/daily-visitors", authMiddleware, async (req, res) => {
           new_visitors,
           existing_visitors
         FROM klicklab.hourly_metrics
-        WHERE toDate(date_time) = toDate('${localNow}')
+        WHERE date_time >= toDateTime('${todayStart}')
+          AND date_time <= toDateTime('${oneHourFloor}')
           AND sdk_key = '${sdk_key}'
       )
       GROUP BY date_str
@@ -584,7 +588,6 @@ router.get("/daily-visitors", authMiddleware, async (req, res) => {
         };
       })
       .slice(-7);
-    // console.timeEnd("12. daily-visitors");
 
     res.status(200).json({ data: visitorTrend });
   } catch (err) {
