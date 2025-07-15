@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const app = express();
 const path = require("path");
-const PORT = 3000;
+const PORT = 4000;
 
 const clickhouse = require("./src/config/clickhouse");
 app.use(express.json());
