@@ -155,8 +155,17 @@ router.get('/conversion-summary', authMiddleware, async (req, res) => {
 /* 첫 랜딩 페이지 기준 전환율 */
 router.get('/conversion-by-landing', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
-  const { start_date, end_date, period = 'daily', to = '/checkout/success' } = req.query;
-  const toPage = to;
+  const { start_date, end_date, period = 'daily', to = '/checkout/success', event } = req.query;
+  
+  // 전환 이벤트에 따른 전환 페이지 매핑
+  const eventToPageMap = {
+    'is_payment': '/checkout/success',
+    'is_signup': '/signup/complete',
+    'add_to_cart': '/cart',
+    'contact_submit': '/contact/complete'
+  };
+  
+  const toPage = event && eventToPageMap[event] ? eventToPageMap[event] : to;
 
   // 날짜 필터링 조건 구성
   const dateFilter = start_date && end_date
@@ -224,7 +233,7 @@ router.get('/conversion-by-landing', authMiddleware, async (req, res) => {
 /* 채널별 전환율 */
 router.get('/conversion-by-channel', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
-  const { start_date, end_date, period = 'daily', to = '/checkout/success' } = req.query;
+  const { start_date, end_date, period = 'daily', to = '/checkout/success', event } = req.query;
   const toPage = to;
 
   // 날짜 필터 구성
