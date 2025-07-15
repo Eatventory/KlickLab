@@ -44,7 +44,7 @@ router.get('/path/next', authMiddleware, async (req, res) => {
 router.get('/start-pages', authMiddleware, async (req, res) => {
     const { sdk_key } = req.user;
     try {
-        const rows = await getStartPages(req.query, sdk_key);
+        const rows = await getStartPages({...req.query, sdk_key});
         res.json(rows);
     } catch (e) {
         console.error('start-pages ERROR', e);

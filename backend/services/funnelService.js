@@ -23,7 +23,7 @@ async function getNextSteps({ page, from, to, limit = 5, sdk_key }) {
       toUInt64(sum(sessions)) AS sessions
       FROM   funnel_links_daily
       WHERE  source = ${page}
-        AND  event_date BETWEEN ${from} AND ${to}
+        AND  event_date BETWEEN toDate('${from}') AND toDate('${to}')
         AND sdk_key = '${sdk_key}'
       GROUP  BY target
       ORDER  BY sessions DESC
