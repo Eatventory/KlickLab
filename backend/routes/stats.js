@@ -26,14 +26,6 @@ const tableMap = {
   weekly: "weekly_metrics",
 };
 
-// 전환 이벤트에 따른 toPage 매핑 함수 추가
-const eventToPage = {
-  is_payment: "/checkout/success",
-  is_signup: "/signup/success",
-  add_to_cart: "/cart/added",
-  contact_submit: "/contact/success",
-};
-
 router.get("/visitors", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   const period = req.query.period || "daily";
@@ -273,17 +265,9 @@ router.get("/dropoff-summary", authMiddleware, async (req, res) => {
 /* 기존 Sankey API에 segment 필터(전환 여부, 장바구니 이탈 등) 적용 */
 router.get("/userpath-summary", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
-  let event = "is_payment";
-  try {
-    const eventRes = await clickhouse.query({
-      query: `SELECT event FROM users WHERE sdk_key = '${sdk_key}'`,
-      format: "JSON",
-    });
-    const eventRows = await eventRes.json();
-    event = eventRows[0]?.event || "is_payment";
-  } catch (e) {}
+  const segment = req.query.segment; // e.g. "converted", "abandoned_cart"
   const fromPage = "/cart";
-  const toPage = eventToPage[event] || "/checkout/success";
+  const toPage = "/checkout/success";
 
   let segmentFilter = "";
   if (segment === "converted") {
@@ -362,17 +346,13 @@ router.get(
   authMiddleware,
   async (req, res) => {
     const { sdk_key } = req.user;
-    let event = "is_payment";
-    try {
-      const eventRes = await clickhouse.query({
-        query: `SELECT event FROM users WHERE sdk_key = '${sdk_key}'`,
-        format: "JSON",
-      });
-      const eventRows = await eventRes.json();
-      event = eventRows[0]?.event || "is_payment";
-    } catch (e) {}
-    const fromPage = "/cart";
-    const toPage = eventToPage[event] || "/checkout/success";
+    const {
+      fromPage = "/cart",
+      toPage = "/checkout/success",
+      limit = 3,
+      startDate,
+      endDate,
+    } = req.query;
 
     const start = startDate ? `toDate('${startDate}')` : `today() - 6`;
     const end = endDate ? `toDate('${endDate}')` : `today()`;

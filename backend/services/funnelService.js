@@ -19,21 +19,22 @@ const clickhouse = require("../src/config/clickhouse");
  */
 async function getNextSteps({ page, from, to, limit = 5, sdk_key }) {
   const sql = `
-      SELECT target,
+    SELECT 
+      target,
       toUInt64(sum(sessions)) AS sessions
-      FROM   funnel_links_daily
-      WHERE  source = ${page}
-        AND  event_date BETWEEN toDate('${from}') AND toDate('${to}')
-        AND sdk_key = '${sdk_key}'
-      GROUP  BY target
-      ORDER  BY sessions DESC
-      LIMIT  ${limit};
-    `;
+    FROM funnel_links_daily
+    WHERE source = {page:String}
+      AND event_date BETWEEN {from:Date} AND {to:Date}
+      AND sdk_key = {sdk_key:String}
+    GROUP BY target
+    ORDER BY sessions DESC
+    LIMIT {limit:UInt8}
+  `;
 
   const result = await clickhouse.query({
     query: sql,
     query_params: {
-      page: lastStep,
+      page,
       from,
       to,
       limit: Number(limit),
@@ -53,7 +54,7 @@ async function getMultiStepPaths({ steps, from, to, limit = 5, sdk_key }) {
     SELECT 
       target,
       toUInt64(sum(sessions)) AS sessions
-    FROM klicklab.funnel_links_daily
+    FROM funnel_links_daily
     WHERE source = {page:String}
       AND event_date BETWEEN {from:Date} AND {to:Date}
       AND sdk_key = {sdk_key:String}
@@ -78,4 +79,3 @@ async function getMultiStepPaths({ steps, from, to, limit = 5, sdk_key }) {
 }
 
 module.exports = { getNextSteps, getMultiStepPaths };
-//module.exports = { getNextSteps };

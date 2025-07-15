@@ -19,14 +19,6 @@ const NearestHourFloor = formatLocalDateTime(getNearestHourFloor());
 const oneHourFloor = formatLocalDateTime(getOneHourAgo());
 const todayStart = formatLocalDateTime(getTodayStart());
 
-// 전환 이벤트에 따른 toPage 매핑 함수 추가
-const eventToPage = {
-  is_payment: "/checkout/success",
-  is_signup: "/signup/success",
-  add_to_cart: "/cart/added",
-  contact_submit: "/contact/success",
-};
-
 router.get("/session-duration", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   try {
@@ -87,21 +79,11 @@ router.get("/session-duration", authMiddleware, async (req, res) => {
 });
 
 router.get("/conversion-summary", authMiddleware, async (req, res) => {
-  const { sdk_key } = req.user;
-  // 현재 설정된 전환 이벤트 조회
-  let event = "is_payment";
-  try {
-    const eventRes = await clickhouse.query({
-      query: `SELECT event FROM users WHERE sdk_key = '${sdk_key}'`,
-      format: "JSON",
-    });
-    const eventRows = await eventRes.json();
-    event = eventRows[0]?.event || "is_payment";
-  } catch (e) {}
   const fromPage = req.query.from || "/cart";
-  const toPage = eventToPage[event] || "/checkout/success";
+  const toPage = req.query.to || "/checkout/success";
   const period = "7d";
   const periodLabel = "최근 7일";
+  const { sdk_key } = req.user;
 
   function buildConversionSubQuery(alias, startOffset, endOffset) {
     return `
@@ -184,17 +166,13 @@ router.get("/conversion-summary", authMiddleware, async (req, res) => {
 /* 첫 랜딩 페이지 기준 전환율 */
 router.get("/conversion-by-landing", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
-  let event = "is_payment";
-  try {
-    const eventRes = await clickhouse.query({
-      query: `SELECT event FROM users WHERE sdk_key = '${sdk_key}'`,
-      format: "JSON",
-    });
-    const eventRows = await eventRes.json();
-    event = eventRows[0]?.event || "is_payment";
-  } catch (e) {}
-  const { start_date, end_date, period = "daily", to } = req.query;
-  const toPage = to || eventToPage[event] || "/checkout/success";
+  const {
+    start_date,
+    end_date,
+    period = "daily",
+    to = "/checkout/success",
+  } = req.query;
+  const toPage = to;
 
   // 날짜 필터링 조건 구성
   const dateFilter =
@@ -266,17 +244,13 @@ router.get("/conversion-by-landing", authMiddleware, async (req, res) => {
 /* 채널별 전환율 */
 router.get("/conversion-by-channel", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
-  let event = "is_payment";
-  try {
-    const eventRes = await clickhouse.query({
-      query: `SELECT event FROM users WHERE sdk_key = '${sdk_key}'`,
-      format: "JSON",
-    });
-    const eventRows = await eventRes.json();
-    event = eventRows[0]?.event || "is_payment";
-  } catch (e) {}
-  const { start_date, end_date, period = "daily", to } = req.query;
-  const toPage = to || eventToPage[event] || "/checkout/success";
+  const {
+    start_date,
+    end_date,
+    period = "daily",
+    to = "/checkout/success",
+  } = req.query;
+  const toPage = to;
 
   // 날짜 필터 구성
   const dateFilter =
@@ -344,16 +318,6 @@ router.get("/conversion-by-channel", authMiddleware, async (req, res) => {
 /* 인사이트 summary */
 router.get("/summary", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
-  let event = "is_payment";
-  try {
-    const eventRes = await clickhouse.query({
-      query: `SELECT event FROM users WHERE sdk_key = '${sdk_key}'`,
-      format: "JSON",
-    });
-    const eventRows = await eventRes.json();
-    event = eventRows[0]?.event || "is_payment";
-  } catch (e) {}
-  const toPage = eventToPage[event] || "/checkout/success";
   const date = req.query.date || localNow;
   const period = req.query.period || "daily";
 
