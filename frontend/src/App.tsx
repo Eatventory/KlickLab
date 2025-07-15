@@ -9,6 +9,7 @@ import RegisterForm from './components/auth/RegisterForm';
 import ErrorPage from "./Error";
 import './App.css';
 import { ConversionEventProvider } from './context/ConversionEventContext';
+import { SegmentFilterProvider } from './context/SegmentFilterContext';
 
 function App() {
   const setAuthState = useAuthStore((s) => s.setAuthState);
@@ -90,42 +91,44 @@ function App() {
 
   return (
     <ConversionEventProvider>
-      <div className="App relative">
-        <div style={{
-          filter: authState === 'expired' ? 'blur(4px)' : 'none',
-          pointerEvents: authState === 'expired' ? 'none' : 'auto',
-          minHeight: '100vh'
-        }}>
-          <SessionTimer />
-          <Router>
-            <Routes>
-              <Route
-                path="/login"
-                element={ authState === 'loggedOut' ? <LoginForm /> : <Navigate to="/" /> }
-              />
-              <Route
-                path="/register"
-                element={ authState === 'loggedOut' ? <RegisterForm /> : <Navigate to="/" /> }
-              />
-              <Route
-                path="/"
-                element={ authState === 'loggedIn' || authState === 'expired' ? <Dashboard /> : <Navigate to="/login" /> }
-              />
-              <Route path="*" element={<ErrorPage />} />
-            </Routes>
-          </Router>
-        </div>
-        {/* 세션 만료 블러 오버레이 */}
-        {authState === 'expired' && (
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-white/60 backdrop-blur-sm">
-            <div className="bg-white rounded-xl shadow-xl p-8 flex flex-col items-center gap-4 border border-gray-200">
-              <div className="text-lg font-semibold text-red-600 mb-2">세션이 만료되었습니다</div>
-              <div className="text-gray-700 mb-2">보안을 위해 화면이 잠겼습니다.</div>
-              <div className="text-gray-500">행동이 감지되면 세션을 연장합니다.</div>
-            </div>
+      <SegmentFilterProvider>
+        <div className="App relative">
+          <div style={{
+            filter: authState === 'expired' ? 'blur(4px)' : 'none',
+            pointerEvents: authState === 'expired' ? 'none' : 'auto',
+            minHeight: '100vh'
+          }}>
+            <SessionTimer />
+            <Router>
+              <Routes>
+                <Route
+                  path="/login"
+                  element={ authState === 'loggedOut' ? <LoginForm /> : <Navigate to="/" /> }
+                />
+                <Route
+                  path="/register"
+                  element={ authState === 'loggedOut' ? <RegisterForm /> : <Navigate to="/" /> }
+                />
+                <Route
+                  path="/"
+                  element={ authState === 'loggedIn' || authState === 'expired' ? <Dashboard /> : <Navigate to="/login" /> }
+                />
+                <Route path="*" element={<ErrorPage />} />
+              </Routes>
+            </Router>
           </div>
-        )}
-      </div>
+          {/* 세션 만료 블러 오버레이 */}
+          {authState === 'expired' && (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-white/60 backdrop-blur-sm">
+              <div className="bg-white rounded-xl shadow-xl p-8 flex flex-col items-center gap-4 border border-gray-200">
+                <div className="text-lg font-semibold text-red-600 mb-2">세션이 만료되었습니다</div>
+                <div className="text-gray-700 mb-2">보안을 위해 화면이 잠겼습니다.</div>
+                <div className="text-gray-500">행동이 감지되면 세션을 연장합니다.</div>
+              </div>
+            </div>
+          )}
+        </div>
+      </SegmentFilterProvider>
     </ConversionEventProvider>
   );
 }
