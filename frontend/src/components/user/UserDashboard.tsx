@@ -10,6 +10,7 @@ import { SegmentGroupCardSkeleton } from './SegmentGroupCardSkeleton';
 import { TopButtonList, type SegmentType } from './TopButtonList';
 import { UserSegmentSummary } from './UserSegmentSummary';
 import { getPageLabel } from '../../utils/getPageLabel';
+import { useSegmentFilter } from '../../context/SegmentFilterContext';
 
 // 타입 정의
 interface FilterOptions {
@@ -91,6 +92,7 @@ const ReturningRateDonutChart: React.FC<{ percent: number }> = ({ percent }) => 
 };
 
 export const UserDashboard: React.FC = () => {
+  const { filter: globalFilter } = useSegmentFilter();
   const [filters, setFilters] = useState<FilterOptions>({
     period: '1day',
     userType: 'all',
@@ -118,8 +120,9 @@ export const UserDashboard: React.FC = () => {
   const [userPathData, setUserPathData] = useState<any[]>([]); // Sankey 데이터
   const [returningRate, setReturningRate] = useState<any>(null); // 재방문률
 
+  // 전역 필터가 변경될 때마다 데이터 다시 불러오기
   useEffect(() => {
-    // 세그먼트별 top-clicks
+    // 기존 useEffect 로직을 여기서도 실행
     const segmentToApiFilter: Record<string, string> = {
       gender: 'user_gender',
       age: 'user_age',
@@ -128,65 +131,77 @@ export const UserDashboard: React.FC = () => {
     };
     setLoading(true);
     setSegmentLoading(true);
-    const topClicks = fetch(`/api/users/top-clicks?filter=${segmentToApiFilter[activeSegment]}`)
-      .then(res => res.json())
-      .then(data => setSegmentGroupData(data.data || []));
+    (async () => {
+      try {
+        const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+        if (!token) throw new Error("No token");
+        
+        // 전역 필터 조건을 URL 파라미터로 변환
+        const globalFilterParams = new URLSearchParams();
+        if (globalFilter.conditions) {
+          Object.entries(globalFilter.conditions).forEach(([key, value]) => {
+            if (value !== undefined && value !== null && value !== '') {
+              globalFilterParams.append(key, String(value));
+            }
+          });
+        }
+        
+        const globalFilterString = globalFilterParams.toString();
+        const globalFilterQuery = globalFilterString ? `&${globalFilterString}` : '';
 
-    const userType = fetch(`/api/users/user-type-summary?period=${filters.period}&userType=${filters.userType}&device=${filters.device}`)
-      .then(res => res.json())
-      .then(data => setUserTypeSummary(data.data || []));
+        const [topClicksRes, userTypeRes, osRes, browserRes, userPathRes, returningRes] = await Promise.all([
+          fetch(`/api/users/top-clicks?filter=${segmentToApiFilter[activeSegment]}${globalFilterQuery}`,
+            {headers: { Authorization: `Bearer ${token}` }}
+          ),
+          fetch(`/api/users/user-type-summary?period=${filters.period}&userType=${filters.userType}&device=${filters.device}${globalFilterQuery}`,
+            {headers: { Authorization: `Bearer ${token}` }}
+          ),
+          fetch(`/api/users/os-type-summary?period=${filters.period}&userType=${filters.userType}&device=${filters.device}${globalFilterQuery}`,
+            {headers: { Authorization: `Bearer ${token}` }}
+          ),
+          fetch(`/api/users/browser-type-summary?period=${filters.period}&userType=${filters.userType}&device=${filters.device}${globalFilterQuery}`,
+            {headers: { Authorization: `Bearer ${token}` }}
+          ),
+          fetch(`/api/stats/userpath-summary${globalFilterQuery ? `?${globalFilterString}` : ''}`,
+            {headers: { Authorization: `Bearer ${token}` }}
+          ),
+          fetch(`/api/users/returning?period=${filters.period}&userType=${filters.userType}&device=${filters.device}${globalFilterQuery}`,
+            {headers: { Authorization: `Bearer ${token}` }}
+          ),
+        ]);
 
-    const osSummary = fetch(`/api/users/os-type-summary?period=${filters.period}&userType=${filters.userType}&device=${filters.device}`)
-      .then(res => res.json())
-      .then(data => setOsSummary(data.data || []));
+        const [topClicksData, userTypeData, osData, browserData, userPathData, returningData] = await Promise.all([
+          topClicksRes.json(),
+          userTypeRes.json(),
+          osRes.json(),
+          browserRes.json(),
+          userPathRes.json(),
+          returningRes.json(),
+        ]);
 
-    const browserSummary = fetch(`/api/users/browser-type-summary?period=${filters.period}&userType=${filters.userType}&device=${filters.device}`)
-      .then(res => res.json())
-      .then(data => setBrowserSummary(data.data || []));
-
-    const userPath = fetch('/api/stats/userpath-summary')
-      .then(res => res.json())
-      .then(data => {
-        const mapped = (data.data || [])
-          .filter(p => p.from !== p.to) // 순환 제거
+        setSegmentGroupData(topClicksData.data || []);
+        setUserTypeSummary(userTypeData.data || []);
+        setOsSummary(osData.data || []);
+        setBrowserSummary(browserData.data || []);
+        
+        const mapped = (userPathData.data || [])
+          .filter(p => p.from !== p.to)
           .map(p => ({
             from: getPageLabel(p.from),
             to: getPageLabel(p.to),
             value: Number(p.value)
           }));
         setUserPathData(mapped);
-      });
-
-    const returning = fetch(`/api/users/returning?period=${filters.period}&userType=${filters.userType}&device=${filters.device}`)
-      .then(res => res.json())
-      .then(data => setReturningRate(data.data || null));
-    
-    Promise.all([topClicks, userType, osSummary, browserSummary, userPath, returning])
-      .catch(err => { console.error('일부 데이터 요청 실패:', err); })
-      .finally(() => { 
+        setReturningRate(returningData.data || null);
+      } catch (err) {
+        console.error('일부 데이터 요청 실패:', err);
+      } finally {
         setLoading(false);
         setSegmentLoading(false);
         setRefreshKey(prev => prev + 1);
-      });
-  }, [activeSegment]);
-
-  useEffect(() => {
-    const osSummary = fetch(`/api/users/os-type-summary?period=${filters.period}&userType=${filters.userType}&device=${filters.device}`)
-      .then(res => res.json())
-      .then(data => setOsSummary(data.data || []));
-
-    const browserSummary = fetch(`/api/users/browser-type-summary?period=${filters.period}&userType=${filters.userType}&device=${filters.device}`)
-      .then(res => res.json())
-      .then(data => setBrowserSummary(data.data || []));
-
-    const returning = fetch(`/api/users/returning?period=${filters.period}&userType=${filters.userType}&device=${filters.device}`)
-      .then(res => res.json())
-      .then(data => setReturningRate(data.data || null));
-    
-    Promise.all([osSummary, browserSummary, returning])
-      .catch(err => { console.error('일부 데이터 요청 실패:', err); })
-      .finally(() => { setLoading(false); });
-  }, [JSON.stringify(filters)]);
+      }
+    })();
+  }, [activeSegment, JSON.stringify(filters), JSON.stringify(globalFilter.conditions)]); // 모든 필터 변경 시 실행
 
   // OS/브라우저 필터링
   const filteredOsData = osSummary.filter(d => {
@@ -261,6 +276,9 @@ export const UserDashboard: React.FC = () => {
   const refreshSegmentData = async () => {
     setSegmentLoading(true);
     try {
+      const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+      if (!token) throw new Error("No token");
+
       const segmentToApiFilter: Record<string, string> = {
         gender: 'user_gender',
         age: 'user_age',
@@ -268,7 +286,20 @@ export const UserDashboard: React.FC = () => {
         device: 'device_type',
       };
       
-      const response = await fetch(`/api/users/top-clicks?filter=${segmentToApiFilter[activeSegment]}`);
+      // 전역 필터 조건을 URL 파라미터로 변환
+      const globalFilterParams = new URLSearchParams();
+      if (globalFilter.conditions) {
+        Object.entries(globalFilter.conditions).forEach(([key, value]) => {
+          if (value !== undefined && value !== null && value !== '') {
+            globalFilterParams.append(key, String(value));
+          }
+        });
+      }
+      
+      const globalFilterString = globalFilterParams.toString();
+      const globalFilterQuery = globalFilterString ? `&${globalFilterString}` : '';
+      
+      const response = await fetch(`/api/users/top-clicks?filter=${segmentToApiFilter[activeSegment]}${globalFilterQuery}`, {headers: { Authorization: `Bearer ${token}` }});
       const data = await response.json();
       setSegmentGroupData(data.data || []);
     } catch (error) {

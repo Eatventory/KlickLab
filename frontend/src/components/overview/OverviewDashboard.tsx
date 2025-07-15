@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
+import { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { StatCard } from './StatCard';
 import { Summary } from './Summary';
 import { TopClicks } from './TopClicks';
@@ -8,6 +8,10 @@ import { DropoffInsightsCard } from '../engagement/DropoffInsightsCard';
 import { getPageLabel } from '../../utils/getPageLabel';
 import { AverageSessionDurationCard } from './AverageSessionDurationCard';
 import { ConversionSummaryCard } from './ConversionSummaryCard';
+import ConversionPathsCard from './ConversionPathsCard';
+import { VisitorChart } from '../traffic/VisitorChart';
+import { TrendingUp } from 'lucide-react';
+import { useSegmentFilter } from '../../context/SegmentFilterContext';
 
 interface PathData {
   from: string;
@@ -27,9 +31,11 @@ interface ClicksData {
 }
 
 export const OverviewDashboard = forwardRef<any, { onLastUpdated?: (d: Date) => void }>((props, ref) => {
+  const { filter: globalFilter } = useSegmentFilter();
   const [visitorsData, setVisitorsData] = useState<VisitorsData | null>(null);
   const [clicksData, setClicksData] = useState<ClicksData | null>(null);
   const [userPathData, setUserPathData] = useState<any[]>([]);
+  const [visitorTrendData, setvisitorTrendData] = useState<any[]>([]);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -44,20 +50,39 @@ export const OverviewDashboard = forwardRef<any, { onLastUpdated?: (d: Date) => 
 
   const fetchStats = async () => {
     try {
-      const [visitorsResponse, clicksResponse, userPathResponse] = await Promise.all([
-        fetch(`/api/stats/visitors`),
-        fetch(`/api/stats/clicks`),
-        fetch(`/api/stats/userpath-summary`)
+      const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+      if (!token) throw new Error("No token");
+      
+      // 전역 필터 조건을 URL 파라미터로 변환
+      const globalFilterParams = new URLSearchParams();
+      if (globalFilter.conditions) {
+        Object.entries(globalFilter.conditions).forEach(([key, value]) => {
+          if (value !== undefined && value !== null && value !== '') {
+            globalFilterParams.append(key, String(value));
+          }
+        });
+      }
+      
+      const globalFilterString = globalFilterParams.toString();
+      const globalFilterQuery = globalFilterString ? `?${globalFilterString}` : '';
+      
+      const [visitorsResponse, clicksResponse, userPathResponse, visitorTrendResponse] = await Promise.all([
+        fetch(`/api/stats/visitors${globalFilterQuery}`, {headers: { Authorization: `Bearer ${token}` }}),
+        fetch(`/api/stats/clicks${globalFilterQuery}`, {headers: { Authorization: `Bearer ${token}` }}),
+        fetch(`/api/stats/userpath-summary${globalFilterQuery}`, {headers: { Authorization: `Bearer ${token}` }}),
+        fetch(`/api/traffic/daily-visitors${globalFilterQuery}`, {headers: { Authorization: `Bearer ${token}` }})
       ]);
       const visitors = await visitorsResponse.json();
       const clicks = await clicksResponse.json();
       const userPath = await userPathResponse.json();
+      const visitorTrend = await visitorTrendResponse.json();
       visitors.trend?.sort((a: { date: string }, b: { date: string }) => 
         new Date(a.date).getTime() - new Date(b.date).getTime()
       );
       setVisitorsData(visitors);
       setClicksData(clicks);
       setUserPathData(mapPathData(userPath.data || []));
+      setvisitorTrendData(visitorTrend.data || []);
       const now = new Date();
       setLastUpdated(now);
       props.onLastUpdated?.(now);
@@ -81,7 +106,7 @@ export const OverviewDashboard = forwardRef<any, { onLastUpdated?: (d: Date) => 
 
   useEffect(() => {
     fetchStats();
-  }, []);
+  }, [JSON.stringify(globalFilter.conditions)]); // 전역 필터 변경 시 실행
 
   // 30초마다 자동 새로고침
   useEffect(() => {
@@ -89,7 +114,7 @@ export const OverviewDashboard = forwardRef<any, { onLastUpdated?: (d: Date) => 
       fetchStats();
     }, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [JSON.stringify(globalFilter.conditions)]); // 전역 필터 변경 시에도 interval 재설정
 
   if (visitorsData === null || clicksData === null) {
     return (
@@ -131,6 +156,13 @@ export const OverviewDashboard = forwardRef<any, { onLastUpdated?: (d: Date) => 
         <AverageSessionDurationCard refreshKey={refreshKey} />
         <ConversionSummaryCard refreshKey={refreshKey} />
       </div>
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <TrendingUp className="w-5 h-5 text-gray-600" />
+          <h2 className="text-lg font-semibold text-gray-900">일간 활성 이용자 수</h2>
+        </div>
+        <VisitorChart data={visitorTrendData} period='daily' refreshKey={refreshKey} />
+      </div>
       <div className="w-full">
         <ClickTrend refreshKey={refreshKey} />
       </div>
@@ -142,17 +174,23 @@ export const OverviewDashboard = forwardRef<any, { onLastUpdated?: (d: Date) => 
           <DropoffInsightsCard refreshKey={refreshKey} />
         </div>
       </div>
-      <div className="w-full">
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 w-full">
-          <div className="text-lg font-bold mb-2">사용자 방문 경로</div>
-          <UserPathSankeyChart data={userPathData} refreshKey={refreshKey} />
-        </div>
+      {/* 전환 경로 Top 3 카드 단독 행 */}
+      <div>
+        <ConversionPathsCard refreshKey={refreshKey} />
+      </div>
+      {/* Sankey 차트 단독 행 */}
+      <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 mt-6">
+        <div className="text-lg font-bold mb-2">사용자 방문 경로</div>
+        <UserPathSankeyChart data={userPathData} refreshKey={refreshKey} />
       </div>
     </div>
   );
 
   function calculateChange(today: number, yesterday: number): number {
-    if (yesterday === 0) return 0;
+    if (yesterday === 0) {
+      if (today === 0) return 0;
+      return 100; // 또는: return Infinity, return null 등 UI 표현 목적에 따라
+    }
     return Math.round(((today - yesterday) / yesterday) * 100 * 10) / 10;
   }
   function getChangeType(change: number): 'increase' | 'decrease' | 'neutral' {

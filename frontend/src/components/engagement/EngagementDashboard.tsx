@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ExitPageChart } from './ExitPageChart';
 import { PageTimeChart } from './PageTimeChart';
 import { DropoffInsightsCard } from './DropoffInsightsCard';
 import { Clock, BarChart3, TrendingUp } from 'lucide-react';
 import { mockDashboardData } from '../../data/mockData';
+import { useSegmentFilter } from '../../context/SegmentFilterContext';
 
 // 타입 정의
 interface FilterOptions {
@@ -12,12 +13,60 @@ interface FilterOptions {
   sessionLength: 'all' | 'short' | 'medium' | 'long';
 }
 
+interface PageTimeData {
+  page: string;
+  averageTime: number;
+  visitCount: number;
+}
+
 export const EngagementDashboard: React.FC = () => {
+  const { filter: globalFilter } = useSegmentFilter();
   const [filters, setFilters] = useState<FilterOptions>({
     period: '1day',
     pageType: 'all',
     sessionLength: 'all'
   });
+
+  const [pageTimes, setPageTimes] = useState<PageTimeData[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchData = async () => {
+    try {
+      const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+      if (!token) throw new Error("No token");
+      setLoading(true);
+      setError(null);
+      
+      // 전역 필터 조건을 URL 파라미터로 변환
+      const globalFilterParams = new URLSearchParams();
+      if (globalFilter.conditions) {
+        Object.entries(globalFilter.conditions).forEach(([key, value]) => {
+          if (value !== undefined && value !== null && value !== '') {
+            globalFilterParams.append(key, String(value));
+          }
+        });
+      }
+      
+      const globalFilterString = globalFilterParams.toString();
+      const globalFilterQuery = globalFilterString ? `&${globalFilterString}` : '';
+      
+      const params = new URLSearchParams(filters as any).toString();
+      const res = await fetch(`/api/engagement/page-times?${params}${globalFilterQuery}`, {headers: { Authorization: `Bearer ${token}` }});
+      if (!res.ok) throw new Error('페이지 체류시간 데이터를 불러오지 못했습니다.');
+      const data = await res.json();
+      setPageTimes(data);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || '알 수 없는 오류');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [filters, JSON.stringify(globalFilter.conditions)]);
 
   const handleFilterChange = (key: keyof FilterOptions, value: string) => {
     setFilters(prev => ({
@@ -70,31 +119,36 @@ export const EngagementDashboard: React.FC = () => {
 
       {/* 이탈 페이지 & 페이지별 체류시간 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        {/* <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center gap-2 mb-4">
             <BarChart3 className="w-5 h-5 text-gray-600" />
             <h2 className="text-lg font-semibold text-gray-900">이탈 페이지 분석</h2>
           </div>
           <ExitPageChart data={mockDashboardData.exitPages} />
-        </div>
+        </div> */}
 
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center gap-2 mb-4">
             <Clock className="w-5 h-5 text-gray-600" />
             <h2 className="text-lg font-semibold text-gray-900">페이지별 체류시간</h2>
           </div>
-          <PageTimeChart data={mockDashboardData.pageTimes} />
+          <PageTimeChart data={pageTimes} />
+        </div>
+
+        {/* 임시 */}
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+          <DropoffInsightsCard />
         </div>
       </div>
 
       {/* 이탈률 요약 & 세션 길이 분포 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+        {/* <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
           <DropoffInsightsCard />
-        </div>
+        </div> */}
 
         {/* 세션 길이 분포 */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        {/* <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center gap-2 mb-4">
             <TrendingUp className="w-5 h-5 text-gray-600" />
             <h3 className="text-lg font-semibold text-gray-900">세션 길이 분포</h3>
@@ -102,11 +156,11 @@ export const EngagementDashboard: React.FC = () => {
           <div className="flex items-center justify-center h-32 text-gray-500">
             개발 중...
           </div>
-        </div>
+        </div> */}
       </div>
 
       {/* 클릭 전 체류시간 */}
-      <div className="grid grid-cols-1 gap-8">
+      {/* <div className="grid grid-cols-1 gap-8">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center gap-2 mb-4">
             <Clock className="w-5 h-5 text-gray-600" />
@@ -116,7 +170,7 @@ export const EngagementDashboard: React.FC = () => {
             개발 중...
           </div>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 }; 
