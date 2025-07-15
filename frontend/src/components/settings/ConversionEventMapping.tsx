@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Settings } from 'lucide-react';
 import Toast from '../ui/Toast';
+import { useConversionEvent } from '../../context/ConversionEventContext';
 
 const mockEventList = [
   'is_payment',
@@ -10,13 +11,19 @@ const mockEventList = [
 ];
 
 export const ConversionEventMapping: React.FC = () => {
+  const conversionEventCtx = useConversionEvent() as any;
+  const currentEvent = conversionEventCtx?.currentEvent;
+  const updateEvent = conversionEventCtx?.updateEvent;
   const [eventList] = useState<string[]>(mockEventList);
   const [selectedEvent, setSelectedEvent] = useState<string>(mockEventList[0]);
-  const [currentEvent, setCurrentEvent] = useState<string>(mockEventList[0]);
   const [showToast, setShowToast] = useState(false);
 
+  useEffect(() => {
+    if (currentEvent) setSelectedEvent(currentEvent);
+  }, [currentEvent]);
+
   const saveConversionEvent = () => {
-    setCurrentEvent(selectedEvent);
+    if (updateEvent) updateEvent(selectedEvent);
     setShowToast(true);
   };
 

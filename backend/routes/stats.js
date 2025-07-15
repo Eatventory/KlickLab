@@ -1,9 +1,35 @@
 const express = require("express");
 const router = express.Router();
-const clickhouse = require('../src/config/clickhouse');
-const authMiddleware = require('../middlewares/authMiddleware');
-const { formatLocalDateTime } = require('../utils/formatLocalDateTime');
-const { getLocalNow, getIsoNow, floorToNearest10Min, getNearestHourFloor, getOneHourAgo, getTodayStart } = require('../utils/timeUtils');
+const clickhouse = require("../src/config/clickhouse");
+const authMiddleware = require("../middlewares/authMiddleware");
+const { formatLocalDateTime } = require("../utils/formatLocalDateTime");
+const {
+  getLocalNow,
+  getIsoNow,
+  floorToNearest10Min,
+  getNearestHourFloor,
+  getOneHourAgo,
+  getTodayStart,
+} = require("../utils/timeUtils");
+
+// 전환 이벤트 조회 함수 추가
+async function getCurrentConversionEvent(sdk_key) {
+  const result = await clickhouse.query({
+    query: `SELECT event FROM users WHERE sdk_key = '${sdk_key}'`,
+    format: "JSON",
+  });
+  const rows = await result.json();
+  const event = rows.data?.[0]?.event || "is_payment";
+  // 예시: event가 'is_payment'라면 fromPage/toPage를 매핑
+  // 실제 매핑 테이블은 필요에 따라 조정
+  const eventMap = {
+    is_payment: { fromPage: "/cart", toPage: "/checkout/success" },
+    is_signup: { fromPage: "/signup", toPage: "/signup/success" },
+    add_to_cart: { fromPage: "/products", toPage: "/cart" },
+    contact_submit: { fromPage: "/contact", toPage: "/contact/success" },
+  };
+  return eventMap[event] || eventMap["is_payment"];
+}
 
 const localNow = getLocalNow();
 const isoNow = getIsoNow();
@@ -13,16 +39,16 @@ const oneHourFloor = formatLocalDateTime(getOneHourAgo());
 const todayStart = formatLocalDateTime(getTodayStart());
 
 const tableMap = {
-  minutes: 'minutes_metrics',
-  hourly: 'hourly_metrics',
-  daily: 'daily_metrics',
-  weekly: 'weekly_metrics'
+  minutes: "minutes_metrics",
+  hourly: "hourly_metrics",
+  daily: "daily_metrics",
+  weekly: "weekly_metrics",
 };
 
-router.get('/visitors', authMiddleware, async (req, res) => {
+router.get("/visitors", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
-  const period = req.query.period || 'daily';
-  const table = tableMap[period] || 'daily_metrics';
+  const period = req.query.period || "daily";
+  const table = tableMap[period] || "daily_metrics";
   try {
     // 추이 데이터
     const trendRes = await clickhouse.query({
@@ -35,12 +61,12 @@ router.get('/visitors', authMiddleware, async (req, res) => {
           AND date < toDate('${localNow}')
           AND sdk_key = '${sdk_key}'
       `,
-      format: 'JSON'
+      format: "JSON",
     });
     const trendData = (await trendRes.json()).data || [];
-    const trend = trendData.map(row => ({
+    const trend = trendData.map((row) => ({
       date: row.date_str,
-      visitors: Number(row.visitors)
+      visitors: Number(row.visitors),
     }));
 
     // 어제자
@@ -51,9 +77,10 @@ router.get('/visitors', authMiddleware, async (req, res) => {
         WHERE date = toDate('${localNow}') - 1
           AND sdk_key = '${sdk_key}'
       `,
-      format: 'JSON'
+      format: "JSON",
     });
-    const yesterdayVisitors = (await yesterdayRes.json()).data[0]?.visitors ?? 0;
+    const yesterdayVisitors =
+      (await yesterdayRes.json()).data[0]?.visitors ?? 0;
 
     // 오늘 실시간 (hourly + minutes)
     const todayVisitorsRes = await clickhouse.query({
@@ -73,25 +100,26 @@ router.get('/visitors', authMiddleware, async (req, res) => {
           ) AS minutes_visitors
         SELECT hourly_visitors + minutes_visitors AS visitors;
       `,
-      format: 'JSON'
+      format: "JSON",
     });
-    const todayVisitors = +(await todayVisitorsRes.json()).data[0]?.visitors || 0;
+    const todayVisitors =
+      +(await todayVisitorsRes.json()).data[0]?.visitors || 0;
 
     res.status(200).json({
       today: todayVisitors,
       yesterday: yesterdayVisitors,
-      trend
+      trend,
     });
   } catch (err) {
-    console.error('Visitors API ERROR:', err);
-    res.status(500).json({ error: 'Failed to get visitors data' });
+    console.error("Visitors API ERROR:", err);
+    res.status(500).json({ error: "Failed to get visitors data" });
   }
 });
 
-router.get('/clicks', authMiddleware, async (req, res) => {
+router.get("/clicks", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
-  const period = req.query.period || 'daily';
-  const table = tableMap[period] || 'daily_metrics';
+  const period = req.query.period || "daily";
+  const table = tableMap[period] || "daily_metrics";
   try {
     const yesterdayRes = await clickhouse.query({
       query: `
@@ -100,7 +128,7 @@ router.get('/clicks', authMiddleware, async (req, res) => {
         WHERE date = toDate('${localNow}') - 1
           AND sdk_key = '${sdk_key}'
       `,
-      format: 'JSON'
+      format: "JSON",
     });
     const yesterdayClicks = (await yesterdayRes.json()).data[0]?.clicks ?? 0;
 
@@ -118,21 +146,21 @@ router.get('/clicks', authMiddleware, async (req, res) => {
             AND sdk_key = '${sdk_key}') AS minutes_clicks
         SELECT hourly_clicks + minutes_clicks AS clicks
       `,
-      format: 'JSON'
+      format: "JSON",
     });
     const todayClicks = +(await clickRes.json()).data[0]?.clicks || 0;
 
     res.status(200).json({
       today: todayClicks,
-      yesterday: yesterdayClicks
+      yesterday: yesterdayClicks,
     });
   } catch (err) {
-    console.error('Clicks API ERROR:', err);
-    res.status(500).json({ error: 'Failed to get clicks data' });
+    console.error("Clicks API ERROR:", err);
+    res.status(500).json({ error: "Failed to get clicks data" });
   }
 });
 
-router.get('/top-clicks', authMiddleware, async (req, res) => {
+router.get("/top-clicks", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   try {
     const query = `
@@ -163,25 +191,25 @@ router.get('/top-clicks', authMiddleware, async (req, res) => {
       LIMIT 5
     `;
 
-    const clickRes = await clickhouse.query({ query, format: 'JSONEachRow' });
-    const topClicks = (await clickRes.json()).map(row => ({
+    const clickRes = await clickhouse.query({ query, format: "JSONEachRow" });
+    const topClicks = (await clickRes.json()).map((row) => ({
       label: row.element,
-      count: Number(row.cnt)
+      count: Number(row.cnt),
     }));
 
     res.status(200).json({ items: topClicks });
   } catch (err) {
-    console.error('Top Clicks API ERROR:', err);
-    res.status(500).json({ error: 'Failed to get top clicks data' });
+    console.error("Top Clicks API ERROR:", err);
+    res.status(500).json({ error: "Failed to get top clicks data" });
   }
 });
 
-router.get('/click-trend', authMiddleware, async (req, res) => {
+router.get("/click-trend", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   try {
     const baseTime = `'${req.query.baseTime}'`;
     const period = parseInt(req.query.period) || 60; // 조회 범위 (분)
-    const step = parseInt(req.query.step) || 5;      // 집계 단위 (분)
+    const step = parseInt(req.query.step) || 5; // 집계 단위 (분)
 
     const clickTrendRes = await clickhouse.query({
       query: `
@@ -207,22 +235,22 @@ router.get('/click-trend', authMiddleware, async (req, res) => {
         GROUP BY time
         ORDER BY time
       `,
-      format: 'JSONEachRow'
+      format: "JSONEachRow",
     });
     const rawTrend = await clickTrendRes.json();
-    const clickTrend = rawTrend.map(row => ({
+    const clickTrend = rawTrend.map((row) => ({
       time: row.time,
-      count: Number(row.count)
+      count: Number(row.count),
     }));
 
     res.status(200).json({ data: clickTrend });
   } catch (err) {
-    console.error('Click Trend API ERROR:', err);
-    res.status(500).json({ error: 'Failed to get click trend data' });
+    console.error("Click Trend API ERROR:", err);
+    res.status(500).json({ error: "Failed to get click trend data" });
   }
 });
 
-router.get('/dropoff-summary', authMiddleware, async (req, res) => {
+router.get("/dropoff-summary", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   try {
     const query = `
@@ -244,21 +272,21 @@ router.get('/dropoff-summary', authMiddleware, async (req, res) => {
       ORDER BY dropRate DESC
       LIMIT 5
     `;
-    const result = await clickhouse.query({ query, format: 'JSONEachRow' });
+    const result = await clickhouse.query({ query, format: "JSONEachRow" });
     const data = await result.json();
     res.status(200).json({ data: data });
   } catch (err) {
-    console.error('Dropoff Summary API ERROR:', err);
-    res.status(500).json({ error: 'Failed to get dropoff summary data' });
+    console.error("Dropoff Summary API ERROR:", err);
+    res.status(500).json({ error: "Failed to get dropoff summary data" });
   }
 });
 
 /* 기존 Sankey API에 segment 필터(전환 여부, 장바구니 이탈 등) 적용 */
-router.get('/userpath-summary', authMiddleware, async (req, res) => {
+router.get("/userpath-summary", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   const segment = req.query.segment; // e.g. "converted", "abandoned_cart"
-  const fromPage = '/cart';
-  const toPage = '/checkout/success';
+  const fromPage = "/cart";
+  const toPage = "/checkout/success";
 
   let sessionFilter = ''; // 세션 필터
 
@@ -320,30 +348,34 @@ router.get('/userpath-summary', authMiddleware, async (req, res) => {
   `;
 
   try {
-    const result = await clickhouse.query({ query, format: 'JSONEachRow' });
+    const result = await clickhouse.query({ query, format: "JSONEachRow" });
     const data = await result.json();
     res.status(200).json({ data });
   } catch (err) {
-    console.error('Userpath Summary API ERROR:', err);
-    res.status(500).json({ error: 'Failed to get userpath summary data' });
+    console.error("Userpath Summary API ERROR:", err);
+    res.status(500).json({ error: "Failed to get userpath summary data" });
   }
 });
 
 /* 전환경로 Top 3 */
-router.get('/userpath-summary/conversion-top3', authMiddleware, async (req, res) => {
-  const { sdk_key } = req.user;
-  const {
-    fromPage = '/cart',
-    toPage = '/checkout/success',
-    limit = 3,
-    startDate,
-    endDate
-  } = req.query;
+router.get(
+  "/userpath-summary/conversion-top3",
+  authMiddleware,
+  async (req, res) => {
+    const { sdk_key } = req.user;
+    let { fromPage, toPage, limit = 3, startDate, endDate } = req.query;
 
-  const start = startDate ? `toDate('${startDate}')` : `today() - 6`;
-  const end = endDate ? `toDate('${endDate}')` : `today()`;
+    // 전환 이벤트 설정값을 우선 적용
+    if (!fromPage || !toPage) {
+      const eventPages = await getCurrentConversionEvent(sdk_key);
+      fromPage = fromPage || eventPages.fromPage;
+      toPage = toPage || eventPages.toPage;
+    }
 
-  const query = `
+    const start = startDate ? `toDate('${startDate}')` : `today() - 6`;
+    const end = endDate ? `toDate('${endDate}')` : `today()`;
+
+    const query = `
     WITH
       -- A: fromPage 도달 세션
       a_sessions AS (
@@ -424,29 +456,36 @@ router.get('/userpath-summary/conversion-top3', authMiddleware, async (req, res)
     LIMIT ${limit}
   `;
 
-  try {
-    const resultSet = await clickhouse.query({ query, format: 'JSONEachRow' });
-    const rows = await resultSet.json();
+    try {
+      const resultSet = await clickhouse.query({
+        query,
+        format: "JSONEachRow",
+      });
+      const rows = await resultSet.json();
 
-    const totalConversion = rows.reduce((acc, row) => acc + Number(row.conversion_count || 0), 0);
+      const totalConversion = rows.reduce(
+        (acc, row) => acc + Number(row.conversion_count || 0),
+        0
+      );
 
-    const data = rows.map((row, index) => ({
-      path: row.path_string.split(' → '),
-      conversionCount: Number(row.conversion_count),
-      conversionRate: Number(row.conversion_rate),
-      rank: index + 1,
-      share: Number(row.share),
-      compareToAvg: Number(row.compare_to_avg)
-    }));
+      const data = rows.map((row, index) => ({
+        path: row.path_string.split(" → "),
+        conversionCount: Number(row.conversion_count),
+        conversionRate: Number(row.conversion_rate),
+        rank: index + 1,
+        share: Number(row.share),
+        compareToAvg: Number(row.compare_to_avg),
+      }));
 
-    res.status(200).json({
-      data,
-      totalConversion
-    });
-  } catch (err) {
-    console.error('Conversion Top3 API ERROR:', err);
-    res.status(500).json({ error: 'Failed to get conversion top paths' });
+      res.status(200).json({
+        data,
+        totalConversion,
+      });
+    } catch (err) {
+      console.error("Conversion Top3 API ERROR:", err);
+      res.status(500).json({ error: "Failed to get conversion top paths" });
+    }
   }
-});
+);
 
 module.exports = router;
