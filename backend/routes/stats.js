@@ -12,6 +12,25 @@ const {
   getTodayStart,
 } = require("../utils/timeUtils");
 
+// 전환 이벤트 조회 함수 추가
+async function getCurrentConversionEvent(sdk_key) {
+  const result = await clickhouse.query({
+    query: `SELECT event FROM users WHERE sdk_key = '${sdk_key}'`,
+    format: "JSON",
+  });
+  const rows = await result.json();
+  const event = rows.data?.[0]?.event || "is_payment";
+  // 예시: event가 'is_payment'라면 fromPage/toPage를 매핑
+  // 실제 매핑 테이블은 필요에 따라 조정
+  const eventMap = {
+    is_payment: { fromPage: "/cart", toPage: "/checkout/success" },
+    is_signup: { fromPage: "/signup", toPage: "/signup/success" },
+    add_to_cart: { fromPage: "/products", toPage: "/cart" },
+    contact_submit: { fromPage: "/contact", toPage: "/contact/success" },
+  };
+  return eventMap[event] || eventMap["is_payment"];
+}
+
 const localNow = getLocalNow();
 const isoNow = getIsoNow();
 const tenMinutesFloor = formatLocalDateTime(floorToNearest10Min());
@@ -346,13 +365,14 @@ router.get(
   authMiddleware,
   async (req, res) => {
     const { sdk_key } = req.user;
-    const {
-      fromPage = "/cart",
-      toPage = "/checkout/success",
-      limit = 3,
-      startDate,
-      endDate,
-    } = req.query;
+    let { fromPage, toPage, limit = 3, startDate, endDate } = req.query;
+
+    // 전환 이벤트 설정값을 우선 적용
+    if (!fromPage || !toPage) {
+      const eventPages = await getCurrentConversionEvent(sdk_key);
+      fromPage = fromPage || eventPages.fromPage;
+      toPage = toPage || eventPages.toPage;
+    }
 
     const start = startDate ? `toDate('${startDate}')` : `today() - 6`;
     const end = endDate ? `toDate('${endDate}')` : `today()`;

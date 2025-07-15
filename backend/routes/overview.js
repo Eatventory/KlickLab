@@ -78,12 +78,36 @@ router.get("/session-duration", authMiddleware, async (req, res) => {
   }
 });
 
+// 전환 이벤트 조회 함수 추가 (stats.js와 동일)
+async function getCurrentConversionEvent(sdk_key) {
+  const result = await clickhouse.query({
+    query: `SELECT event FROM users WHERE sdk_key = '${sdk_key}'`,
+    format: "JSON",
+  });
+  const rows = await result.json();
+  const event = rows.data?.[0]?.event || "is_payment";
+  const eventMap = {
+    is_payment: { fromPage: "/cart", toPage: "/checkout/success" },
+    is_signup: { fromPage: "/signup", toPage: "/signup/success" },
+    add_to_cart: { fromPage: "/products", toPage: "/cart" },
+    contact_submit: { fromPage: "/contact", toPage: "/contact/success" },
+  };
+  return eventMap[event] || eventMap["is_payment"];
+}
+
 router.get("/conversion-summary", authMiddleware, async (req, res) => {
-  const fromPage = req.query.from || "/cart";
-  const toPage = req.query.to || "/checkout/success";
+  let fromPage = req.query.from;
+  let toPage = req.query.to;
   const period = "7d";
   const periodLabel = "최근 7일";
   const { sdk_key } = req.user;
+
+  // 전환 이벤트 설정값을 우선 적용
+  if (!fromPage || !toPage) {
+    const eventPages = await getCurrentConversionEvent(sdk_key);
+    fromPage = fromPage || eventPages.fromPage;
+    toPage = toPage || eventPages.toPage;
+  }
 
   function buildConversionSubQuery(alias, startOffset, endOffset) {
     return `
@@ -166,13 +190,13 @@ router.get("/conversion-summary", authMiddleware, async (req, res) => {
 /* 첫 랜딩 페이지 기준 전환율 */
 router.get("/conversion-by-landing", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
-  const {
-    start_date,
-    end_date,
-    period = "daily",
-    to = "/checkout/success",
-  } = req.query;
-  const toPage = to;
+  const { start_date, end_date, period = "daily", to } = req.query;
+  // 전환 이벤트 설정값 우선 적용
+  let toPage = to;
+  if (!toPage) {
+    const eventPages = await getCurrentConversionEvent(sdk_key);
+    toPage = eventPages.toPage;
+  }
 
   // 날짜 필터링 조건 구성
   const dateFilter =
@@ -244,13 +268,13 @@ router.get("/conversion-by-landing", authMiddleware, async (req, res) => {
 /* 채널별 전환율 */
 router.get("/conversion-by-channel", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
-  const {
-    start_date,
-    end_date,
-    period = "daily",
-    to = "/checkout/success",
-  } = req.query;
-  const toPage = to;
+  const { start_date, end_date, period = "daily", to } = req.query;
+  // 전환 이벤트 설정값 우선 적용
+  let toPage = to;
+  if (!toPage) {
+    const eventPages = await getCurrentConversionEvent(sdk_key);
+    toPage = eventPages.toPage;
+  }
 
   // 날짜 필터 구성
   const dateFilter =
@@ -320,6 +344,11 @@ router.get("/summary", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   const date = req.query.date || localNow;
   const period = req.query.period || "daily";
+
+  // 전환 이벤트 설정값 우선 적용
+  const eventPages = await getCurrentConversionEvent(sdk_key);
+  const fromPage = eventPages.fromPage;
+  const toPage = eventPages.toPage;
 
   try {
     // 오늘 metric 쿼리 (hourly + minutes)
@@ -417,7 +446,7 @@ router.get("/summary", authMiddleware, async (req, res) => {
         filtered_events AS (
           SELECT session_id, page_path, timestamp
           FROM events
-          WHERE page_path IN ('/cart', '/checkout/success')
+          WHERE page_path IN ('${fromPage}', '${toPage}')
             AND timestamp >= toDateTime('${todayStart}')
             AND timestamp <= toDateTime('${oneHourFloor}')
             AND sdk_key = '${sdk_key}'
@@ -425,13 +454,13 @@ router.get("/summary", authMiddleware, async (req, res) => {
         a_sessions AS (
           SELECT session_id, min(timestamp) AS a_time
           FROM filtered_events
-          WHERE page_path = '/cart'
+          WHERE page_path = '${fromPage}'
           GROUP BY session_id
         ),
         b_sessions AS (
           SELECT session_id, min(timestamp) AS b_time
           FROM filtered_events
-          WHERE page_path = '/checkout/success'
+          WHERE page_path = '${toPage}'
           GROUP BY session_id
         ),
         joined_sessions AS (
@@ -450,20 +479,20 @@ router.get("/summary", authMiddleware, async (req, res) => {
         filtered_events AS (
           SELECT session_id, page_path, timestamp
           FROM events
-          WHERE page_path IN ('/cart', '/checkout/success')
+          WHERE page_path IN ('${fromPage}', '${toPage}')
             AND toDate(timestamp) = toDate('${localNow}') - 1
             AND sdk_key = '${sdk_key}'
         ),
         a_sessions AS (
           SELECT session_id, min(timestamp) AS a_time
           FROM filtered_events
-          WHERE page_path = '/cart'
+          WHERE page_path = '${fromPage}'
           GROUP BY session_id
         ),
         b_sessions AS (
           SELECT session_id, min(timestamp) AS b_time
           FROM filtered_events
-          WHERE page_path = '/checkout/success'
+          WHERE page_path = '${toPage}'
           GROUP BY session_id
         ),
         joined_sessions AS (
