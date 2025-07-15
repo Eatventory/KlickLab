@@ -365,9 +365,21 @@ router.get(
   authMiddleware,
   async (req, res) => {
     const { sdk_key } = req.user;
-    let { fromPage, toPage, limit = 3, startDate, endDate } = req.query;
+    let { fromPage, toPage, event, limit = 3, startDate, endDate } = req.query;
 
-    // 전환 이벤트 설정값을 우선 적용
+    // event 파라미터가 있으면 fromPage, toPage를 매핑
+    if (event) {
+      const eventMap = {
+        is_payment: { fromPage: "/cart", toPage: "/checkout/success" },
+        is_signup: { fromPage: "/signup", toPage: "/signup/success" },
+        add_to_cart: { fromPage: "/products", toPage: "/cart" },
+        contact_submit: { fromPage: "/contact", toPage: "/contact/success" },
+      };
+      fromPage = eventMap[event]?.fromPage;
+      toPage = eventMap[event]?.toPage;
+    }
+
+    // 기존 로직 유지
     if (!fromPage || !toPage) {
       const eventPages = await getCurrentConversionEvent(sdk_key);
       fromPage = fromPage || eventPages.fromPage;
@@ -411,7 +423,11 @@ router.get(
       full_paths AS (
         SELECT
           session_id,
-          arrayMap(x -> x.2, arraySort(x -> x.1, groupArray((timestamp, page_path)))) AS path
+          arraySlice(
+            arrayMap(x -> x.2, arraySort(x -> x.1, groupArray((timestamp, page_path)))),
+            1,
+            indexOf(arrayMap(x -> x.2, arraySort(x -> x.1, groupArray((timestamp, page_path)))), '${toPage}')
+          ) AS path
         FROM events
         WHERE session_id IN (SELECT session_id FROM a_sessions)
           AND toDate(timestamp) BETWEEN ${start} AND ${end}
@@ -422,38 +438,34 @@ router.get(
       -- 라벨링: 전환 여부
       labeled_paths AS (
         SELECT
+          fp.session_id,
           fp.path,
           isNotNull(ab.session_id) AS is_converted
         FROM full_paths fp
         LEFT JOIN ab_sessions ab USING (session_id)
       ),
 
-      -- 경로별 집계
+      -- 전체 fromPage 세션 수(분모)
+      total_a_sessions AS (
+        SELECT count() AS total_sessions FROM a_sessions
+      ),
+
+      -- 경로별 집계 (분자: 전환까지 밟은 세션)
       path_stats AS (
         SELECT
           arrayStringConcat(path, ' → ') AS path_string,
-          count() AS total_sessions,
-          sum(is_converted) AS conversion_count,
-          round(sum(is_converted) / nullIf(count(), 0) * 100, 1) AS conversion_rate
+          count() AS total_sessions, -- 이 경로를 밟은 세션 수(분자)
+          sum(is_converted) AS conversion_count
         FROM labeled_paths
         GROUP BY path
-      ),
-
-      -- 총 전환 수 및 평균 전환율
-      total_stats AS (
-        SELECT
-          sum(conversion_count) AS total_conversion,
-          avg(conversion_rate) AS avg_rate
-        FROM path_stats
       )
 
     SELECT
       path_string,
       conversion_count,
-      conversion_rate,
-      round(conversion_count / nullIf(ts.total_conversion, 0) * 100, 1) AS share,
-      round(conversion_rate / nullIf(ts.avg_rate, 0), 1) AS compare_to_avg
-    FROM path_stats, total_stats ts
+      round(conversion_count / nullIf(ts.total_sessions, 0) * 100, 1) AS conversion_rate,
+      ts.total_sessions AS fromPage_sessions
+    FROM path_stats, total_a_sessions ts
     ORDER BY conversion_count DESC
     LIMIT ${limit}
   `;
@@ -473,10 +485,9 @@ router.get(
       const data = rows.map((row, index) => ({
         path: row.path_string.split(" → "),
         conversionCount: Number(row.conversion_count),
-        conversionRate: Number(row.conversion_rate),
+        conversionRate: Number(row.conversion_rate), // fromPage 세션 대비 전환률
+        fromPageSessions: Number(row.fromPage_sessions), // 분모
         rank: index + 1,
-        share: Number(row.share),
-        compareToAvg: Number(row.compare_to_avg),
       }));
 
       res.status(200).json({

@@ -207,9 +207,7 @@ router.get("/conversion-by-landing", authMiddleware, async (req, res) => {
   };
 
   const toPage = event && eventToPageMap[event] ? eventToPageMap[event] : to;
-  const { start_date, end_date, period = "daily", to } = req.query;
   // 전환 이벤트 설정값 우선 적용
-  let toPage = to;
   if (!toPage) {
     const eventPages = await getCurrentConversionEvent(sdk_key);
     toPage = eventPages.toPage;
