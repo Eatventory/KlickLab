@@ -117,7 +117,12 @@ const ConversionPathsCard: React.FC<ConversionPathsCardProps> = ({ className, re
     );
   }
 
-  if (paths.length === 0) {
+  // undefined/null/빈 값 필터링
+  const validPaths = paths.filter(
+    pathData => pathData && pathData.conversionCount !== undefined && pathData.conversionRate !== undefined && Array.isArray(pathData.path) && pathData.path.length > 0 && pathData.path.every(p => !!p)
+  );
+
+  if (validPaths.length === 0) {
     return (
       <div className={`bg-white rounded-xl border border-gray-200 shadow-sm p-6 ${className || ''}`}>
         <div className="flex items-center gap-2 mb-4">
@@ -138,7 +143,7 @@ const ConversionPathsCard: React.FC<ConversionPathsCardProps> = ({ className, re
         <h3 className="text-lg font-semibold text-gray-900">전환 경로 Top 3</h3>
       </div>
       <div className="space-y-6">
-        {paths.map((pathData, idx) => (
+        {validPaths.map((pathData, idx) => (
           <div
             key={pathData.rank}
             className={`flex flex-col md:flex-row md:items-center md:gap-6 p-4 rounded-lg border ${idx === 0 ? 'border-blue-200 bg-blue-50' : idx === 1 ? 'border-blue-50 bg-blue-50' : 'border-gray-100 bg-gray-50'} shadow-sm`}
@@ -158,8 +163,8 @@ const ConversionPathsCard: React.FC<ConversionPathsCardProps> = ({ className, re
               </span>
               <span className="text-xs text-gray-500 mt-1">
                 {idx === 0
-                  ? `전체 전환의 ${pathData.share}% 차지`
-                  : `평균 대비 전환율 ${pathData.compareToAvg}배`}
+                  ? `전체 전환의 ${pathData.share ?? '-'}% 차지`
+                  : `평균 대비 전환율 ${pathData.compareToAvg ?? '-'}배`}
               </span>
             </div>
           </div>

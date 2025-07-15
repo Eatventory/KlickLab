@@ -137,7 +137,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {!isCollapsed && (
         <div className="p-4 border-t border-gray-200">
           <div className="text-xs text-gray-500">
-            <div>버전 1.0.1</div>
+            <div>버전 1.0.2</div>
             <div>© 2025 KlickLab</div>
           </div>
         </div>
