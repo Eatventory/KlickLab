@@ -455,17 +455,28 @@ router.get(
         SELECT
           arrayStringConcat(path, ' → ') AS path_string,
           count() AS total_sessions, -- 이 경로를 밟은 세션 수(분자)
-          sum(is_converted) AS conversion_count
+          sum(is_converted) AS conversion_count,
+          round(sum(is_converted) / nullIf(count(), 0) * 100, 1) AS conversion_rate
         FROM labeled_paths
         GROUP BY path
+      ),
+
+      -- 총 전환 수 및 평균 전환율
+      total_stats AS (
+        SELECT
+          sum(conversion_count) AS total_conversion,
+          avg(conversion_rate) AS avg_rate
+        FROM path_stats
       )
 
     SELECT
       path_string,
       conversion_count,
-      round(conversion_count / nullIf(ts.total_sessions, 0) * 100, 1) AS conversion_rate,
-      ts.total_sessions AS fromPage_sessions
-    FROM path_stats, total_a_sessions ts
+      conversion_rate,
+      round(conversion_count / nullIf(total_stats.total_conversion, 0) * 100, 1) AS share,
+      round(conversion_rate / nullIf(total_stats.avg_rate, 0), 1) AS compare_to_avg,
+      total_a_sessions.total_sessions AS fromPage_sessions
+    FROM path_stats, total_stats, total_a_sessions
     ORDER BY conversion_count DESC
     LIMIT ${limit}
   `;
@@ -485,8 +496,13 @@ router.get(
       const data = rows.map((row, index) => ({
         path: row.path_string.split(" → "),
         conversionCount: Number(row.conversion_count),
-        conversionRate: Number(row.conversion_rate), // fromPage 세션 대비 전환률
-        fromPageSessions: Number(row.fromPage_sessions), // 분모
+        conversionRate: Number(row.conversion_rate),
+        fromPageSessions: Number(row.fromPage_sessions),
+        share: row.share !== undefined ? Number(row.share) : undefined,
+        compareToAvg:
+          row.compare_to_avg !== undefined
+            ? Number(row.compare_to_avg)
+            : undefined,
         rank: index + 1,
       }));
 
