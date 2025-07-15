@@ -12,6 +12,7 @@ const router = express.Router();
 
 
 router.get('/path/next', authMiddleware, async (req, res) => {
+    const { sdk_key } = req.user;
     try {
         const { page, from, to, limit } = req.query;
         const { sdk_key } = req.user;  // JWT에서 SDK 키 추출
@@ -19,7 +20,6 @@ router.get('/path/next', authMiddleware, async (req, res) => {
         if (!page || !from || !to) {
             return res.status(400).json({ error: 'page, from, to are required' });
         }
-
         const rows = await getNextSteps({ page, from, to, limit, sdk_key });
         res.json(rows);
     } catch (e) {
@@ -29,9 +29,9 @@ router.get('/path/next', authMiddleware, async (req, res) => {
 });
 
 router.get('/start-pages', authMiddleware, async (req, res) => {
+    const { sdk_key } = req.user;
     try {
-        const { sdk_key } = req.user;  // JWT에서 SDK 키 추출
-        const rows = await getStartPages({ ...req.query, sdk_key });
+        const rows = await getStartPages({...req.query, sdk_key});
         res.json(rows);
     } catch (e) {
         console.error('start-pages ERROR', e);
