@@ -28,6 +28,13 @@ const getOneHourAgo = () => {
 
 const getTodayStart = () => new Date(new Date().setHours(0, 0, 0, 0));
 
+function getYesterdayStart() {
+  const now = new Date();
+  now.setDate(now.getDate() - 1);
+  now.setHours(0, 0, 0, 0);
+  return now;
+}
+
 module.exports = {
   getLocalNow,
   getIsoNow,
@@ -35,4 +42,5 @@ module.exports = {
   getNearestHourFloor,
   getOneHourAgo,
   getTodayStart,
+  getYesterdayStart
 };
