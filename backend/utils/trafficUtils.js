@@ -182,7 +182,7 @@ function getVisitorTrendQuery(period, sdk_key, gender, ageGroup, startDateStr, e
         sum(visitors) AS visitors,
         sum(new_visitors) AS newVisitors,
         sum(existing_visitors) AS returningVisitors
-      FROM klicklab.daily_metrics
+      FROM daily_metrics
       WHERE date >= toStartOfWeek(toDate('${startDateStr}'))
         AND date <= toDate('${endDateStr}')
         ${genderCond} ${ageCond}
@@ -199,7 +199,7 @@ function getVisitorTrendQuery(period, sdk_key, gender, ageGroup, startDateStr, e
         sum(visitors) AS visitors,
         sum(new_visitors) AS newVisitors,
         sum(existing_visitors) AS returningVisitors
-      FROM klicklab.daily_metrics
+      FROM daily_metrics
       WHERE date >= toStartOfMonth(toDate('${startDateStr}'))
         AND date <= toDate('${endDateStr}')
         ${genderCond} ${ageCond}
@@ -223,7 +223,7 @@ function getVisitorTrendQuery(period, sdk_key, gender, ageGroup, startDateStr, e
           visitors,
           new_visitors,
           existing_visitors
-        FROM klicklab.daily_metrics
+        FROM daily_metrics
         WHERE date BETWEEN toDate('${localNow}') - 6 AND toDate('${localNow}') - 1
           AND sdk_key = '${sdk_key}'
 
@@ -235,7 +235,7 @@ function getVisitorTrendQuery(period, sdk_key, gender, ageGroup, startDateStr, e
           visitors,
           new_visitors,
           existing_visitors
-        FROM klicklab.hourly_metrics
+        FROM hourly_metrics
         WHERE date_time >= toDateTime('${todayStart}')
           AND date_time <= toDateTime('${oneHourFloor}')
           AND sdk_key = '${sdk_key}'
@@ -247,7 +247,7 @@ function getVisitorTrendQuery(period, sdk_key, gender, ageGroup, startDateStr, e
           visitors,
           new_visitors,
           existing_visitors
-        FROM klicklab.minutes_metrics
+        FROM minutes_metrics
         WHERE date_time > toDateTime('${oneHourFloor}')
           AND date_time <= toDateTime('${tenMinutesFloor}')
           AND sdk_key = '${sdk_key}'
@@ -267,7 +267,7 @@ function getVisitorTrendQuery(period, sdk_key, gender, ageGroup, startDateStr, e
       FROM (
         SELECT client_id, timestamp,
           min(toDate(timestamp)) OVER (PARTITION BY client_id) AS minDate
-        FROM klicklab.events
+        FROM events
         WHERE event_name = 'auto_click'
           AND toDate(timestamp) = today()
           ${genderCond} ${ageCond}
@@ -286,7 +286,7 @@ function getHourlyTrafficQuery(whereClause, sdk_key) {
     SELECT
       formatDateTime(timestamp, '%H') AS hour,
       count() AS visitors
-    FROM klicklab.events
+    FROM events
     WHERE ${whereClause}
       AND sdk_key = '${sdk_key}'
     GROUP BY hour
@@ -311,33 +311,7 @@ function getSourceDistributionQuery(period, sdk_key) {
     SELECT
       traffic_source AS source,
       count() AS visitors
-    FROM klicklab.events
-    WHERE ${where}
-      AND sdk_key = '${sdk_key}'
-    GROUP BY source
-    ORDER BY visitors DESC
-    LIMIT 10
-  `;
-}
-
-function getSourceDistributionQuery(period, sdk_key) {
-  let where = "event_name = 'auto_click'";
-
-  if (period === "daily") {
-    where += " AND toDate(timestamp) = yesterday()";
-  } else if (period === "hourly") {
-    where += " AND timestamp >= now() - INTERVAL 1 HOUR AND timestamp < now()";
-  } else if (period === "weekly") {
-    where += " AND toDate(timestamp) >= toMonday(today() - INTERVAL 1 WEEK) AND toDate(timestamp) <= toMonday(today()) - INTERVAL 1 DAY";
-  } else if (period === "monthly") {
-    where += " AND toDate(timestamp) >= toStartOfMonth(today() - INTERVAL 1 MONTH) AND toDate(timestamp) <= toStartOfMonth(today()) - INTERVAL 1 DAY";
-  }
-
-  return `
-    SELECT
-      traffic_source AS source,
-      count() AS visitors
-    FROM klicklab.events
+    FROM events
     WHERE ${where}
       AND sdk_key = '${sdk_key}'
     GROUP BY source
@@ -351,7 +325,7 @@ function getMediumDistributionQuery(whereClause, sdk_key) {
     SELECT
       traffic_medium AS medium,
       count() AS visitors
-    FROM klicklab.events
+    FROM events
     WHERE ${whereClause}
       AND sdk_key = '${sdk_key}'
     GROUP BY medium
@@ -365,7 +339,7 @@ function getCampaignDistributionQuery(whereClause, sdk_key) {
     SELECT
       traffic_campaign AS campaign,
       count() AS visitors
-    FROM klicklab.events
+    FROM events
     WHERE ${whereClause}
       AND sdk_key = '${sdk_key}'
     GROUP BY campaign
@@ -379,7 +353,7 @@ function getReferrerDistributionQuery(whereClause, sdk_key) {
     SELECT
       referrer,
       count() AS visitors
-    FROM klicklab.events
+    FROM events
     WHERE ${whereClause}
       AND sdk_key = '${sdk_key}'
     GROUP BY referrer
@@ -406,7 +380,7 @@ function getMainPageNavigationQuery(period, sdk_key) {
       page_path AS page,
       count() AS clicks,
       uniq(user_id) AS uniqueClicks
-    FROM klicklab.events
+    FROM events
     WHERE ${where}
       AND sdk_key = '${sdk_key}'
     GROUP BY page

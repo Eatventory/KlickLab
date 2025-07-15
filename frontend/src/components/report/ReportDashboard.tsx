@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FileText, Download, Share2, Calendar } from 'lucide-react';
 import { mockDashboardData } from '../../data/mockData';
 
@@ -7,6 +7,19 @@ interface FilterOptions {
   period: '1day' | '1week' | '1month' | '3months';
   format: 'table' | 'chart' | 'summary';
   export: 'pdf' | 'csv' | 'excel';
+}
+
+interface KPIStat {
+  current: number;
+  vs_yesterday: string;
+  vs_last_week: string;
+}
+
+interface KpiResponse {
+  daily_visitors: KPIStat;
+  new_users: KPIStat;
+  returning_users: KPIStat;
+  churned_users: KPIStat;
 }
 
 export const ReportDashboard: React.FC = () => {
@@ -21,6 +34,70 @@ export const ReportDashboard: React.FC = () => {
       ...prev,
       [key]: value
     }));
+  };
+
+  const [kpiData, setKpiData] = useState<KpiResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    const fetchKPIData = async () => {
+      try {
+        const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+        if (!token) throw new Error("No token");
+        setLoading(true);
+        setError(false);
+        const res = await fetch('/api/report/kpi-summary', {headers: { Authorization: `Bearer ${token}`}});
+        const data = await res.json();
+        setKpiData(data);
+      } catch (err) {
+        console.error('KPI 데이터 로딩 실패:', err);
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    };
+  
+    fetchKPIData();
+  }, []);
+
+  const renderTableRows = () => {
+    if (kpiData) {
+      const rows: { title: string; data: KPIStat }[] = [
+        { title: '일일 방문자 수', data: kpiData.daily_visitors },
+        { title: '신규 방문자 수', data: kpiData.new_users },
+        { title: '기존 방문자 수', data: kpiData.returning_users },
+        { title: '이탈 사용자 수', data: kpiData.churned_users },
+      ];
+  
+      return rows.map((stat, index) => (
+        <tr key={index} className="border-b border-gray-100">
+          <td className="py-3 px-4 text-gray-700">{stat.title}</td>
+          <td className="py-3 px-4 text-right font-medium text-gray-900">
+            {stat.data.current.toLocaleString()}
+          </td>
+          <td className="py-3 px-4 text-right text-gray-600">{stat.data.vs_yesterday}</td>
+          <td className="py-3 px-4 text-right text-gray-500">{stat.data.vs_last_week}</td>
+        </tr>
+      ));
+    } else {
+      return mockDashboardData.stats.slice(0, 4).map((stat, index) => (
+        <tr key={index} className="border-b border-gray-100">
+          <td className="py-3 px-4 text-gray-700">{stat.title}</td>
+          <td className="py-3 px-4 text-right font-medium text-gray-900">
+            {stat.value.toLocaleString()}
+          </td>
+          <td className={`py-3 px-4 text-right ${
+            stat.change > 0 ? 'text-green-600' : stat.change < 0 ? 'text-red-600' : 'text-gray-500'
+          }`}>
+            {stat.change > 0 ? '+' : ''}{stat.change}%
+          </td>
+          <td className="py-3 px-4 text-right text-gray-500">
+            {Math.round(stat.change * 0.8)}%
+          </td>
+        </tr>
+      ));
+    }
   };
 
   const handleExport = (format: string) => {
@@ -108,22 +185,13 @@ export const ReportDashboard: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {mockDashboardData.stats.slice(0, 4).map((stat, index) => (
-                <tr key={index} className="border-b border-gray-100">
-                  <td className="py-3 px-4 text-gray-700">{stat.title}</td>
-                  <td className="py-3 px-4 text-right font-medium text-gray-900">
-                    {stat.value.toLocaleString()}
-                  </td>
-                  <td className={`py-3 px-4 text-right ${
-                    stat.change > 0 ? 'text-green-600' : stat.change < 0 ? 'text-red-600' : 'text-gray-500'
-                  }`}>
-                    {stat.change > 0 ? '+' : ''}{stat.change}%
-                  </td>
-                  <td className="py-3 px-4 text-right text-gray-500">
-                    {Math.round(stat.change * 0.8)}%
-                  </td>
-                </tr>
-              ))}
+              {loading ? (
+                <tr><td colSpan={4} className="text-center py-6">로딩 중...</td></tr>
+              ) : error ? (
+                <tr><td colSpan={4} className="text-center text-red-500 py-6">데이터 불러오기 실패</td></tr>
+              ) : (
+                renderTableRows()
+              )}
             </tbody>
           </table>
         </div>

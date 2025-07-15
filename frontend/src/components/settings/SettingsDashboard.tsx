@@ -44,7 +44,7 @@ export const SettingsDashboard: React.FC = () => {
 
   const sdkCode = `
     <script type="module" src="https://klicklab-sdk.pages.dev/klicklab_sdk.js"
-    data-sdk-key="여기에-발급받은-키"></script>
+    data-sdk-key="${keyData}"></script>
   `;
 
   const [showToast, setShowToast] = useState(false);
