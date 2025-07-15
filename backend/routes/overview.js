@@ -3,14 +3,8 @@ const router = express.Router();
 const clickhouse = require("../src/config/clickhouse");
 const authMiddleware = require("../middlewares/authMiddleware");
 const { formatLocalDateTime } = require("../utils/formatLocalDateTime");
-const {
-  getLocalNow,
-  getIsoNow,
-  floorToNearest10Min,
-  getNearestHourFloor,
-  getOneHourAgo,
-  getTodayStart,
-} = require("../utils/timeUtils");
+const { getLocalNow, getIsoNow, floorToNearest10Min, getNearestHourFloor, getOneHourAgo, getTodayStart, getYesterdayStart } = require("../utils/timeUtils");
+const { getConversionRate } = require("../utils/conversionUtils");
 
 const localNow = getLocalNow();
 const isoNow = getIsoNow();
@@ -18,6 +12,7 @@ const tenMinutesFloor = formatLocalDateTime(floorToNearest10Min());
 const NearestHourFloor = formatLocalDateTime(getNearestHourFloor());
 const oneHourFloor = formatLocalDateTime(getOneHourAgo());
 const todayStart = formatLocalDateTime(getTodayStart());
+const yesterdayStart = formatLocalDateTime(getYesterdayStart());
 
 router.get("/session-duration", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
@@ -184,6 +179,47 @@ router.get("/conversion-summary", authMiddleware, async (req, res) => {
   } catch (err) {
     console.error("Conversion Rate API ERROR:", err);
     res.status(500).json({ error: "Failed to get conversion rate data" });
+  }
+});
+
+/* 전환율 1일 (오늘 하루) 버전 */
+router.get("/conversion-today", authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+  const eventPages = await getCurrentConversionEvent(sdk_key);
+  const fromPage = eventPages.fromPage;
+  const toPage = eventPages.toPage;
+
+  try {
+    const [today, yesterday] = await Promise.all([
+      getConversionRate(clickhouse, {
+        fromPage,
+        toPage,
+        sdk_key,
+        startDate: todayStart,
+        endDate: isoNow,
+      }),
+      getConversionRate(clickhouse, {
+        fromPage,
+        toPage,
+        sdk_key,
+        startDate: yesterdayStart,
+        endDate: todayStart,
+      }),
+    ]);
+
+    const delta = +(today.rate - yesterday.rate).toFixed(1);
+    const trend = delta > 0 ? "up" : delta < 0 ? "down" : "flat";
+
+    res.status(200).json({
+      conversionRate: today.rate,
+      convertedSessions: today.converted,
+      totalSessions: today.total,
+      deltaRate: delta,
+      trend
+    });
+  } catch (err) {
+    console.error("Conversion Quick API ERROR:", err);
+    res.status(500).json({ error: "Failed to calculate conversion rate" });
   }
 });
 
@@ -441,71 +477,6 @@ router.get("/summary", authMiddleware, async (req, res) => {
       LIMIT 3
     `;
 
-    const conversionRateQuery = `
-      WITH
-        filtered_events AS (
-          SELECT session_id, page_path, timestamp
-          FROM events
-          WHERE page_path IN ('${fromPage}', '${toPage}')
-            AND timestamp >= toDateTime('${todayStart}')
-            AND timestamp <= toDateTime('${oneHourFloor}')
-            AND sdk_key = '${sdk_key}'
-        ),
-        a_sessions AS (
-          SELECT session_id, min(timestamp) AS a_time
-          FROM filtered_events
-          WHERE page_path = '${fromPage}'
-          GROUP BY session_id
-        ),
-        b_sessions AS (
-          SELECT session_id, min(timestamp) AS b_time
-          FROM filtered_events
-          WHERE page_path = '${toPage}'
-          GROUP BY session_id
-        ),
-        joined_sessions AS (
-          SELECT a.session_id
-          FROM a_sessions a
-          INNER JOIN b_sessions b ON a.session_id = b.session_id AND a.a_time < b.b_time
-        )
-      SELECT
-        (SELECT count() FROM joined_sessions) AS converted,
-        (SELECT count() FROM a_sessions) AS total,
-        round(100.0 * (SELECT count() FROM joined_sessions) / nullIf((SELECT count() FROM a_sessions), 0), 1) AS conversion_rate
-    `;
-
-    const prevConversionRateQuery = `
-      WITH
-        filtered_events AS (
-          SELECT session_id, page_path, timestamp
-          FROM events
-          WHERE page_path IN ('${fromPage}', '${toPage}')
-            AND toDate(timestamp) = toDate('${localNow}') - 1
-            AND sdk_key = '${sdk_key}'
-        ),
-        a_sessions AS (
-          SELECT session_id, min(timestamp) AS a_time
-          FROM filtered_events
-          WHERE page_path = '${fromPage}'
-          GROUP BY session_id
-        ),
-        b_sessions AS (
-          SELECT session_id, min(timestamp) AS b_time
-          FROM filtered_events
-          WHERE page_path = '${toPage}'
-          GROUP BY session_id
-        ),
-        joined_sessions AS (
-          SELECT a.session_id
-          FROM a_sessions a
-          INNER JOIN b_sessions b ON a.session_id = b.session_id AND a.a_time < b.b_time
-        )
-      SELECT
-        (SELECT count() FROM joined_sessions) AS converted,
-        (SELECT count() FROM a_sessions) AS total,
-        round(100.0 * (SELECT count() FROM joined_sessions) / nullIf((SELECT count() FROM a_sessions), 0), 1) AS conversion_rate
-    `;
-
     const metricRes = await clickhouse.query({
       query: metricQuery,
       format: "JSON",
@@ -518,29 +489,34 @@ router.get("/summary", authMiddleware, async (req, res) => {
       query: topClickQuery,
       format: "JSON",
     });
-    const conversionRes = await clickhouse.query({
-      query: conversionRateQuery,
-      format: "JSON",
-    });
-    const prevConversionRes = await clickhouse.query({
-      query: prevConversionRateQuery,
-      format: "JSON",
-    });
 
     const metricData = await metricRes.json();
     const prevMetricData = await prevMetricRes.json();
     const topClickData = await topClickRes.json();
-    const conversionData = await conversionRes.json();
-    const prevConversionData = await prevConversionRes.json();
 
     const [current] = metricData.data || [{}];
     const [previous] = prevMetricData.data || [{}];
     const topClicks = topClickData.data || [];
-    const [conversion] = conversionData.data || [{}];
-    const [prevConversion] = prevConversionData.data || [{}];
 
-    const currentConversionRate = conversion?.conversion_rate || 0;
-    const prevConversionRate = prevConversion?.conversion_rate || 0;
+    const [todayRate, yesterdayRate] = await Promise.all([
+      getConversionRate(clickhouse, {
+        fromPage,
+        toPage,
+        sdk_key,
+        startDate: todayStart,
+        endDate: isoNow,
+      }),
+      getConversionRate(clickhouse, {
+        fromPage,
+        toPage,
+        sdk_key,
+        startDate: yesterdayStart,
+        endDate: todayStart,
+      }),
+    ]);
+
+    const currentConversionRate = todayRate.rate;
+    const prevConversionRate = yesterdayRate.rate;
 
     const totalClicks = Number(current?.clicks || 0);
 

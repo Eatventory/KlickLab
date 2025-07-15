@@ -28,7 +28,7 @@ export const ConversionSummaryCard: React.FC = () => {
       setLoading(true); // 로딩 상태 설정
       setError(null);   // 에러 상태 초기화
       if (!token) throw new Error("No token");
-      const response = await fetch(`/api/overview/conversion-summary?event=${currentEvent}`, {headers: { Authorization: `Bearer ${token}` }}); // API 엔드포인트에서 데이터 가져오기
+      const response = await fetch(`/api/overview/conversion-today?event=${currentEvent}`, {headers: { Authorization: `Bearer ${token}` }}); // API 엔드포인트에서 데이터 가져오기
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`); // 응답이 성공하지 않으면 에러 발생
@@ -166,7 +166,7 @@ export const ConversionSummaryCard: React.FC = () => {
             {data.convertedSessions.toLocaleString()} / {data.totalSessions.toLocaleString()} 세션
           </div>
           <div className="text-gray-500 text-xs">
-            최근 7일 기준
+            최근 1일 기준
           </div>
         </div>
       )}
