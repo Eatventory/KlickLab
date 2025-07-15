@@ -79,3 +79,35 @@ async function getMultiStepPaths({ steps, from, to, limit = 5, sdk_key }) {
 
 module.exports = { getNextSteps, getMultiStepPaths };
 //module.exports = { getNextSteps };
+
+async function getMultiStepPaths({ steps, from, to, limit = 5, sdk_key }) {
+  // 마지막으로 선택된 페이지에서 다음 경로 조회
+  const lastStep = steps[steps.length - 1];
+
+  const sql = `
+    SELECT 
+      target,
+      toUInt64(sum(sessions)) AS sessions
+    FROM klicklab.funnel_links_daily
+    WHERE source = {page:String}
+      AND event_date BETWEEN {from:Date} AND {to:Date}
+      AND sdk_key = {sdk_key:String}
+    GROUP BY target
+    ORDER BY sessions DESC
+    LIMIT {limit:UInt8}
+  `;
+
+  const result = await clickhouse.query({
+      query: sql,
+      query_params: {
+          page: lastStep,
+          from,
+          to,
+          limit: Number(limit),
+          sdk_key
+      },
+      format: 'JSONEachRow'
+  });
+
+  return result.json();
+}
