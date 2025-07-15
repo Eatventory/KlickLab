@@ -22,8 +22,10 @@ export const UserSegmentSummary: React.FC<UserSegmentSummaryProps> = ({ refreshK
   useEffect(() => {
     const generateSummary = async () => {
       try {
+        const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+        if (!token) throw new Error("No token");
         // 성별 TOP 1 데이터 가져오기
-        const genderResponse = await fetch('/api/users/top-clicks?filter=user_gender');
+        const genderResponse = await fetch('/api/users/top-clicks?filter=user_gender', {headers: { Authorization: `Bearer ${token}` }});
         const genderData = await genderResponse.json();
         
         if (genderData.data && genderData.data.length > 0) {

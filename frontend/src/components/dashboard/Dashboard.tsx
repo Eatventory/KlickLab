@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Sidebar } from '../ui/Sidebar';
-import { FilterTabs } from '../ui/FilterTabs';
-import { BarChart3, RefreshCw } from 'lucide-react';
+import { GlobalFilterBar } from '../ui/GlobalFilterBar';
+import { RefreshCw } from 'lucide-react';
 
 // 새로운 탭별 대시보드 컴포넌트들
 import { OverviewDashboard } from '../overview/OverviewDashboard';
@@ -108,6 +108,9 @@ export const Dashboard: React.FC = () => {
             </div>
           </div>
         </header>
+
+        {/* 전역 필터 바 */}
+        <GlobalFilterBar />
 
         {/* 메인 콘텐츠 영역 */}
         <main className="flex-1 p-6">

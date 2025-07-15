@@ -1,13 +1,33 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { setToken, setAutoLogin, getAutoLogin, getSavedCredentials } from '../../utils/storage';
+import { useAuthStore } from '../../store/useAuthStore';
 
 export default function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const setAuthState = useAuthStore((s) => s.setAuthState);
+
+  // 컴포넌트 마운트 시 저장된 자동 로그인 정보 복원
+  useEffect(() => {
+    const savedAutoLogin = getAutoLogin();
+    if (savedAutoLogin) {
+      setRemember(true);
+      const savedCredentials = getSavedCredentials();
+      if (savedCredentials) {
+        setEmail(savedCredentials.email);
+        setPassword(savedCredentials.password);
+      }
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+    
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
@@ -15,19 +35,28 @@ export default function LoginForm() {
         credentials: 'include', // refreshToken 쿠키 받기
         body: JSON.stringify({ email, password }),
       });
+      
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.message || '로그인에 실패했습니다.');
       }
+      
       const { accessToken } = await res.json();
+      setToken(accessToken, 15 * 60 * 1000, remember); // 토큰 + 만료시각 저장 (15분 후)
+      
+      // 자동 로그인 설정 저장
       if (remember) {
-        localStorage.setItem('klicklab_token', accessToken);
+        setAutoLogin(true, { email, password });
       } else {
-        sessionStorage.setItem('klicklab_token', accessToken);
+        setAutoLogin(false);
       }
+      
+      setAuthState("loggedIn");
       window.location.href = '/';
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -53,12 +82,6 @@ export default function LoginForm() {
         </div>
         <div className="flex justify-between items-center">
           <label className="block text-gray-700 mb-1">비밀번호</label>
-          {/* <a
-            href="/forgot-password"
-            className="text-sm text-blue-600 hover:underline"
-          >
-            비밀번호 찾기
-          </a> */}
         </div>
         <div>
           <input
@@ -84,9 +107,10 @@ export default function LoginForm() {
         </div>
         <button
           type="submit"
-          className="w-full py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition"
+          disabled={isLoading}
+          className="w-full py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition disabled:bg-blue-400 disabled:cursor-not-allowed"
         >
-          로그인
+          {isLoading ? '로그인 중...' : '로그인'}
         </button>
       </form>
       <p className="text-center text-gray-500 mt-6">
