@@ -77,9 +77,6 @@ async function getMultiStepPaths({ steps, from, to, limit = 5, sdk_key }) {
   return result.json();
 }
 
-module.exports = { getNextSteps, getMultiStepPaths };
-//module.exports = { getNextSteps };
-
 async function getMultiStepPaths({ steps, from, to, limit = 5, sdk_key }) {
   // 마지막으로 선택된 페이지에서 다음 경로 조회
   const lastStep = steps[steps.length - 1];
@@ -111,3 +108,5 @@ async function getMultiStepPaths({ steps, from, to, limit = 5, sdk_key }) {
 
   return result.json();
 }
+
+module.exports = { getNextSteps, getMultiStepPaths };
