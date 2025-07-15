@@ -363,19 +363,31 @@ router.get(
   authMiddleware,
   async (req, res) => {
     const { sdk_key } = req.user;
-    let { fromPage, toPage, limit = 3, startDate, endDate } = req.query;
+    let { fromPage, toPage, event, limit = 3, startDate, endDate } = req.query;
 
-    // 전환 이벤트 설정값을 우선 적용
+    // event 파라미터가 있으면 fromPage, toPage를 매핑
+    if (event) {
+      const eventMap = {
+        is_payment: { fromPage: "/cart", toPage: "/checkout/success" },
+        is_signup: { fromPage: "/signup", toPage: "/signup/success" },
+        add_to_cart: { fromPage: "/products", toPage: "/cart" },
+        contact_submit: { fromPage: "/contact", toPage: "/contact/success" },
+      };
+      fromPage = eventMap[event]?.fromPage;
+      toPage = eventMap[event]?.toPage;
+    }
+
+    // 기존 로직 유지
     if (!fromPage || !toPage) {
       const eventPages = await getCurrentConversionEvent(sdk_key);
       fromPage = fromPage || eventPages.fromPage;
       toPage = toPage || eventPages.toPage;
     }
 
-  const start = startDate ? `toDate('${startDate}')` : `today() - 6`;
-  const end = endDate ? `toDate('${endDate}')` : `today()`;
+    const start = startDate ? `toDate('${startDate}')` : `today() - 6`;
+    const end = endDate ? `toDate('${endDate}')` : `today()`;
 
-  const query = `
+    const query = `
     WITH
       -- A: fromPage 도달 세션
       a_sessions AS (
@@ -433,7 +445,11 @@ router.get(
 
       -- 전체 fromPage 세션 수(분모)
       total_a_sessions AS (
-        SELECT count() AS total_sessions FROM a_sessions
+        SELECT
+          count() AS total_sessions,
+          sumIf(is_converted, is_converted = 1) AS total_conversion,
+          avg(is_converted) * 100 AS avg_rate
+        FROM labeled_paths
       ),
 
       -- 경로별 집계 (분자: 전환까지 밟은 세션)
@@ -450,35 +466,47 @@ router.get(
       path_string,
       conversion_count,
       round(conversion_count / nullIf(ts.total_sessions, 0) * 100, 1) AS conversion_rate,
+      round(conversion_count / nullIf(ts.total_conversion, 0) * 100, 1) AS share,
+      round(conversion_rate / nullIf(ts.avg_rate, 0), 1) AS compare_to_avg,
       ts.total_sessions AS fromPage_sessions
-    FROM path_stats, total_a_sessions ts
+    FROM path_stats
+    CROSS JOIN total_a_sessions ts
+    HAVING length(path_string) > 0
     ORDER BY conversion_count DESC
     LIMIT ${limit}
   `;
 
-  try {
-    const resultSet = await clickhouse.query({
-      query,
-      format: "JSONEachRow",
-    });
-    const rows = await resultSet.json();
+    try {
+      const resultSet = await clickhouse.query({
+        query,
+        format: "JSONEachRow",
+      });
+      const rows = await resultSet.json();
 
-    const totalConversion = rows.reduce((acc, row) => acc + Number(row.conversion_count || 0), 0);
+      const totalConversion = rows.reduce(
+        (acc, row) => acc + Number(row.conversion_count || 0),
+        0
+      );
 
       const data = rows.map((row, index) => ({
         path: row.path_string.split(" → "),
         conversionCount: Number(row.conversion_count),
-        conversionRate: Number(row.conversion_rate),
+        conversionRate: Number(row.conversion_rate), // fromPage 세션 대비 전환률
+        fromPageSessions: Number(row.fromPage_sessions), // 분모
         rank: index + 1,
         share: Number(row.share),
         compareToAvg: Number(row.compare_to_avg),
       }));
 
-    res.status(200).json({ data, totalConversion });
-  } catch (err) {
-    console.error("Conversion Top3 API ERROR:", err);
-    res.status(500).json({ error: "Failed to get conversion top paths" });
+      res.status(200).json({
+        data,
+        totalConversion,
+      });
+    } catch (err) {
+      console.error("Conversion Top3 API ERROR:", err);
+      res.status(500).json({ error: "Failed to get conversion top paths" });
+    }
   }
-});
+);
 
 module.exports = router;
