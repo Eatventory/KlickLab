@@ -119,13 +119,13 @@ export const EngagementDashboard: React.FC = () => {
 
       {/* 이탈 페이지 & 페이지별 체류시간 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        {/* <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center gap-2 mb-4">
             <BarChart3 className="w-5 h-5 text-gray-600" />
             <h2 className="text-lg font-semibold text-gray-900">이탈 페이지 분석</h2>
           </div>
           <ExitPageChart data={mockDashboardData.exitPages} />
-        </div>
+        </div> */}
 
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center gap-2 mb-4">
@@ -134,16 +134,21 @@ export const EngagementDashboard: React.FC = () => {
           </div>
           <PageTimeChart data={pageTimes} />
         </div>
+
+        {/* 임시 */}
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+          <DropoffInsightsCard />
+        </div>
       </div>
 
       {/* 이탈률 요약 & 세션 길이 분포 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+        {/* <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
           <DropoffInsightsCard />
-        </div>
+        </div> */}
 
         {/* 세션 길이 분포 */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        {/* <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center gap-2 mb-4">
             <TrendingUp className="w-5 h-5 text-gray-600" />
             <h3 className="text-lg font-semibold text-gray-900">세션 길이 분포</h3>
@@ -151,11 +156,11 @@ export const EngagementDashboard: React.FC = () => {
           <div className="flex items-center justify-center h-32 text-gray-500">
             개발 중...
           </div>
-        </div>
+        </div> */}
       </div>
 
       {/* 클릭 전 체류시간 */}
-      <div className="grid grid-cols-1 gap-8">
+      {/* <div className="grid grid-cols-1 gap-8">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center gap-2 mb-4">
             <Clock className="w-5 h-5 text-gray-600" />
@@ -165,7 +170,7 @@ export const EngagementDashboard: React.FC = () => {
             개발 중...
           </div>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 }; 

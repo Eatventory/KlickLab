@@ -259,7 +259,7 @@ router.get("/dropoff-summary", authMiddleware, async (req, res) => {
           page_path,
           sum(page_exits) AS exit_count,
           sum(page_views) AS total_count
-        FROM klicklab.hourly_page_stats
+        FROM hourly_page_stats
         WHERE date_time >= toDateTime('${todayStart}')
           AND page_path != ''
           AND sdk_key = '${sdk_key}'
@@ -288,65 +288,63 @@ router.get("/userpath-summary", authMiddleware, async (req, res) => {
   const fromPage = "/cart";
   const toPage = "/checkout/success";
 
-  let segmentFilter = "";
+  let sessionFilter = ""; // 세션 필터
+
+  // segment 필터 로직
   if (segment === "converted") {
-    segmentFilter = `
+    sessionFilter = `
       AND session_id IN (
-        SELECT a.session_id
-        FROM (
-          SELECT session_id, min(timestamp) AS a_time
-          FROM events
-          WHERE page_path = '${fromPage}'
-            AND sdk_key = '${sdk_key}'
-          GROUP BY session_id
-        ) a
-        INNER JOIN (
-          SELECT session_id, min(timestamp) AS b_time
-          FROM events
-          WHERE page_path = '${toPage}'
-            AND sdk_key = '${sdk_key}'
-          GROUP BY session_id
-        ) b ON a.session_id = b.session_id AND a.a_time < b.b_time
+        SELECT session_id
+        FROM events_pages
+        WHERE sdk_key = '${sdk_key}'
+        GROUP BY session_id
+        HAVING
+          minIf(event_ts, page_path = '${fromPage}') IS NOT NULL
+          AND minIf(event_ts, page_path = '${toPage}') IS NOT NULL
+          AND minIf(event_ts, page_path = '${fromPage}') < minIf(event_ts, page_path = '${toPage}')
       )
     `;
   } else if (segment === "abandoned_cart") {
-    segmentFilter = `
+    sessionFilter = `
       AND session_id IN (
         SELECT session_id
-        FROM events
-        WHERE page_path = '${fromPage}'
-          AND sdk_key = '${sdk_key}'
-          AND session_id NOT IN (
-            SELECT session_id
-            FROM events
-            WHERE page_path = '${toPage}'
-              AND sdk_key = '${sdk_key}'
-          )
+        FROM events_pages
+        WHERE sdk_key = '${sdk_key}'
+        GROUP BY session_id
+        HAVING
+          minIf(event_ts, page_path = '${fromPage}') IS NOT NULL
+          AND minIf(event_ts, page_path = '${toPage}') IS NULL
       )
     `;
   }
 
   const query = `
-    SELECT
-      from,
-      to,
-      sum(count) AS value
-    FROM (
+    WITH raw_paths AS (
       SELECT
-        page_path AS from,
-        arrayJoin(arrayZip(next_pages.to, next_pages.count)) AS pair,
-        pair.1 AS to,
-        pair.2 AS count
-      FROM klicklab.hourly_page_stats
-      WHERE date_time >= toDateTime('${todayStart}')
-        AND page_path != ''
-        AND sdk_key = '${sdk_key}'
-        AND length(next_pages.to) > 0
-        ${segmentFilter}
+        session_id,
+        groupArrayIf((event_ts, page_path), page_path != '') AS ordered
+      FROM events_pages
+      WHERE sdk_key = '${sdk_key}'
+        AND event_ts >= now() - INTERVAL 1 DAY
+        ${sessionFilter}
+      GROUP BY session_id
+    ),
+    flattened AS (
+      SELECT
+        arrayJoin(
+          arrayMap(i -> (ordered[i].2, ordered[i+1].2), range(length(ordered) - 1))
+        ) AS pair
+      FROM raw_paths
     )
+    SELECT
+      pair.1 AS from,
+      pair.2 AS to,
+      count(*) AS value
+    FROM flattened
+    WHERE pair.1 != '' AND pair.2 != ''
     GROUP BY from, to
     ORDER BY value DESC
-    LIMIT 1000
+    LIMIT 500
   `;
 
   try {
@@ -389,125 +387,138 @@ router.get(
     const start = startDate ? `toDate('${startDate}')` : `today() - 6`;
     const end = endDate ? `toDate('${endDate}')` : `today()`;
 
-    const query = `
-    WITH
-      -- A: fromPage 도달 세션
-      a_sessions AS (
-        SELECT session_id, min(timestamp) AS a_time
-        FROM events
-        WHERE page_path = '${fromPage}'
-          AND toDate(timestamp) BETWEEN ${start} AND ${end}
-          AND sdk_key = '${sdk_key}'
-        GROUP BY session_id
-      ),
-
-      -- B: toPage 도달 세션
-      b_sessions AS (
-        SELECT session_id, min(timestamp) AS b_time
-        FROM events
-        WHERE page_path = '${toPage}'
-          AND toDate(timestamp) BETWEEN ${start} AND ${end}
-          AND sdk_key = '${sdk_key}'
-        GROUP BY session_id
-      ),
-
-      -- A → B를 만족하는 전환 세션
-      ab_sessions AS (
+    // 1. fromPage 전체 세션 수 집계
+    const totalFromPageQuery = `
+      SELECT count(DISTINCT session_id) AS total_frompage_sessions
+      FROM events
+      WHERE page_path = '${fromPage}'
+        AND toDate(timestamp) BETWEEN ${start} AND ${end}
+        AND sdk_key = '${sdk_key}'
+    `;
+    // 2. 전체 전환 성공 세션 수 집계
+    const totalConversionQuery = `
+      WITH
+        a_sessions AS (
+          SELECT session_id, min(timestamp) AS a_time
+          FROM events
+          WHERE page_path = '${fromPage}'
+            AND toDate(timestamp) BETWEEN ${start} AND ${end}
+            AND sdk_key = '${sdk_key}'
+          GROUP BY session_id
+        ),
+        b_sessions AS (
+          SELECT session_id, min(timestamp) AS b_time
+          FROM events
+          WHERE page_path = '${toPage}'
+            AND toDate(timestamp) BETWEEN ${start} AND ${end}
+            AND sdk_key = '${sdk_key}'
+          GROUP BY session_id
+        )
+      SELECT count() AS total_conversion
+      FROM (
         SELECT a.session_id
         FROM a_sessions a
         INNER JOIN b_sessions b USING (session_id)
         WHERE b.b_time > a.a_time
-      ),
-
-      -- A 세션 기준 전체 경로 복원
-      full_paths AS (
-        SELECT
-          session_id,
-          arraySlice(
-            arrayMap(x -> x.2, arraySort(x -> x.1, groupArray((timestamp, page_path)))),
-            1,
-            indexOf(arrayMap(x -> x.2, arraySort(x -> x.1, groupArray((timestamp, page_path)))), '${toPage}')
-          ) AS path
-        FROM events
-        WHERE session_id IN (SELECT session_id FROM a_sessions)
-          AND toDate(timestamp) BETWEEN ${start} AND ${end}
-          AND sdk_key = '${sdk_key}'
-        GROUP BY session_id
-      ),
-
-      -- 라벨링: 전환 여부
-      labeled_paths AS (
-        SELECT
-          fp.session_id,
-          fp.path,
-          isNotNull(ab.session_id) AS is_converted
-        FROM full_paths fp
-        LEFT JOIN ab_sessions ab USING (session_id)
-      ),
-
-      -- 전체 fromPage 세션 수(분모)
-      total_a_sessions AS (
-        SELECT count() AS total_sessions FROM a_sessions
-      ),
-
-      -- 경로별 집계 (분자: 전환까지 밟은 세션)
-      path_stats AS (
-        SELECT
-          arrayStringConcat(path, ' → ') AS path_string,
-          count() AS total_sessions, -- 이 경로를 밟은 세션 수(분자)
-          sum(is_converted) AS conversion_count,
-          round(sum(is_converted) / nullIf(count(), 0) * 100, 1) AS conversion_rate
-        FROM labeled_paths
-        GROUP BY path
-      ),
-
-      -- 총 전환 수 및 평균 전환율
-      total_stats AS (
-        SELECT
-          sum(conversion_count) AS total_conversion,
-          avg(conversion_rate) AS avg_rate
-        FROM path_stats
       )
-
-    SELECT
-      path_string,
-      conversion_count,
-      conversion_rate,
-      round(conversion_count / nullIf(total_stats.total_conversion, 0) * 100, 1) AS share,
-      round(conversion_rate / nullIf(total_stats.avg_rate, 0), 1) AS compare_to_avg,
-      total_a_sessions.total_sessions AS fromPage_sessions
-    FROM path_stats, total_stats, total_a_sessions
-    ORDER BY conversion_count DESC
-    LIMIT ${limit}
-  `;
+    `;
+    // 3. 경로별 집계 (경로별 전체 세션 수, 경로별 전환 성공 세션 수)
+    const pathStatsQuery = `
+      WITH
+        a_sessions AS (
+          SELECT session_id, min(timestamp) AS a_time
+          FROM events
+          WHERE page_path = '${fromPage}'
+            AND toDate(timestamp) BETWEEN ${start} AND ${end}
+            AND sdk_key = '${sdk_key}'
+          GROUP BY session_id
+        ),
+        b_sessions AS (
+          SELECT session_id, min(timestamp) AS b_time
+          FROM events
+          WHERE page_path = '${toPage}'
+            AND toDate(timestamp) BETWEEN ${start} AND ${end}
+            AND sdk_key = '${sdk_key}'
+          GROUP BY session_id
+        ),
+        ab_sessions AS (
+          SELECT a.session_id
+          FROM a_sessions a
+          INNER JOIN b_sessions b USING (session_id)
+          WHERE b.b_time > a.a_time
+        ),
+        full_paths AS (
+          SELECT
+            session_id,
+            arrayMap(x -> x.2, arraySort(x -> x.1, groupArray((timestamp, page_path)))) AS path
+          FROM events
+          WHERE session_id IN (SELECT session_id FROM a_sessions)
+            AND toDate(timestamp) BETWEEN ${start} AND ${end}
+            AND sdk_key = '${sdk_key}'
+          GROUP BY session_id
+        ),
+        labeled_paths AS (
+          SELECT
+            fp.session_id,
+            arraySlice(fp.path, 1, if(indexOf(fp.path, '${toPage}') > 0, indexOf(fp.path, '${toPage}'), length(fp.path))) AS path,
+            arrayStringConcat(arraySlice(fp.path, 1, if(indexOf(fp.path, '${toPage}') > 0, indexOf(fp.path, '${toPage}'), length(fp.path))), ' → ') AS path_string,
+            isNotNull(ab.session_id) AS is_converted
+          FROM full_paths fp
+          LEFT JOIN ab_sessions ab USING (session_id)
+        )
+      SELECT
+        path_string,
+        count() AS total_sessions,
+        sum(is_converted) AS conversion_count
+      FROM labeled_paths
+      GROUP BY path_string
+      HAVING sum(is_converted) > 0
+      ORDER BY conversion_count DESC
+      LIMIT ${limit}
+    `;
 
     try {
-      const resultSet = await clickhouse.query({
-        query,
-        format: "JSONEachRow",
-      });
-      const rows = await resultSet.json();
-
-      const totalConversion = rows.reduce(
-        (acc, row) => acc + Number(row.conversion_count || 0),
-        0
-      );
-
-      const data = rows.map((row, index) => ({
+      // 쿼리 병렬 실행
+      const [fromPageRes, totalConvRes, pathStatsRes] = await Promise.all([
+        clickhouse
+          .query({ query: totalFromPageQuery, format: "JSON" })
+          .then((r) => r.json()),
+        clickhouse
+          .query({ query: totalConversionQuery, format: "JSON" })
+          .then((r) => r.json()),
+        clickhouse
+          .query({ query: pathStatsQuery, format: "JSON" })
+          .then((r) => r.json()),
+      ]);
+      const totalFromPage = fromPageRes.data?.[0]?.total_frompage_sessions || 0;
+      const totalConversion = totalConvRes.data?.[0]?.total_conversion || 0;
+      const pathRows = pathStatsRes.data || [];
+      const data = pathRows.map((row, index) => ({
         path: row.path_string.split(" → "),
         conversionCount: Number(row.conversion_count),
-        conversionRate: Number(row.conversion_rate),
-        fromPageSessions: Number(row.fromPage_sessions),
-        share: row.share !== undefined ? Number(row.share) : undefined,
-        compareToAvg:
-          row.compare_to_avg !== undefined
-            ? Number(row.compare_to_avg)
-            : undefined,
+        conversionRate:
+          totalFromPage > 0
+            ? Math.round((row.conversion_count / totalFromPage) * 1000) / 10
+            : 0,
+        share:
+          totalConversion > 0
+            ? Math.round((row.conversion_count / totalConversion) * 1000) / 10
+            : 0,
         rank: index + 1,
       }));
-
+      const avgConversionRate =
+        data.length > 0
+          ? data.reduce((sum, d) => sum + d.conversionRate, 0) / data.length
+          : 0;
+      const dataWithCompare = data.map((d) => ({
+        ...d,
+        compareToAvg:
+          avgConversionRate > 0
+            ? Math.round((d.conversionRate / avgConversionRate) * 10) / 10
+            : "-",
+      }));
       res.status(200).json({
-        data,
+        data: dataWithCompare,
         totalConversion,
       });
     } catch (err) {

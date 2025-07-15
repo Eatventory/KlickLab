@@ -10,7 +10,7 @@ import { useSegmentFilter } from '../../context/SegmentFilterContext';
 
 // 타입 정의
 interface FilterOptions {
-  period: 'daily' | 'weekly' | 'monthly';
+  period: 'hourly' | 'daily' | 'weekly' | 'monthly';
   gender: 'all' | 'male' | 'female';
   ageGroup: 'all' | '10s' | '20s' | '30s' | '40s' | '50s' | '60s+';
 }
@@ -83,7 +83,7 @@ function formatKoreanNumber(value: number) {
 export const TrafficDashboard: React.FC = () => {
   const { filter: globalFilter } = useSegmentFilter();
   const [filters, setFilters] = useState<FilterOptions>({
-    period: 'daily',
+    period: 'hourly',
     gender: 'all',
     ageGroup: 'all'
   });
@@ -238,18 +238,18 @@ export const TrafficDashboard: React.FC = () => {
             <Globe className="w-5 h-5 text-gray-600" />
             <h3 className="text-lg font-semibold text-gray-900">유입 채널 분포</h3>
           </div>
-          <ResponsiveContainer width="100%" height={220}>
+          <ResponsiveContainer width="100%" height={240}>
             <PieChart>
               <Pie
                 data={entryPageData}
                 dataKey="visitors"
-                nameKey="entry"
+                nameKey="source"
                 cx="50%"
                 cy="50%"
                 outerRadius={80}
-                label={({ entry }) => entry || '/'}
+                label={({ source }) => source || '/'}
               >
-                {entryPageData.map((entry, idx) => (
+                {entryPageData.map((source, idx) => (
                   <Cell key={`cell-${idx}`} fill={["#3b82f6", "#10b981", "#f59e42", "#ef4444", "#8b5cf6", "#6366f1", "#fbbf24", "#f472b6", "#34d399", "#a3e635"][idx % 10]} />
                 ))}
               </Pie>
