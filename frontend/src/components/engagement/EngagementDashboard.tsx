@@ -4,6 +4,7 @@ import { PageTimeChart } from './PageTimeChart';
 import { DropoffInsightsCard } from './DropoffInsightsCard';
 import { Clock, BarChart3, TrendingUp } from 'lucide-react';
 import { mockDashboardData } from '../../data/mockData';
+import { useSegmentFilter } from '../../context/SegmentFilterContext';
 
 // 타입 정의
 interface FilterOptions {
@@ -19,6 +20,7 @@ interface PageTimeData {
 }
 
 export const EngagementDashboard: React.FC = () => {
+  const { filter: globalFilter } = useSegmentFilter();
   const [filters, setFilters] = useState<FilterOptions>({
     period: '1day',
     pageType: 'all',
@@ -35,8 +37,22 @@ export const EngagementDashboard: React.FC = () => {
       if (!token) throw new Error("No token");
       setLoading(true);
       setError(null);
+      
+      // 전역 필터 조건을 URL 파라미터로 변환
+      const globalFilterParams = new URLSearchParams();
+      if (globalFilter.conditions) {
+        Object.entries(globalFilter.conditions).forEach(([key, value]) => {
+          if (value !== undefined && value !== null && value !== '') {
+            globalFilterParams.append(key, String(value));
+          }
+        });
+      }
+      
+      const globalFilterString = globalFilterParams.toString();
+      const globalFilterQuery = globalFilterString ? `&${globalFilterString}` : '';
+      
       const params = new URLSearchParams(filters as any).toString();
-      const res = await fetch(`/api/engagement/page-times?${params}`, {headers: { Authorization: `Bearer ${token}` }});
+      const res = await fetch(`/api/engagement/page-times?${params}${globalFilterQuery}`, {headers: { Authorization: `Bearer ${token}` }});
       if (!res.ok) throw new Error('페이지 체류시간 데이터를 불러오지 못했습니다.');
       const data = await res.json();
       setPageTimes(data);
@@ -50,7 +66,7 @@ export const EngagementDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-  }, [filters]);
+  }, [filters, JSON.stringify(globalFilter.conditions)]);
 
   const handleFilterChange = (key: keyof FilterOptions, value: string) => {
     setFilters(prev => ({

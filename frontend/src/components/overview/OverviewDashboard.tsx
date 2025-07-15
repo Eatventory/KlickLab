@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
+import { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { StatCard } from './StatCard';
 import { Summary } from './Summary';
 import { TopClicks } from './TopClicks';
@@ -11,6 +11,7 @@ import { ConversionSummaryCard } from './ConversionSummaryCard';
 import ConversionPathsCard from './ConversionPathsCard';
 import { VisitorChart } from '../traffic/VisitorChart';
 import { TrendingUp } from 'lucide-react';
+import { useSegmentFilter } from '../../context/SegmentFilterContext';
 
 interface PathData {
   from: string;
@@ -30,6 +31,7 @@ interface ClicksData {
 }
 
 export const OverviewDashboard = forwardRef<any, { onLastUpdated?: (d: Date) => void }>((props, ref) => {
+  const { filter: globalFilter } = useSegmentFilter();
   const [visitorsData, setVisitorsData] = useState<VisitorsData | null>(null);
   const [clicksData, setClicksData] = useState<ClicksData | null>(null);
   const [userPathData, setUserPathData] = useState<any[]>([]);
@@ -50,11 +52,25 @@ export const OverviewDashboard = forwardRef<any, { onLastUpdated?: (d: Date) => 
     try {
       const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
       if (!token) throw new Error("No token");
+      
+      // 전역 필터 조건을 URL 파라미터로 변환
+      const globalFilterParams = new URLSearchParams();
+      if (globalFilter.conditions) {
+        Object.entries(globalFilter.conditions).forEach(([key, value]) => {
+          if (value !== undefined && value !== null && value !== '') {
+            globalFilterParams.append(key, String(value));
+          }
+        });
+      }
+      
+      const globalFilterString = globalFilterParams.toString();
+      const globalFilterQuery = globalFilterString ? `?${globalFilterString}` : '';
+      
       const [visitorsResponse, clicksResponse, userPathResponse, visitorTrendResponse] = await Promise.all([
-        fetch(`/api/stats/visitors`, {headers: { Authorization: `Bearer ${token}` }}),
-        fetch(`/api/stats/clicks`, {headers: { Authorization: `Bearer ${token}` }}),
-        fetch(`/api/stats/userpath-summary`, {headers: { Authorization: `Bearer ${token}` }}),
-        fetch(`/api/traffic/daily-visitors`, {headers: { Authorization: `Bearer ${token}` }})
+        fetch(`/api/stats/visitors${globalFilterQuery}`, {headers: { Authorization: `Bearer ${token}` }}),
+        fetch(`/api/stats/clicks${globalFilterQuery}`, {headers: { Authorization: `Bearer ${token}` }}),
+        fetch(`/api/stats/userpath-summary${globalFilterQuery}`, {headers: { Authorization: `Bearer ${token}` }}),
+        fetch(`/api/traffic/daily-visitors${globalFilterQuery}`, {headers: { Authorization: `Bearer ${token}` }})
       ]);
       const visitors = await visitorsResponse.json();
       const clicks = await clicksResponse.json();
@@ -90,7 +106,7 @@ export const OverviewDashboard = forwardRef<any, { onLastUpdated?: (d: Date) => 
 
   useEffect(() => {
     fetchStats();
-  }, []);
+  }, [JSON.stringify(globalFilter.conditions)]); // 전역 필터 변경 시 실행
 
   // 30초마다 자동 새로고침
   useEffect(() => {
@@ -98,7 +114,7 @@ export const OverviewDashboard = forwardRef<any, { onLastUpdated?: (d: Date) => 
       fetchStats();
     }, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [JSON.stringify(globalFilter.conditions)]); // 전역 필터 변경 시에도 interval 재설정
 
   if (visitorsData === null || clicksData === null) {
     return (
