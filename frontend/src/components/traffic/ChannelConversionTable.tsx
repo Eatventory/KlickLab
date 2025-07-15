@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BarChart3, Trophy } from 'lucide-react';
 import { Tooltip } from 'react-tooltip';
 import { useConversionEvent } from '../../context/ConversionEventContext';
@@ -13,63 +13,60 @@ interface ChannelData {
   conversionRate: number;
 }
 
+interface ChannelConversionResponse {
+  success: boolean;
+  data: ChannelData[];
+}
+
 interface ChannelConversionTableProps {
   className?: string;
 }
 
-const mockChannelData: ChannelData[] = [
-  {
-    channel: "Google",
-    source: "google",
-    medium: "cpc",
-    campaign: "summer_sale",
-    totalSessions: 1250,
-    convertedSessions: 89,
-    conversionRate: 7.1
-  },
-  {
-    channel: "Facebook",
-    source: "facebook",
-    medium: "social",
-    campaign: "brand_awareness",
-    totalSessions: 890,
-    convertedSessions: 45,
-    conversionRate: 5.1
-  },
-  {
-    channel: "Instagram",
-    source: "instagram",
-    medium: "social",
-    campaign: "influencer_marketing",
-    totalSessions: 567,
-    convertedSessions: 38,
-    conversionRate: 6.7
-  },
-  {
-    channel: "Direct",
-    source: "direct",
-    medium: "none",
-    campaign: "direct_traffic",
-    totalSessions: 2340,
-    convertedSessions: 156,
-    conversionRate: 6.7
-  },
-  {
-    channel: "Organic Search",
-    source: "google",
-    medium: "organic",
-    campaign: "seo_traffic",
-    totalSessions: 1890,
-    convertedSessions: 134,
-    conversionRate: 7.1
-  }
-];
-
 export const ChannelConversionTable: React.FC<ChannelConversionTableProps> = ({ className }) => {
   const { currentEvent } = useConversionEvent();
-  // 추후 fetch 시 currentEvent를 쿼리파라미터 등으로 넘길 수 있도록 준비
+  const [data, setData] = useState<ChannelData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'conversionRate' | 'totalSessions' | 'convertedSessions'>('conversionRate');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  const fetchChannelConversionData = async () => {
+    if (!currentEvent) return;
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+      if (!token) throw new Error("No token");
+      
+      const response = await fetch(`/api/overview/conversion-by-channel?to=/checkout/success&event=${currentEvent}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (!response.ok) {
+        throw new Error('채널별 전환율 데이터를 불러올 수 없습니다.');
+      }
+      
+      const result: ChannelConversionResponse = await response.json();
+      
+      if (!result.success) {
+        throw new Error('데이터 처리 중 오류가 발생했습니다.');
+      }
+      
+      setData(result.data || []);
+    } catch (err) {
+      console.error('Channel Conversion API Error:', err);
+      setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.');
+      setData([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchChannelConversionData();
+  }, [currentEvent]);
 
   const handleSort = (field: 'conversionRate' | 'totalSessions' | 'convertedSessions') => {
     if (sortBy === field) {
@@ -80,7 +77,7 @@ export const ChannelConversionTable: React.FC<ChannelConversionTableProps> = ({ 
     }
   };
 
-  const sortedData = [...mockChannelData].sort((a, b) => {
+  const sortedData = [...data].sort((a, b) => {
     const aValue = a[sortBy];
     const bValue = b[sortBy];
     
@@ -93,9 +90,39 @@ export const ChannelConversionTable: React.FC<ChannelConversionTableProps> = ({ 
     return primarySort;
   });
 
-  const maxConversionRate = Math.max(...mockChannelData.map(channel => channel.conversionRate));
+  const maxConversionRate = data.length > 0 ? Math.max(...data.map(channel => channel.conversionRate)) : 0;
 
   const formatNumber = (num: number) => num.toLocaleString();
+
+  if (loading) {
+    return (
+      <div className={`bg-white rounded-lg shadow-sm border border-gray-200 p-4 w-1/2 ${className || ''}`}>
+        <div className="flex items-center justify-center h-32">
+          <div className="text-gray-500">데이터 로딩 중...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className={`bg-white rounded-lg shadow-sm border border-gray-200 p-4 w-1/2 ${className || ''}`}>
+        <div className="flex items-center justify-center h-32">
+          <div className="text-red-500">{error}</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (data.length === 0) {
+    return (
+      <div className={`bg-white rounded-lg shadow-sm border border-gray-200 p-4 w-1/2 ${className || ''}`}>
+        <div className="flex items-center justify-center h-32">
+          <div className="text-gray-500">채널별 전환율 데이터가 없습니다.</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`bg-white rounded-lg shadow-sm border border-gray-200 p-4 w-1/2 ${className || ''}`}>
@@ -124,7 +151,7 @@ export const ChannelConversionTable: React.FC<ChannelConversionTableProps> = ({ 
           </thead>
           <tbody>
             {sortedData.map((channel, index) => (
-              <tr key={channel.channel} className="border-b border-gray-100 hover:bg-gray-50" data-tooltip-id={`channel-tooltip-${index}`}>
+              <tr key={`${channel.source}-${channel.medium}-${channel.campaign}`} className="border-b border-gray-100 hover:bg-gray-50" data-tooltip-id={`channel-tooltip-${index}`}>
                 <td className="py-2 px-3 align-top"> 
                   <div className="flex flex-col items-center">
                     <span className="font-medium text-gray-900 text-sm flex items-center gap-2">
