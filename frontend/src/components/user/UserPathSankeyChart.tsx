@@ -266,14 +266,6 @@ export const UserPathSankeyChart: React.FC<UserPathSankeyChartProps> = ({ data: 
         </div>
       )}
 
-      {!isLoading && !error && filteredData.length === 0 && (
-        <div className="flex justify-center items-center h-64">
-          <div className="text-gray-500 text-center text-sm">
-            상위 {topPercent}% 안에 포함되는 경로가 없습니다.
-          </div>
-        </div>
-      )}
-
       {/* Sankey 차트 */}
       {!isLoading && !error && filteredData.length > 0 && (
         <div className="flex justify-center">

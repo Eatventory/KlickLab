@@ -266,20 +266,14 @@ router.get('/userpath-summary', authMiddleware, async (req, res) => {
   if (segment === 'converted') {
     sessionFilter = `
       AND session_id IN (
-        SELECT a.session_id
-        FROM (
-          SELECT session_id, min(event_ts) AS a_time
-          FROM events_pages
-          WHERE page_path = '${fromPage}' AND sdk_key = '${sdk_key}'
-          GROUP BY session_id
-        ) AS a
-        INNER JOIN (
-          SELECT session_id, min(event_ts) AS b_time
-          FROM events_pages
-          WHERE page_path = '${toPage}' AND sdk_key = '${sdk_key}'
-          GROUP BY session_id
-        ) AS b
-        ON a.session_id = b.session_id AND a.a_time < b.b_time
+        SELECT session_id
+        FROM events_pages
+        WHERE sdk_key = '${sdk_key}'
+        GROUP BY session_id
+        HAVING
+          minIf(event_ts, page_path = '${fromPage}') IS NOT NULL
+          AND minIf(event_ts, page_path = '${toPage}') IS NOT NULL
+          AND minIf(event_ts, page_path = '${fromPage}') < minIf(event_ts, page_path = '${toPage}')
       )
     `;
   } else if (segment === 'abandoned_cart') {
@@ -287,12 +281,11 @@ router.get('/userpath-summary', authMiddleware, async (req, res) => {
       AND session_id IN (
         SELECT session_id
         FROM events_pages
-        WHERE page_path = '${fromPage}' AND sdk_key = '${sdk_key}'
-        AND session_id NOT IN (
-          SELECT session_id
-          FROM events_pages
-          WHERE page_path = '${toPage}' AND sdk_key = '${sdk_key}'
-        )
+        WHERE sdk_key = '${sdk_key}'
+        GROUP BY session_id
+        HAVING
+          minIf(event_ts, page_path = '${fromPage}') IS NOT NULL
+          AND minIf(event_ts, page_path = '${toPage}') IS NULL
       )
     `;
   }
@@ -301,10 +294,9 @@ router.get('/userpath-summary', authMiddleware, async (req, res) => {
     WITH raw_paths AS (
       SELECT
         session_id,
-        groupArray((event_ts, page_path)) AS ordered
+        groupArrayIf((event_ts, page_path), page_path != '') AS ordered
       FROM events_pages
       WHERE sdk_key = '${sdk_key}'
-        AND page_path != ''
         AND event_ts >= now() - INTERVAL 1 DAY
         ${sessionFilter}
       GROUP BY session_id
@@ -321,6 +313,7 @@ router.get('/userpath-summary', authMiddleware, async (req, res) => {
       pair.2 AS to,
       count(*) AS value
     FROM flattened
+    WHERE pair.1 != '' AND pair.2 != ''
     GROUP BY from, to
     ORDER BY value DESC
     LIMIT 500
