@@ -445,7 +445,11 @@ router.get(
 
       -- 전체 fromPage 세션 수(분모)
       total_a_sessions AS (
-        SELECT count() AS total_sessions FROM a_sessions
+        SELECT
+          count() AS total_sessions,
+          sumIf(is_converted, is_converted = 1) AS total_conversion,
+          avg(is_converted) * 100 AS avg_rate
+        FROM labeled_paths
       ),
 
       -- 경로별 집계 (분자: 전환까지 밟은 세션)
@@ -462,8 +466,12 @@ router.get(
       path_string,
       conversion_count,
       round(conversion_count / nullIf(ts.total_sessions, 0) * 100, 1) AS conversion_rate,
+      round(conversion_count / nullIf(ts.total_conversion, 0) * 100, 1) AS share,
+      round(conversion_rate / nullIf(ts.avg_rate, 0), 1) AS compare_to_avg,
       ts.total_sessions AS fromPage_sessions
-    FROM path_stats, total_a_sessions ts
+    FROM path_stats
+    CROSS JOIN total_a_sessions ts
+    HAVING length(path_string) > 0
     ORDER BY conversion_count DESC
     LIMIT ${limit}
   `;
@@ -486,6 +494,8 @@ router.get(
         conversionRate: Number(row.conversion_rate), // fromPage 세션 대비 전환률
         fromPageSessions: Number(row.fromPage_sessions), // 분모
         rank: index + 1,
+        share: Number(row.share),
+        compareToAvg: Number(row.compare_to_avg),
       }));
 
       res.status(200).json({
