@@ -1,3 +1,4 @@
+// CustomNode.tsx - sankey 노드 디자인
 import React from 'react';
 
 const CustomNode: React.FC<any> = (props) => {

@@ -6,33 +6,21 @@
  */
 const express = require('express');
 const authMiddleware = require('../middlewares/authMiddleware');
-const { getNextSteps } = require('../services/funnelService');
+const { getNextSteps, getMultiStepPaths } = require('../services/funnelService');
 const { getStartPages } = require('../services/pageService');
-
 const router = express.Router();
 
-/**
- * API 명세: GET /api/funnel/path/next
- * -----------------------------------------------
- * Query Params
- *   step   : '01_view'   (필수)  → 사용자가 클릭한 현재 퍼널 단계
- *   from   : '2025-07-01'(필수)  → 시작 날짜
- *   to     : '2025-07-14'(필수)  → 종료 날짜
- *   limit  : 5            (선택) → Top N 개수
- *
- * Response (200) 응답 예시
- * [
- *   { "target": "02_cart",        "sessions": 30000 },
- *   { "target": "drop_after_01",  "sessions":  9000 }
- * ]
- */
+
 router.get('/path/next', authMiddleware, async (req, res) => {
     try {
         const { page, from, to, limit } = req.query;
+        const { sdk_key } = req.user;  // JWT에서 SDK 키 추출
+
         if (!page || !from || !to) {
             return res.status(400).json({ error: 'page, from, to are required' });
         }
-        const rows = await getNextSteps({ page, from, to, limit });
+
+        const rows = await getNextSteps({ page, from, to, limit, sdk_key });
         res.json(rows);
     } catch (e) {
         console.error('path/next ERROR', e);
@@ -42,7 +30,8 @@ router.get('/path/next', authMiddleware, async (req, res) => {
 
 router.get('/start-pages', authMiddleware, async (req, res) => {
     try {
-        const rows = await getStartPages(req.query);
+        const { sdk_key } = req.user;  // JWT에서 SDK 키 추출
+        const rows = await getStartPages({ ...req.query, sdk_key });
         res.json(rows);
     } catch (e) {
         console.error('start-pages ERROR', e);
@@ -50,5 +39,22 @@ router.get('/start-pages', authMiddleware, async (req, res) => {
     }
 });
 
+// 다단계 경로 조회 API
+router.post('/path/multi-step', authMiddleware, async (req, res) => {
+    try {
+        const { steps, from, to, limit } = req.body;
+        const { sdk_key } = req.user;
+
+        if (!steps || !Array.isArray(steps) || steps.length === 0) {
+            return res.status(400).json({ error: 'steps array is required' });
+        }
+
+        const result = await getMultiStepPaths({ steps, from, to, limit, sdk_key });
+        res.json(result);
+    } catch (e) {
+        console.error('multi-step ERROR', e);
+        res.status(500).json({ error: 'query failed' });
+    }
+});
 
 module.exports = router;
