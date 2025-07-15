@@ -363,9 +363,21 @@ router.get(
   authMiddleware,
   async (req, res) => {
     const { sdk_key } = req.user;
-    let { fromPage, toPage, limit = 3, startDate, endDate } = req.query;
+    let { fromPage, toPage, event, limit = 3, startDate, endDate } = req.query;
 
-    // 전환 이벤트 설정값을 우선 적용
+    // event 파라미터가 있으면 fromPage, toPage를 매핑
+    if (event) {
+      const eventMap = {
+        is_payment: { fromPage: "/cart", toPage: "/checkout/success" },
+        is_signup: { fromPage: "/signup", toPage: "/signup/success" },
+        add_to_cart: { fromPage: "/products", toPage: "/cart" },
+        contact_submit: { fromPage: "/contact", toPage: "/contact/success" },
+      };
+      fromPage = eventMap[event]?.fromPage;
+      toPage = eventMap[event]?.toPage;
+    }
+
+    // 기존 로직 유지
     if (!fromPage || !toPage) {
       const eventPages = await getCurrentConversionEvent(sdk_key);
       fromPage = fromPage || eventPages.fromPage;
@@ -468,10 +480,9 @@ router.get(
       const data = rows.map((row, index) => ({
         path: row.path_string.split(" → "),
         conversionCount: Number(row.conversion_count),
-        conversionRate: Number(row.conversion_rate),
-        rank: index + 1,
-        share: Number(row.share),
-        compareToAvg: Number(row.compare_to_avg),
+        conversionRate: Number(row.conversion_rate), // fromPage 세션 대비 전환률
+        fromPageSessions: Number(row.fromPage_sessions), // 분모
+        rank: index + 1
       }));
 
     res.status(200).json({ data, totalConversion });
