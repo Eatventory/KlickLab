@@ -226,9 +226,24 @@ router.get("/conversion-today", authMiddleware, async (req, res) => {
 /* 첫 랜딩 페이지 기준 전환율 */
 router.get("/conversion-by-landing", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
-  const { start_date, end_date, period = "daily", to } = req.query;
+  const {
+    start_date,
+    end_date,
+    period = "daily",
+    to = "/checkout/success",
+    event,
+  } = req.query;
+
+  // 전환 이벤트에 따른 전환 페이지 매핑
+  const eventToPageMap = {
+    is_payment: "/checkout/success",
+    is_signup: "/signup/complete",
+    add_to_cart: "/cart",
+    contact_submit: "/contact/complete",
+  };
+
+  const toPage = event && eventToPageMap[event] ? eventToPageMap[event] : to;
   // 전환 이벤트 설정값 우선 적용
-  let toPage = to;
   if (!toPage) {
     const eventPages = await getCurrentConversionEvent(sdk_key);
     toPage = eventPages.toPage;
