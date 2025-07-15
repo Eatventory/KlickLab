@@ -1,8 +1,27 @@
 const express = require("express");
 const router = express.Router();
 const clickhouse = require("../src/config/clickhouse");
-const { buildFilterCondition } = require("../utils/filter");
+const {
+  buildFilterCondition,
+  buildUserDistributionFilter,
+} = require("../utils/filter");
 const authMiddleware = require("../middlewares/authMiddleware");
+const { formatLocalDateTime } = require("../utils/formatLocalDateTime");
+const {
+  getLocalNow,
+  getIsoNow,
+  floorToNearest10Min,
+  getNearestHourFloor,
+  getOneHourAgo,
+  getTodayStart,
+} = require("../utils/timeUtils");
+
+const localNow = getLocalNow();
+const isoNow = getIsoNow();
+const tenMinutesFloor = formatLocalDateTime(floorToNearest10Min());
+const NearestHourFloor = formatLocalDateTime(getNearestHourFloor());
+const oneHourFloor = formatLocalDateTime(getOneHourAgo());
+const todayStart = formatLocalDateTime(getTodayStart());
 
 const users_if = "DISTINCT if(user_id IS NULL, client_id, toString(user_id))";
 
@@ -34,7 +53,7 @@ router.get("/top-clicks", authMiddleware, async (req, res) => {
         sum(total_users) AS totalUsers,
         round(sum(total_clicks) / sum(total_users), 1) AS avgClicksPerUser
       FROM daily_click_summary
-      WHERE segment_type = '${segment}' AND date >= toDate('${fromDateStr}')
+      WHERE segment_type = '${segment}' AND date >= toDate('${localNow}') - INTERVAL 6 DAY
         AND sdk_key = '${sdk_key}'
       GROUP BY segment
     `;
@@ -47,7 +66,7 @@ router.get("/top-clicks", authMiddleware, async (req, res) => {
         sum(total_clicks) AS totalClicks,
         sum(user_count) AS userCount
       FROM daily_top_elements
-      WHERE segment_type = '${segment}' AND date >= toDate('${fromDateStr}')
+      WHERE segment_type = '${segment}' AND date >= toDate('${localNow}') - INTERVAL 6 DAY
         AND sdk_key = '${sdk_key}'
       GROUP BY segment, element
       ORDER BY segment, totalClicks DESC
@@ -61,7 +80,7 @@ router.get("/top-clicks", authMiddleware, async (req, res) => {
         dist_value,
         sum(user_count) AS count
       FROM daily_user_distribution
-      WHERE segment_type = '${segment}' AND date >= toDate('${fromDateStr}')
+      WHERE segment_type = '${segment}' AND date >= toDate('${localNow}') - INTERVAL 6 DAY
         AND sdk_key = '${sdk_key}'
       GROUP BY segment, dist_type, dist_value
     `;
@@ -141,39 +160,44 @@ router.get("/top-clicks", authMiddleware, async (req, res) => {
 
 router.get("/user-type-summary", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
-  const { period, userType, device } = req.query;
-  const condition = buildFilterCondition({ period, userType, device });
+  const { period = "1day", userType = "all", device = "all" } = req.query;
+
+  const condition = buildUserDistributionFilter({ period, userType, device });
+
+  const query = `
+    WITH union_data AS (
+      SELECT * FROM hourly_user_distribution
+      WHERE ${condition}
+        AND date_time >= toDateTime('${todayStart}')
+        AND date_time <= toDateTime('${oneHourFloor}')
+        AND sdk_key = '${sdk_key}'
+      UNION ALL
+      SELECT * FROM minutes_user_distribution
+      WHERE ${condition}
+        AND date_time >= toDateTime('${NearestHourFloor}')
+        AND date_time < toDateTime('${tenMinutesFloor}')
+        AND sdk_key = '${sdk_key}'
+    )
+    SELECT
+      dist_type,
+      sum(user_count) AS count
+    FROM union_data
+    GROUP BY dist_type
+  `;
 
   try {
-    const query = `
-      WITH
-        today_users AS (
-          SELECT DISTINCT user_id
-          FROM events
-          WHERE toDate(timestamp) = today() AND user_id IS NOT NULL AND ${condition}
-            AND sdk_key = '${sdk_key}'
-        ),
-        ever_users AS (
-          SELECT DISTINCT user_id
-          FROM events
-          WHERE toDate(timestamp) < today() AND user_id IS NOT NULL AND ${condition}
-            AND sdk_key = '${sdk_key}'
-        )
-      SELECT
-        countIf(u IN (SELECT user_id FROM ever_users)) AS old_users,
-        countIf(u NOT IN (SELECT user_id FROM ever_users)) AS new_users
-      FROM today_users ARRAY JOIN [user_id] AS u
-    `;
-
     const result = await clickhouse
       .query({ query, format: "JSON" })
       .then((r) => r.json());
-    const row = result.data[0] || { new_users: 0, old_users: 0 };
+    const rows = result.data || [];
+
+    const old_users = rows.find((r) => r.dist_type === "existing")?.count || 0;
+    const new_users = rows.find((r) => r.dist_type === "new")?.count || 0;
 
     res.status(200).json({
       data: [
-        { type: "신규 유저", value: Number(row.new_users) },
-        { type: "기존 유저", value: Number(row.old_users) },
+        { type: "신규 유저", value: Number(new_users) },
+        { type: "기존 유저", value: Number(old_users) },
       ],
     });
   } catch (err) {
@@ -333,7 +357,7 @@ async function getBackwardPath(sdkKey, toPage, depth = 3) {
     const query = `
       SELECT source
       FROM funnel_links_daily
-      WHERE event_date >= today() - 6
+      WHERE event_date >= toDate('${localNow}') - INTERVAL 6 DAY
         AND target = '${currentTarget}'
         AND sdk_key = '${sdkKey}'
       GROUP BY source
@@ -354,6 +378,7 @@ async function getBackwardPath(sdkKey, toPage, depth = 3) {
   return path;
 }
 
+/* 전환자 공통 흐름 카드 */
 router.get("/common-paths", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   const toPage = req.query.to || "/checkout/success";
@@ -365,45 +390,6 @@ router.get("/common-paths", authMiddleware, async (req, res) => {
     console.error(err);
     res.status(500).json({ success: false, message: "경로 추적 실패" });
   }
-
-  // const query = `
-  //   WITH converted_sessions AS (
-  //     SELECT DISTINCT session_id
-  //     FROM events
-  //     WHERE timestamp >= now() - INTERVAL 7 DAY
-  //       AND page_path = '${toPage}' -- conversion 범위
-  //       AND sdk_key = '${sdk_key}'
-  //   ),
-  //   session_paths AS (
-  //     SELECT
-  //       session_id,
-  //       groupArray(page_path) AS path
-  //     FROM events
-  //     WHERE timestamp >= now() - INTERVAL 7 DAY
-  //       AND session_id IN (SELECT session_id FROM converted_sessions)
-  //       AND sdk_key = '${sdk_key}'
-  //     GROUP BY session_id
-  //   ),
-  //   path_stats AS (
-  //     SELECT
-  //       arrayStringConcat(path, ' → ') AS path_string,
-  //       count() AS count
-  //     FROM session_paths
-  //     GROUP BY path_string
-  //   )
-  //   SELECT *
-  //   FROM path_stats
-  //   ORDER BY count DESC
-  //   LIMIT 3;
-  // `;
-
-  // try {
-  //   const result = await clickhouse.query({ query, format: 'JSON' }).then(r => r.json());
-  //   res.status(200).json({ success: true, data: result.data });
-  // } catch (err) {
-  //   console.error(err);
-  //   res.status(500).json({ success: false, message: '쿼리 실행 실패' });
-  // }
 });
 
 module.exports = router;
