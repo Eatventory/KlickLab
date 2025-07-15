@@ -5,7 +5,7 @@ const { getLocalNow, getIsoNow, floorToNearest10Min, getNearestHourFloor, getOne
 const localNow = getLocalNow();
 const isoNow = getIsoNow();
 const tenMinutesFloor = formatLocalDateTime(floorToNearest10Min());
-const NearestHourFloor = formatLocalDateTime(getNearestHourFloor());
+const nearestHourFloor = formatLocalDateTime(getNearestHourFloor());
 const oneHourFloor = formatLocalDateTime(getOneHourAgo());
 const todayStart = formatLocalDateTime(getTodayStart());
 
@@ -96,15 +96,14 @@ async function runQuery(query) {
 // 데이터 보정 함수(예시: visitorTrend)
 function fixVisitorTrend(period, visitorTrend, now) {
   if (period === "hourly") {
-    const currentHour = now.getHours();
-    const todayStr = `${now.getFullYear()}-${String(
-      now.getMonth() + 1
-    ).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
     const hours = [];
     for (let i = 23; i >= 0; i--) {
-      const hour = (currentHour - i + 24) % 24;
-      const dateStr = `${todayStr} ${String(hour).padStart(2, "0")}`;
-      hours.push(dateStr);
+      const date = new Date(now.getTime() - i * 60 * 60 * 1000); // now - i시간
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      const hour = String(date.getHours()).padStart(2, "0");
+      hours.push(`${year}-${month}-${day} ${hour}`);
     }
     return hours.map((dateStr) => {
       const found = visitorTrend.find((d) => d.date === dateStr);
@@ -259,22 +258,32 @@ function getVisitorTrendQuery(period, sdk_key, gender, ageGroup, startDateStr, e
 
   if (period === "hourly") {
     return `
-      SELECT
-        formatDateTime(timestamp, '%Y-%m-%d %H') AS date_str,
-        countDistinct(client_id) AS visitors,
-        countDistinctIf(client_id, toDate(timestamp) = minDate) AS newVisitors,
-        countDistinctIf(client_id, toDate(timestamp) != minDate) AS returningVisitors
-      FROM (
-        SELECT client_id, timestamp,
-          min(toDate(timestamp)) OVER (PARTITION BY client_id) AS minDate
-        FROM events
-        WHERE event_name = 'auto_click'
-          AND toDate(timestamp) = today()
-          ${genderCond} ${ageCond}
-          AND sdk_key = '${sdk_key}'
-      )
-      GROUP BY date_str
-      ORDER BY date_str ASC
+      SELECT *
+        FROM (
+          SELECT
+            formatDateTime(date_time, '%Y-%m-%d %H') AS date_str,
+            visitors,
+            new_visitors,
+            existing_visitors AS returningVisitors
+          FROM hourly_metrics
+          WHERE date_time >= toDateTime('${isoNow}') - INTERVAL 24 HOUR
+            AND date_time < toDateTime('${nearestHourFloor}')
+            AND sdk_key = '${sdk_key}'
+
+          UNION ALL
+
+          SELECT
+            formatDateTime(toStartOfHour(date_time), '%Y-%m-%d %H') AS date_str,
+            sum(visitors) AS visitors,
+            sum(new_visitors) AS new_visitors,
+            sum(existing_visitors) AS returningVisitors
+          FROM minutes_metrics
+          WHERE date_time > toDateTime('${nearestHourFloor}')
+            AND date_time < toDateTime('${isoNow}')
+            AND sdk_key = '${sdk_key}'
+          GROUP BY toStartOfHour(date_time)
+        )
+        ORDER BY date_str ASC
     `;
   }
 
