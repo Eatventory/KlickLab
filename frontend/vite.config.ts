@@ -8,7 +8,7 @@ export default defineConfig({
     host: '0.0.0.0',  // 모든 인터페이스 바인딩
     port: 5173,       // 기본 포트
     proxy: {
-      '/api': 'http://localhost:3000',
+      '/api': 'http://localhost:4000',
     },
   },
 })

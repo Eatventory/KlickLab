@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const app = express();
 const path = require("path");
-const PORT = 3000;
+const PORT = 4000;
 
 const clickhouse = require("./src/config/clickhouse");
 app.use(express.json());
@@ -47,6 +47,10 @@ app.use('/api/report', reportRoutes);
 /* setting 라우팅 */
 const settingsRoutes = require('./routes/settings');
 app.use('/api/settings', settingsRoutes);
+
+/* funnel 라우팅 */
+const funnelRouter = require('./routes/funnel');
+app.use('/api/funnel', funnelRouter);
 
 /* ▼ 메트릭 연결 */
 const metricsPort = 9091; // 메트릭 전용 포트
