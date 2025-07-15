@@ -6,7 +6,7 @@
  * - SQL 인젝션을 막기 위해 ClickHouse 파라미터 바인딩({name:Type}) 사용
  */
 
-const clickhouse = require('../src/config/clickhouse'); // 싱글턴 클라이언트
+const clickhouse = require('../src/config/clickhouse');
 
 /**
  * 특정 퍼널 단계(Step)에서 사용자들이 가장 많이 이동한 '다음 단계 Top N'을 조회하는 함수.
@@ -17,16 +17,17 @@ const clickhouse = require('../src/config/clickhouse'); // 싱글턴 클라이�
  * @param {number} [params.limit=5] 반환할 결과 개수
  * @returns {Promise<Array<{target:string, sessions:number}>>}
  */
-async function getNextSteps({ page, from, to, limit = 5 }) {
+async function getNextSteps({ page, from, to, limit = 5, sdk_key }) {
     const sql = `
       SELECT target,
       toUInt64(sum(sessions)) AS sessions
-      FROM   klicklab.funnel_links_daily
-      WHERE  source = {page:String}
-        AND  event_date BETWEEN {from:Date} AND {to:Date}
+      FROM   funnel_links_daily
+      WHERE  source = ${page}
+        AND  event_date BETWEEN ${from} AND ${to}
+        AND sdk_key = '${sdk_key}'
       GROUP  BY target
       ORDER  BY sessions DESC
-      LIMIT  {limit:UInt8};
+      LIMIT  ${limit};
     `;
     const result = await clickhouse.query({
         query: sql,
