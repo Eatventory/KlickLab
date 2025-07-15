@@ -11,7 +11,11 @@ export interface SegmentFilter {
 
 interface SegmentFilterContextType {
   filter: SegmentFilter;
+<<<<<<< HEAD
+  setFilter: (filter: SegmentFilter) => void;
+=======
   setFilter: (filter: SegmentFilter | ((prev: SegmentFilter) => SegmentFilter)) => void;
+>>>>>>> d7b8bc1ecd9900d08e2561d79cd9386f8a6c5c6b
   savedFilters: SegmentFilter[];
   saveFilter: (filter: SegmentFilter) => void;
   loadFilter: (filterId: string) => void;

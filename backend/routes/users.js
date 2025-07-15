@@ -1,25 +1,49 @@
 const express = require("express");
 const router = express.Router();
-const clickhouse = require('../src/config/clickhouse');
-const { buildFilterCondition } = require('../utils/filter');
-const authMiddleware = require('../middlewares/authMiddleware');
+const clickhouse = require("../src/config/clickhouse");
+const {
+  buildFilterCondition,
+  buildUserDistributionFilter,
+} = require("../utils/filter");
+const authMiddleware = require("../middlewares/authMiddleware");
+const { formatLocalDateTime } = require("../utils/formatLocalDateTime");
+const {
+  getLocalNow,
+  getIsoNow,
+  floorToNearest10Min,
+  getNearestHourFloor,
+  getOneHourAgo,
+  getTodayStart,
+} = require("../utils/timeUtils");
 
-const users_if = 'DISTINCT if(user_id IS NULL, client_id, toString(user_id))';
+const localNow = getLocalNow();
+const isoNow = getIsoNow();
+const tenMinutesFloor = formatLocalDateTime(floorToNearest10Min());
+const NearestHourFloor = formatLocalDateTime(getNearestHourFloor());
+const oneHourFloor = formatLocalDateTime(getOneHourAgo());
+const todayStart = formatLocalDateTime(getTodayStart());
 
-router.get('/top-clicks', authMiddleware, async (req, res) => {
+const users_if = "DISTINCT if(user_id IS NULL, client_id, toString(user_id))";
+
+router.get("/top-clicks", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   try {
     const segment = req.query.filter;
-    const validSegments = ['user_gender', 'user_age', 'traffic_source', 'device_type'];
+    const validSegments = [
+      "user_gender",
+      "user_age",
+      "traffic_source",
+      "device_type",
+    ];
 
     if (!validSegments.includes(segment)) {
-      return res.status(400).json({ error: 'Invalid user segment' });
+      return res.status(400).json({ error: "Invalid user segment" });
     }
 
     const today = new Date();
     const fromDate = new Date(today);
     fromDate.setDate(today.getDate() - 6);
-    const fromDateStr = fromDate.toISOString().slice(0, 10);  // 'YYYY-MM-DD'
+    const fromDateStr = fromDate.toISOString().slice(0, 10); // 'YYYY-MM-DD'
 
     // 1. 클릭 요약
     const summaryQuery = `
@@ -29,7 +53,7 @@ router.get('/top-clicks', authMiddleware, async (req, res) => {
         sum(total_users) AS totalUsers,
         round(sum(total_clicks) / sum(total_users), 1) AS avgClicksPerUser
       FROM daily_click_summary
-      WHERE segment_type = '${segment}' AND date >= toDate('${fromDateStr}')
+      WHERE segment_type = '${segment}' AND date >= toDate('${localNow}') - INTERVAL 6 DAY
         AND sdk_key = '${sdk_key}'
       GROUP BY segment
     `;
@@ -42,7 +66,7 @@ router.get('/top-clicks', authMiddleware, async (req, res) => {
         sum(total_clicks) AS totalClicks,
         sum(user_count) AS userCount
       FROM daily_top_elements
-      WHERE segment_type = '${segment}' AND date >= toDate('${fromDateStr}')
+      WHERE segment_type = '${segment}' AND date >= toDate('${localNow}') - INTERVAL 6 DAY
         AND sdk_key = '${sdk_key}'
       GROUP BY segment, element
       ORDER BY segment, totalClicks DESC
@@ -56,15 +80,21 @@ router.get('/top-clicks', authMiddleware, async (req, res) => {
         dist_value,
         sum(user_count) AS count
       FROM daily_user_distribution
-      WHERE segment_type = '${segment}' AND date >= toDate('${fromDateStr}')
+      WHERE segment_type = '${segment}' AND date >= toDate('${localNow}') - INTERVAL 6 DAY
         AND sdk_key = '${sdk_key}'
       GROUP BY segment, dist_type, dist_value
     `;
 
     const [summaryRes, topRes, distRes] = await Promise.all([
-      clickhouse.query({ query: summaryQuery, format: 'JSON' }).then(r => r.json()),
-      clickhouse.query({ query: topQuery, format: 'JSON' }).then(r => r.json()),
-      clickhouse.query({ query: distQuery, format: 'JSON' }).then(r => r.json())
+      clickhouse
+        .query({ query: summaryQuery, format: "JSON" })
+        .then((r) => r.json()),
+      clickhouse
+        .query({ query: topQuery, format: "JSON" })
+        .then((r) => r.json()),
+      clickhouse
+        .query({ query: distQuery, format: "JSON" })
+        .then((r) => r.json()),
     ]);
 
     // 분포 가공
@@ -76,10 +106,10 @@ router.get('/top-clicks', authMiddleware, async (req, res) => {
       const value = row.dist_value;
       const count = row.count;
 
-      if (distType === 'ageGroup') {
+      if (distType === "ageGroup") {
         if (!ageDistBySegment[seg]) ageDistBySegment[seg] = {};
         ageDistBySegment[seg][value] = count;
-      } else if (distType === 'device') {
+      } else if (distType === "device") {
         if (!deviceDistBySegment[seg]) deviceDistBySegment[seg] = {};
         deviceDistBySegment[seg][value] = count;
       }
@@ -100,11 +130,12 @@ router.get('/top-clicks', authMiddleware, async (req, res) => {
       const topList = (topElementsBySegment[seg] || []).slice(0, 3);
       const total = row.totalClicks;
 
-      const topElements = topList.map(el => ({
+      const topElements = topList.map((el) => ({
         element: el.element,
         totalClicks: el.totalClicks,
-        percentage: total > 0 ? Math.round((el.totalClicks / total) * 1000) / 10 : 0,
-        userCount: el.userCount
+        percentage:
+          total > 0 ? Math.round((el.totalClicks / total) * 1000) / 10 : 0,
+        userCount: el.userCount,
       }));
 
       result.push({
@@ -115,60 +146,67 @@ router.get('/top-clicks', authMiddleware, async (req, res) => {
         topElements,
         userDistribution: {
           ageGroup: ageDistBySegment[seg] || {},
-          device: deviceDistBySegment[seg] || {}
-        }
+          device: deviceDistBySegment[seg] || {},
+        },
       });
     }
 
     res.status(200).json({ data: result });
   } catch (err) {
-    console.error('Top Clicks API ERROR:', err);
-    res.status(500).json({ error: 'Failed to get top clicks data' });
+    console.error("Top Clicks API ERROR:", err);
+    res.status(500).json({ error: "Failed to get top clicks data" });
   }
 });
 
-router.get('/user-type-summary', authMiddleware, async (req, res) => {
+router.get("/user-type-summary", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
-  const { period, userType, device } = req.query;
-  const condition = buildFilterCondition({ period, userType, device });
+  const { period = "1day", userType = "all", device = "all" } = req.query;
+
+  const condition = buildUserDistributionFilter({ period, userType, device });
+
+  const query = `
+    WITH union_data AS (
+      SELECT * FROM hourly_user_distribution
+      WHERE ${condition}
+        AND date_time >= toDateTime('${todayStart}')
+        AND date_time <= toDateTime('${oneHourFloor}')
+        AND sdk_key = '${sdk_key}'
+      UNION ALL
+      SELECT * FROM minutes_user_distribution
+      WHERE ${condition}
+        AND date_time >= toDateTime('${NearestHourFloor}')
+        AND date_time < toDateTime('${tenMinutesFloor}')
+        AND sdk_key = '${sdk_key}'
+    )
+    SELECT
+      dist_type,
+      sum(user_count) AS count
+    FROM union_data
+    GROUP BY dist_type
+  `;
 
   try {
-    const query = `
-      WITH
-        today_users AS (
-          SELECT DISTINCT user_id
-          FROM events
-          WHERE toDate(timestamp) = today() AND user_id IS NOT NULL AND ${condition}
-            AND sdk_key = '${sdk_key}'
-        ),
-        ever_users AS (
-          SELECT DISTINCT user_id
-          FROM events
-          WHERE toDate(timestamp) < today() AND user_id IS NOT NULL AND ${condition}
-            AND sdk_key = '${sdk_key}'
-        )
-      SELECT
-        countIf(u IN (SELECT user_id FROM ever_users)) AS old_users,
-        countIf(u NOT IN (SELECT user_id FROM ever_users)) AS new_users
-      FROM today_users ARRAY JOIN [user_id] AS u
-    `;
+    const result = await clickhouse
+      .query({ query, format: "JSON" })
+      .then((r) => r.json());
+    const rows = result.data || [];
 
-    const result = await clickhouse.query({ query, format: 'JSON' }).then(r => r.json());
-    const row = result.data[0] || { new_users: 0, old_users: 0 };
+    const old_users = rows.find((r) => r.dist_type === "existing")?.count || 0;
+    const new_users = rows.find((r) => r.dist_type === "new")?.count || 0;
 
     res.status(200).json({
       data: [
-        { type: '신규 유저', value: Number(row.new_users) },
-        { type: '기존 유저', value: Number(row.old_users) }
-      ]
+        { type: "신규 유저", value: Number(new_users) },
+        { type: "기존 유저", value: Number(old_users) },
+      ],
     });
   } catch (err) {
-    console.error('User Type API ERROR:', err);
-    res.status(500).json({ error: 'Failed to get user type data' });
+    console.error("User Type API ERROR:", err);
+    res.status(500).json({ error: "Failed to get user type data" });
   }
 });
 
-router.get('/os-type-summary', authMiddleware, async (req, res) => {
+router.get("/os-type-summary", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   const { period, userType, device } = req.query;
   const condition = buildFilterCondition({ period, userType, device });
@@ -184,28 +222,31 @@ router.get('/os-type-summary', authMiddleware, async (req, res) => {
   `;
 
   try {
-    const resultRes = await clickhouse.query({ query, format: 'JSON' });
+    const resultRes = await clickhouse.query({ query, format: "JSON" });
     const result = await resultRes.json();
 
     const osCategoryMap = {
-      'Android': 'mobile', 'iOS': 'mobile',
-      'Windows': 'desktop', 'macOS': 'desktop', 'Linux': 'desktop',
+      Android: "mobile",
+      iOS: "mobile",
+      Windows: "desktop",
+      macOS: "desktop",
+      Linux: "desktop",
     };
 
-    const data = result.data.map(item => ({
+    const data = result.data.map((item) => ({
       os: item.os,
       users: Number(item.users),
-      category: osCategoryMap[item.os] || 'unknown',
+      category: osCategoryMap[item.os] || "unknown",
     }));
 
     res.status(200).json({ data });
   } catch (err) {
-    console.error('OS Type API ERROR:', err);
-    res.status(500).json({ error: 'Failed to get os type data' });
+    console.error("OS Type API ERROR:", err);
+    res.status(500).json({ error: "Failed to get os type data" });
   }
 });
 
-router.get('/browser-type-summary', authMiddleware, async (req, res) => {
+router.get("/browser-type-summary", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   const { period, userType, device } = req.query;
   const condition = buildFilterCondition({ period, userType, device });
@@ -224,19 +265,19 @@ router.get('/browser-type-summary', authMiddleware, async (req, res) => {
   `;
 
   try {
-    const resultRes = await clickhouse.query({ query, format: 'JSON' });
+    const resultRes = await clickhouse.query({ query, format: "JSON" });
     const result = await resultRes.json();
 
     const convertBrowser = (browser, deviceType) => {
       const mapping = {
-        'Chrome': { desktop: 'Chrome', mobile: 'Chrome Mobile' },
-        'Safari': { desktop: 'Safari', mobile: 'Safari Mobile' },
-        'Edge': { desktop: 'Edge' },
-        'Firefox': { desktop: 'Firefox' },
-        'Samsung Internet': { mobile: 'Samsung Internet' },
+        Chrome: { desktop: "Chrome", mobile: "Chrome Mobile" },
+        Safari: { desktop: "Safari", mobile: "Safari Mobile" },
+        Edge: { desktop: "Edge" },
+        Firefox: { desktop: "Firefox" },
+        "Samsung Internet": { mobile: "Samsung Internet" },
       };
-      const name = mapping[browser]?.[deviceType] || '기타';
-      const category = deviceType === 'mobile' ? 'mobile' : 'desktop';
+      const name = mapping[browser]?.[deviceType] || "기타";
+      const category = deviceType === "mobile" ? "mobile" : "desktop";
       return { name, category };
     };
 
@@ -252,18 +293,18 @@ router.get('/browser-type-summary', authMiddleware, async (req, res) => {
 
     res.status(200).json({ data: Object.values(grouped) });
   } catch (err) {
-    console.error('Device Type API ERROR:', err);
-    res.status(500).json({ error: 'Failed to get device type data' });
+    console.error("Device Type API ERROR:", err);
+    res.status(500).json({ error: "Failed to get device type data" });
   }
 });
 
 // 재방문율 = 최근 7일 중 2일 이상 방문한 user_id 수 ÷ 전체 방문 user_id 수
-router.get('/returning', authMiddleware, async (req, res) => {
+router.get("/returning", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   const { period, userType, device } = req.query;
-  const periodDays = { '5min': 1, '1hour': 1, '1day': 1, '1week': 7 };
+  const periodDays = { "5min": 1, "1hour": 1, "1day": 1, "1week": 7 };
   const dayRange = periodDays[period] || 1;
-  const deviceFilter = device !== 'all' ? `AND device_type = '${device}'` : '';
+  const deviceFilter = device !== "all" ? `AND device_type = '${device}'` : "";
 
   const condition = `user_id IS NOT NULL ${deviceFilter}`;
 
@@ -277,31 +318,34 @@ router.get('/returning', authMiddleware, async (req, res) => {
         count(DISTINCT toDate(timestamp)) AS days_visited
       FROM events
       WHERE ${condition}
-        AND toDate(timestamp) BETWEEN today() - interval ${dayRange - 1} day AND today()
+        AND toDate(timestamp) BETWEEN today() - interval ${
+          dayRange - 1
+        } day AND today()
         AND sdk_key = '${sdk_key}'
       GROUP BY user_id
     )
   `;
 
   try {
-    const resultRes = await clickhouse.query({ query, format: 'JSON' });
+    const resultRes = await clickhouse.query({ query, format: "JSON" });
     const result = await resultRes.json();
     const row = result.data[0] || { returning_users: 0, total_users: 0 };
 
-    const rate = row.total_users > 0
-      ? Math.round((row.returning_users / row.total_users) * 1000) / 10
-      : 0;
+    const rate =
+      row.total_users > 0
+        ? Math.round((row.returning_users / row.total_users) * 1000) / 10
+        : 0;
 
     res.status(200).json({
       data: {
         returningUsers: Number(row.returning_users),
         totalUsers: Number(row.total_users),
-        returnRatePercent: rate
-      }
+        returnRatePercent: rate,
+      },
     });
   } catch (err) {
-    console.error('returning Rate API ERROR:', err);
-    res.status(500).json({ error: 'Failed to get returning rate data' });
+    console.error("returning Rate API ERROR:", err);
+    res.status(500).json({ error: "Failed to get returning rate data" });
   }
 });
 
@@ -313,7 +357,7 @@ async function getBackwardPath(sdkKey, toPage, depth = 3) {
     const query = `
       SELECT source
       FROM funnel_links_daily
-      WHERE event_date >= today() - 6
+      WHERE event_date >= toDate('${localNow}') - INTERVAL 6 DAY
         AND target = '${currentTarget}'
         AND sdk_key = '${sdkKey}'
       GROUP BY source
@@ -321,7 +365,9 @@ async function getBackwardPath(sdkKey, toPage, depth = 3) {
       LIMIT 1;
     `;
 
-    const res = await clickhouse.query({ query, format: 'JSON' }).then(r => r.json());
+    const res = await clickhouse
+      .query({ query, format: "JSON" })
+      .then((r) => r.json());
     const topSource = res.data?.[0]?.source;
     if (!topSource) break;
 
@@ -332,56 +378,18 @@ async function getBackwardPath(sdkKey, toPage, depth = 3) {
   return path;
 }
 
-router.get('/common-paths', authMiddleware, async (req, res) => {
+/* 전환자 공통 흐름 카드 */
+router.get("/common-paths", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
-  const toPage = req.query.to || '/checkout/success';
+  const toPage = req.query.to || "/checkout/success";
 
   try {
     const path = await getBackwardPath(sdk_key, toPage, 3);
     res.status(200).json({ success: true, data: path });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: '경로 추적 실패' });
+    res.status(500).json({ success: false, message: "경로 추적 실패" });
   }
-
-  // const query = `
-  //   WITH converted_sessions AS (
-  //     SELECT DISTINCT session_id
-  //     FROM events
-  //     WHERE timestamp >= now() - INTERVAL 7 DAY
-  //       AND page_path = '${toPage}' -- conversion 범위
-  //       AND sdk_key = '${sdk_key}'
-  //   ),
-  //   session_paths AS (
-  //     SELECT
-  //       session_id,
-  //       groupArray(page_path) AS path
-  //     FROM events
-  //     WHERE timestamp >= now() - INTERVAL 7 DAY
-  //       AND session_id IN (SELECT session_id FROM converted_sessions)
-  //       AND sdk_key = '${sdk_key}'
-  //     GROUP BY session_id
-  //   ),
-  //   path_stats AS (
-  //     SELECT
-  //       arrayStringConcat(path, ' → ') AS path_string,
-  //       count() AS count
-  //     FROM session_paths
-  //     GROUP BY path_string
-  //   )
-  //   SELECT *
-  //   FROM path_stats
-  //   ORDER BY count DESC
-  //   LIMIT 3;
-  // `;
-
-  // try {
-  //   const result = await clickhouse.query({ query, format: 'JSON' }).then(r => r.json());
-  //   res.status(200).json({ success: true, data: result.data });
-  // } catch (err) {
-  //   console.error(err);
-  //   res.status(500).json({ success: false, message: '쿼리 실행 실패' });
-  // }
 });
 
 module.exports = router;
