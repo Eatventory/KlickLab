@@ -290,7 +290,7 @@ router.get("/conversion-by-channel", authMiddleware, async (req, res) => {
           any(traffic_source) AS source,
           any(traffic_medium) AS medium,
           any(traffic_campaign) AS campaign,
-          maxIf(page_path = '${toPage}', 1, 0) AS is_converted
+          maxIf(1, page_path = '${toPage}') AS is_converted
         FROM (
           SELECT session_id, page_path, traffic_source, traffic_medium, traffic_campaign, timestamp
           FROM klicklab.events

@@ -259,7 +259,7 @@ router.get("/dropoff-summary", authMiddleware, async (req, res) => {
           page_path,
           sum(page_exits) AS exit_count,
           sum(page_views) AS total_count
-        FROM klicklab.hourly_page_stats
+        FROM hourly_page_stats
         WHERE date_time >= toDateTime('${todayStart}')
           AND page_path != ''
           AND sdk_key = '${sdk_key}'
@@ -358,24 +358,21 @@ router.get("/userpath-summary", authMiddleware, async (req, res) => {
 });
 
 /* 전환경로 Top 3 */
-router.get(
-  "/userpath-summary/conversion-top3",
-  authMiddleware,
-  async (req, res) => {
-    const { sdk_key } = req.user;
-    let { fromPage, toPage, limit = 3, startDate, endDate } = req.query;
+router.get("/userpath-summary/conversion-top3", authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+  let { fromPage, toPage, limit = 3, startDate, endDate } = req.query;
 
-    // 전환 이벤트 설정값을 우선 적용
-    if (!fromPage || !toPage) {
-      const eventPages = await getCurrentConversionEvent(sdk_key);
-      fromPage = fromPage || eventPages.fromPage;
-      toPage = toPage || eventPages.toPage;
-    }
+  // 전환 이벤트 설정값을 우선 적용
+  if (!fromPage || !toPage) {
+    const eventPages = await getCurrentConversionEvent(sdk_key);
+    fromPage = fromPage || eventPages.fromPage;
+    toPage = toPage || eventPages.toPage;
+  }
 
-    const start = startDate ? `toDate('${startDate}')` : `today() - 6`;
-    const end = endDate ? `toDate('${endDate}')` : `today()`;
+  const start = startDate ? `toDate('${startDate}')` : `today() - 6`;
+  const end = endDate ? `toDate('${endDate}')` : `today()`;
 
-    const query = `
+  const query = `
     WITH
       -- A: fromPage 도달 세션
       a_sessions AS (
@@ -456,36 +453,29 @@ router.get(
     LIMIT ${limit}
   `;
 
-    try {
-      const resultSet = await clickhouse.query({
-        query,
-        format: "JSONEachRow",
-      });
-      const rows = await resultSet.json();
+  try {
+    const resultSet = await clickhouse.query({
+      query,
+      format: "JSONEachRow",
+    });
+    const rows = await resultSet.json();
 
-      const totalConversion = rows.reduce(
-        (acc, row) => acc + Number(row.conversion_count || 0),
-        0
-      );
+    const totalConversion = rows.reduce((acc, row) => acc + Number(row.conversion_count || 0), 0);
 
-      const data = rows.map((row, index) => ({
-        path: row.path_string.split(" → "),
-        conversionCount: Number(row.conversion_count),
-        conversionRate: Number(row.conversion_rate),
-        rank: index + 1,
-        share: Number(row.share),
-        compareToAvg: Number(row.compare_to_avg),
-      }));
+    const data = rows.map((row, index) => ({
+      path: row.path_string.split(" → "),
+      conversionCount: Number(row.conversion_count),
+      conversionRate: Number(row.conversion_rate),
+      rank: index + 1,
+      share: Number(row.share),
+      compareToAvg: Number(row.compare_to_avg),
+    }));
 
-      res.status(200).json({
-        data,
-        totalConversion,
-      });
-    } catch (err) {
-      console.error("Conversion Top3 API ERROR:", err);
-      res.status(500).json({ error: "Failed to get conversion top paths" });
-    }
+    res.status(200).json({ data, totalConversion });
+  } catch (err) {
+    console.error("Conversion Top3 API ERROR:", err);
+    res.status(500).json({ error: "Failed to get conversion top paths" });
   }
-);
+});
 
 module.exports = router;
