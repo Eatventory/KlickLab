@@ -288,65 +288,63 @@ router.get("/userpath-summary", authMiddleware, async (req, res) => {
   const fromPage = "/cart";
   const toPage = "/checkout/success";
 
-  let segmentFilter = "";
-  if (segment === "converted") {
-    segmentFilter = `
-      AND session_id IN (
-        SELECT a.session_id
-        FROM (
-          SELECT session_id, min(timestamp) AS a_time
-          FROM events
-          WHERE page_path = '${fromPage}'
-            AND sdk_key = '${sdk_key}'
-          GROUP BY session_id
-        ) a
-        INNER JOIN (
-          SELECT session_id, min(timestamp) AS b_time
-          FROM events
-          WHERE page_path = '${toPage}'
-            AND sdk_key = '${sdk_key}'
-          GROUP BY session_id
-        ) b ON a.session_id = b.session_id AND a.a_time < b.b_time
-      )
-    `;
-  } else if (segment === "abandoned_cart") {
-    segmentFilter = `
+  let sessionFilter = ''; // 세션 필터
+
+  // segment 필터 로직
+  if (segment === 'converted') {
+    sessionFilter = `
       AND session_id IN (
         SELECT session_id
-        FROM events
-        WHERE page_path = '${fromPage}'
-          AND sdk_key = '${sdk_key}'
-          AND session_id NOT IN (
-            SELECT session_id
-            FROM events
-            WHERE page_path = '${toPage}'
-              AND sdk_key = '${sdk_key}'
-          )
+        FROM events_pages
+        WHERE sdk_key = '${sdk_key}'
+        GROUP BY session_id
+        HAVING
+          minIf(event_ts, page_path = '${fromPage}') IS NOT NULL
+          AND minIf(event_ts, page_path = '${toPage}') IS NOT NULL
+          AND minIf(event_ts, page_path = '${fromPage}') < minIf(event_ts, page_path = '${toPage}')
+      )
+    `;
+  } else if (segment === 'abandoned_cart') {
+    sessionFilter = `
+      AND session_id IN (
+        SELECT session_id
+        FROM events_pages
+        WHERE sdk_key = '${sdk_key}'
+        GROUP BY session_id
+        HAVING
+          minIf(event_ts, page_path = '${fromPage}') IS NOT NULL
+          AND minIf(event_ts, page_path = '${toPage}') IS NULL
       )
     `;
   }
 
   const query = `
-    SELECT
-      from,
-      to,
-      sum(count) AS value
-    FROM (
+    WITH raw_paths AS (
       SELECT
-        page_path AS from,
-        arrayJoin(arrayZip(next_pages.to, next_pages.count)) AS pair,
-        pair.1 AS to,
-        pair.2 AS count
-      FROM klicklab.hourly_page_stats
-      WHERE date_time >= toDateTime('${todayStart}')
-        AND page_path != ''
-        AND sdk_key = '${sdk_key}'
-        AND length(next_pages.to) > 0
-        ${segmentFilter}
+        session_id,
+        groupArrayIf((event_ts, page_path), page_path != '') AS ordered
+      FROM events_pages
+      WHERE sdk_key = '${sdk_key}'
+        AND event_ts >= now() - INTERVAL 1 DAY
+        ${sessionFilter}
+      GROUP BY session_id
+    ),
+    flattened AS (
+      SELECT
+        arrayJoin(
+          arrayMap(i -> (ordered[i].2, ordered[i+1].2), range(length(ordered) - 1))
+        ) AS pair
+      FROM raw_paths
     )
+    SELECT
+      pair.1 AS from,
+      pair.2 AS to,
+      count(*) AS value
+    FROM flattened
+    WHERE pair.1 != '' AND pair.2 != ''
     GROUP BY from, to
     ORDER BY value DESC
-    LIMIT 1000
+    LIMIT 500
   `;
 
   try {

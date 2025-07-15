@@ -24,6 +24,8 @@ function AppRoutesWithProviders({ authState }) {
         <SessionTimer />
         <Routes>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/login" element={<Navigate to="/" />} />
+          <Route path="/register" element={<Navigate to="/" />} />
           <Route path="*" element={<ErrorPage />} />
         </Routes>
       </div>

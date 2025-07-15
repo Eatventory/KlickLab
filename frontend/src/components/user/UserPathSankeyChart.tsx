@@ -97,8 +97,38 @@ export const UserPathSankeyChart: React.FC<UserPathSankeyChartProps> = ({ data: 
     }
   }, [refreshKey, propData, selectedSegment]);
 
-  const handleSegmentChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedSegment(event.target.value);
+  const handleSegmentChange = async (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const newSegment = event.target.value;
+    setSelectedSegment(newSegment);
+    await fetchUserPath(newSegment);
+  };
+  
+  const fetchUserPath = async (segment: string) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+      if (!token) throw new Error("No token");
+  
+      const url = segment
+        ? `/api/stats/userpath-summary?segment=${segment}`
+        : '/api/stats/userpath-summary';
+  
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+  
+      if (!response.ok) throw new Error('데이터를 불러올 수 없습니다.');
+  
+      const result = await response.json();
+      setData(result.data || []);
+    } catch (error) {
+      console.error('Sankey API Error:', error);
+      setError(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
+      setData([]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const getSegmentTitle = () => {
@@ -112,11 +142,19 @@ export const UserPathSankeyChart: React.FC<UserPathSankeyChartProps> = ({ data: 
     }
   };
 
+  const [topPercent, setTopPercent] = useState<number>(90); // 기본값: 상위 90%
   const safeData = Array.isArray(data) ? data : [];
+  const sortedData = [...safeData].sort((a, b) => b.value - a.value);
+  const total = sortedData.reduce((sum, d) => sum + d.value, 0);
+  let running = 0;
+  const filteredData = sortedData.filter((d) => {
+    running += d.value;
+    return running <= total * (topPercent / 100);
+  });
   const [hoverLinkIdx, setHoverLinkIdx] = useState<number | null>(null);
-  const nodeDepths = computeNodeDepths(safeData);
+  const nodeDepths = computeNodeDepths(filteredData);
   const nodeMap = new Map<string, { name: string; depth: number; totalIn: number; totalOut: number }>();
-  safeData.forEach(path => {
+  filteredData.forEach(path => {
     if (!nodeMap.has(path.from)) nodeMap.set(path.from, { name: path.from, depth: nodeDepths.get(path.from)!, totalIn: 0, totalOut: 0 });
     if (!nodeMap.has(path.to)) nodeMap.set(path.to, { name: path.to, depth: nodeDepths.get(path.to)!, totalIn: 0, totalOut: 0 });
     nodeMap.get(path.from)!.totalOut += path.value;
@@ -146,8 +184,8 @@ export const UserPathSankeyChart: React.FC<UserPathSankeyChartProps> = ({ data: 
       });
     });
   });
-  const maxValue = safeData.length > 0 ? Math.max(...safeData.map(d => d.value)) : 0;
-  const totalValue = safeData.reduce((sum, d) => sum + d.value, 0);
+  const maxValue = filteredData.length > 0 ? Math.max(...filteredData.map(d => d.value)) : 0;
+  const totalValue = filteredData.reduce((sum, d) => sum + d.value, 0);
 
   let tooltip: null | {
     x: number;
@@ -157,8 +195,8 @@ export const UserPathSankeyChart: React.FC<UserPathSankeyChartProps> = ({ data: 
     value: number;
     percent: string;
   } = null;
-  if (hoverLinkIdx !== null && safeData[hoverLinkIdx]) {
-    const path = safeData[hoverLinkIdx];
+  if (hoverLinkIdx !== null && filteredData[hoverLinkIdx]) {
+    const path = filteredData[hoverLinkIdx];
     const from = nodePositions.get(path.from)!;
     const to = nodePositions.get(path.to)!;
     const x1 = from.x + nodeWidth;
@@ -180,7 +218,18 @@ export const UserPathSankeyChart: React.FC<UserPathSankeyChartProps> = ({ data: 
   return (
     <div className="w-full">
       {/* 세그먼트 선택 UI */}
-      <div className="flex justify-end items-center mb-4">
+      <div className="flex justify-end items-center mb-4 gap-2">
+        <select
+          value={topPercent}
+          onChange={(e) => setTopPercent(Number(e.target.value))}
+          className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        >
+          <option value={100}>전체</option>
+          <option value={95}>상위 95%</option>
+          <option value={90}>상위 90%</option>
+          <option value={80}>상위 80%</option>
+          <option value={70}>상위 70%</option>
+        </select>
         <select
           value={selectedSegment}
           onChange={handleSegmentChange}
@@ -209,7 +258,7 @@ export const UserPathSankeyChart: React.FC<UserPathSankeyChartProps> = ({ data: 
       )}
 
       {/* 데이터 없음 상태 */}
-      {!isLoading && !error && safeData.length === 0 && (
+      {!isLoading && !error && filteredData.length === 0 && (
         <div className="flex justify-center items-center h-64">
           <div className="text-gray-500 text-center">
             <div className="text-sm">표시할 경로 데이터가 없습니다.</div>
@@ -218,7 +267,7 @@ export const UserPathSankeyChart: React.FC<UserPathSankeyChartProps> = ({ data: 
       )}
 
       {/* Sankey 차트 */}
-      {!isLoading && !error && safeData.length > 0 && (
+      {!isLoading && !error && filteredData.length > 0 && (
         <div className="flex justify-center">
           <svg width={chartWidth} height={chartHeight} style={{ position: 'relative', zIndex: 0 }}>
             <defs>
@@ -230,7 +279,7 @@ export const UserPathSankeyChart: React.FC<UserPathSankeyChartProps> = ({ data: 
                 <feDropShadow dx="0" dy="2" stdDeviation="4" floodColor="#2563eb22" />
               </filter>
             </defs>
-            {safeData.map((path, idx) => {
+            {filteredData.map((path, idx) => {
               const from = nodePositions.get(path.from);
               const to = nodePositions.get(path.to);
               if (!from || !to) return null;
@@ -265,7 +314,7 @@ export const UserPathSankeyChart: React.FC<UserPathSankeyChartProps> = ({ data: 
               const pos = nodePositions.get(node.name)!;
               const isStart = node.depth === 0;
               const isEnd = node.totalOut === 0;
-              const isActive = hoverLinkIdx !== null && safeData[hoverLinkIdx] && (safeData[hoverLinkIdx].from === node.name || safeData[hoverLinkIdx].to === node.name);
+              const isActive = hoverLinkIdx !== null && filteredData[hoverLinkIdx] && (filteredData[hoverLinkIdx].from === node.name || filteredData[hoverLinkIdx].to === node.name);
               return (
                 <g key={node.name} transform={`translate(${pos.x},${pos.y})`} style={{ zIndex: isActive ? 2 : 1 }}>
                   <rect
