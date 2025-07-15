@@ -47,14 +47,7 @@ function buildTrafficQueries(params, startDateStr, endDateStr) {
   });
 
   return {
-    visitorTrendQuery: getVisitorTrendQuery(
-      period,
-      sdk_key,
-      gender,
-      ageGroup,
-      startDateStr,
-      endDateStr
-    ),
+    visitorTrendQuery: getVisitorTrendQuery(period, sdk_key, gender, ageGroup, startDateStr, endDateStr),
     hourlyTrafficQuery: getHourlyTrafficQuery(whereClause, sdk_key),
     sourceDistQuery: getSourceDistributionQuery(period, sdk_key),
     mediumDistQuery: getMediumDistributionQuery(whereClause, sdk_key),
