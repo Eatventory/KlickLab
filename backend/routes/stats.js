@@ -259,7 +259,7 @@ router.get("/dropoff-summary", authMiddleware, async (req, res) => {
           page_path,
           sum(page_exits) AS exit_count,
           sum(page_views) AS total_count
-        FROM klicklab.hourly_page_stats
+        FROM hourly_page_stats
         WHERE date_time >= toDateTime('${todayStart}')
           AND page_path != ''
           AND sdk_key = '${sdk_key}'
@@ -288,65 +288,63 @@ router.get("/userpath-summary", authMiddleware, async (req, res) => {
   const fromPage = "/cart";
   const toPage = "/checkout/success";
 
-  let segmentFilter = "";
-  if (segment === "converted") {
-    segmentFilter = `
-      AND session_id IN (
-        SELECT a.session_id
-        FROM (
-          SELECT session_id, min(timestamp) AS a_time
-          FROM events
-          WHERE page_path = '${fromPage}'
-            AND sdk_key = '${sdk_key}'
-          GROUP BY session_id
-        ) a
-        INNER JOIN (
-          SELECT session_id, min(timestamp) AS b_time
-          FROM events
-          WHERE page_path = '${toPage}'
-            AND sdk_key = '${sdk_key}'
-          GROUP BY session_id
-        ) b ON a.session_id = b.session_id AND a.a_time < b.b_time
-      )
-    `;
-  } else if (segment === "abandoned_cart") {
-    segmentFilter = `
+  let sessionFilter = ''; // 세션 필터
+
+  // segment 필터 로직
+  if (segment === 'converted') {
+    sessionFilter = `
       AND session_id IN (
         SELECT session_id
-        FROM events
-        WHERE page_path = '${fromPage}'
-          AND sdk_key = '${sdk_key}'
-          AND session_id NOT IN (
-            SELECT session_id
-            FROM events
-            WHERE page_path = '${toPage}'
-              AND sdk_key = '${sdk_key}'
-          )
+        FROM events_pages
+        WHERE sdk_key = '${sdk_key}'
+        GROUP BY session_id
+        HAVING
+          minIf(event_ts, page_path = '${fromPage}') IS NOT NULL
+          AND minIf(event_ts, page_path = '${toPage}') IS NOT NULL
+          AND minIf(event_ts, page_path = '${fromPage}') < minIf(event_ts, page_path = '${toPage}')
+      )
+    `;
+  } else if (segment === 'abandoned_cart') {
+    sessionFilter = `
+      AND session_id IN (
+        SELECT session_id
+        FROM events_pages
+        WHERE sdk_key = '${sdk_key}'
+        GROUP BY session_id
+        HAVING
+          minIf(event_ts, page_path = '${fromPage}') IS NOT NULL
+          AND minIf(event_ts, page_path = '${toPage}') IS NULL
       )
     `;
   }
 
   const query = `
-    SELECT
-      from,
-      to,
-      sum(count) AS value
-    FROM (
+    WITH raw_paths AS (
       SELECT
-        page_path AS from,
-        arrayJoin(arrayZip(next_pages.to, next_pages.count)) AS pair,
-        pair.1 AS to,
-        pair.2 AS count
-      FROM klicklab.hourly_page_stats
-      WHERE date_time >= toDateTime('${todayStart}')
-        AND page_path != ''
-        AND sdk_key = '${sdk_key}'
-        AND length(next_pages.to) > 0
-        ${segmentFilter}
+        session_id,
+        groupArrayIf((event_ts, page_path), page_path != '') AS ordered
+      FROM events_pages
+      WHERE sdk_key = '${sdk_key}'
+        AND event_ts >= now() - INTERVAL 1 DAY
+        ${sessionFilter}
+      GROUP BY session_id
+    ),
+    flattened AS (
+      SELECT
+        arrayJoin(
+          arrayMap(i -> (ordered[i].2, ordered[i+1].2), range(length(ordered) - 1))
+        ) AS pair
+      FROM raw_paths
     )
+    SELECT
+      pair.1 AS from,
+      pair.2 AS to,
+      count(*) AS value
+    FROM flattened
+    WHERE pair.1 != '' AND pair.2 != ''
     GROUP BY from, to
     ORDER BY value DESC
-    LIMIT 1000
+    LIMIT 500
   `;
 
   try {
@@ -365,31 +363,19 @@ router.get(
   authMiddleware,
   async (req, res) => {
     const { sdk_key } = req.user;
-    let { fromPage, toPage, event, limit = 3, startDate, endDate } = req.query;
+    let { fromPage, toPage, limit = 3, startDate, endDate } = req.query;
 
-    // event 파라미터가 있으면 fromPage, toPage를 매핑
-    if (event) {
-      const eventMap = {
-        is_payment: { fromPage: "/cart", toPage: "/checkout/success" },
-        is_signup: { fromPage: "/signup", toPage: "/signup/success" },
-        add_to_cart: { fromPage: "/products", toPage: "/cart" },
-        contact_submit: { fromPage: "/contact", toPage: "/contact/success" },
-      };
-      fromPage = eventMap[event]?.fromPage;
-      toPage = eventMap[event]?.toPage;
-    }
-
-    // 기존 로직 유지
+    // 전환 이벤트 설정값을 우선 적용
     if (!fromPage || !toPage) {
       const eventPages = await getCurrentConversionEvent(sdk_key);
       fromPage = fromPage || eventPages.fromPage;
       toPage = toPage || eventPages.toPage;
     }
 
-    const start = startDate ? `toDate('${startDate}')` : `today() - 6`;
-    const end = endDate ? `toDate('${endDate}')` : `today()`;
+  const start = startDate ? `toDate('${startDate}')` : `today() - 6`;
+  const end = endDate ? `toDate('${endDate}')` : `today()`;
 
-    const query = `
+  const query = `
     WITH
       -- A: fromPage 도달 세션
       a_sessions AS (
@@ -470,35 +456,29 @@ router.get(
     LIMIT ${limit}
   `;
 
-    try {
-      const resultSet = await clickhouse.query({
-        query,
-        format: "JSONEachRow",
-      });
-      const rows = await resultSet.json();
+  try {
+    const resultSet = await clickhouse.query({
+      query,
+      format: "JSONEachRow",
+    });
+    const rows = await resultSet.json();
 
-      const totalConversion = rows.reduce(
-        (acc, row) => acc + Number(row.conversion_count || 0),
-        0
-      );
+    const totalConversion = rows.reduce((acc, row) => acc + Number(row.conversion_count || 0), 0);
 
       const data = rows.map((row, index) => ({
         path: row.path_string.split(" → "),
         conversionCount: Number(row.conversion_count),
-        conversionRate: Number(row.conversion_rate), // fromPage 세션 대비 전환률
-        fromPageSessions: Number(row.fromPage_sessions), // 분모
+        conversionRate: Number(row.conversion_rate),
         rank: index + 1,
+        share: Number(row.share),
+        compareToAvg: Number(row.compare_to_avg),
       }));
 
-      res.status(200).json({
-        data,
-        totalConversion,
-      });
-    } catch (err) {
-      console.error("Conversion Top3 API ERROR:", err);
-      res.status(500).json({ error: "Failed to get conversion top paths" });
-    }
+    res.status(200).json({ data, totalConversion });
+  } catch (err) {
+    console.error("Conversion Top3 API ERROR:", err);
+    res.status(500).json({ error: "Failed to get conversion top paths" });
   }
-);
+});
 
 module.exports = router;
