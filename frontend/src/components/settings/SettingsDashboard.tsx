@@ -3,6 +3,7 @@ import { Settings, Code, Globe, Users, Bell, IdCard } from 'lucide-react';
 import Toast from "../ui/Toast";
 import { ConversionEventMapping } from './ConversionEventMapping';
 import SegmentFilterManager from './SegmentFilterManager';
+import { SegmentFilterBuilder } from '../ui/SegmentFilterBuilder';
 
 // 타입 정의
 interface DomainData {
@@ -56,6 +57,9 @@ export const SettingsDashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* 전역 필터 설정 */}
+      <SegmentFilterBuilder />
+
       {/* 2분할 카드 wrapper에는 bg/padding/rounded 없음 */}
       <div className="flex flex-col lg:flex-row gap-6">
         <div className="w-full lg:w-1/2">

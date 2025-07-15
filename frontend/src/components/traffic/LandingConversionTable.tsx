@@ -1,6 +1,7 @@
-import React from 'react';
-import { BarChart3, Info, Trophy } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { BarChart3, Trophy } from 'lucide-react';
 import { Tooltip } from 'react-tooltip';
+import { useConversionEvent } from '../../context/ConversionEventContext';
 
 interface LandingData {
   landing: string;
@@ -11,55 +12,59 @@ interface LandingData {
   conversionRate: number;
 }
 
-const mockLandingData: LandingData[] = [
-  {
-    landing: '/summer-sale',
-    source: 'google',
-    medium: 'cpc',
-    totalSessions: 980,
-    convertedSessions: 72,
-    conversionRate: 7.3
-  },
-  {
-    landing: '/main',
-    source: 'direct',
-    medium: 'none',
-    totalSessions: 2100,
-    convertedSessions: 145,
-    conversionRate: 6.9
-  },
-  {
-    landing: '/product/123',
-    source: 'instagram',
-    medium: 'social',
-    totalSessions: 650,
-    convertedSessions: 38,
-    conversionRate: 5.8
-  },
-  {
-    landing: '/brand-story',
-    source: 'naver',
-    medium: 'organic',
-    totalSessions: 430,
-    convertedSessions: 21,
-    conversionRate: 4.9
-  },
-  {
-    landing: '/event/2024',
-    source: 'facebook',
-    medium: 'social',
-    totalSessions: 320,
-    convertedSessions: 15,
-    conversionRate: 4.7
-  }
-];
+interface LandingConversionResponse {
+  success: boolean;
+  data: LandingData[];
+}
 
 const formatNumber = (num: number) => num.toLocaleString();
 
 export const LandingConversionTable: React.FC = () => {
-  const [sortOrder, setSortOrder] = React.useState<'asc' | 'desc'>('desc');
+  const { currentEvent } = useConversionEvent();
+  const [data, setData] = useState<LandingData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  const sortedData = [...mockLandingData].sort((a, b) => {
+  const fetchLandingConversionData = async () => {
+    if (!currentEvent) return;
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+      if (!token) throw new Error("No token");
+      
+      const response = await fetch(`/api/overview/conversion-by-landing?to=/checkout/success&event=${currentEvent}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (!response.ok) {
+        throw new Error('첫 유입페이지 전환율 데이터를 불러올 수 없습니다.');
+      }
+      
+      const result: LandingConversionResponse = await response.json();
+      
+      if (!result.success) {
+        throw new Error('데이터 처리 중 오류가 발생했습니다.');
+      }
+      
+      setData(result.data || []);
+    } catch (err) {
+      console.error('Landing Conversion API Error:', err);
+      setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.');
+      setData([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLandingConversionData();
+  }, [currentEvent]);
+
+  const sortedData = [...data].sort((a, b) => {
     const primarySort = sortOrder === 'asc' ? a.conversionRate - b.conversionRate : b.conversionRate - a.conversionRate;
     
     if (primarySort === 0) {
@@ -69,7 +74,37 @@ export const LandingConversionTable: React.FC = () => {
     return primarySort;
   });
 
-  const maxConversionRate = Math.max(...mockLandingData.map(landing => landing.conversionRate));
+  const maxConversionRate = data.length > 0 ? Math.max(...data.map(landing => landing.conversionRate)) : 0;
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 w-1/2">
+        <div className="flex items-center justify-center h-32">
+          <div className="text-gray-500">데이터 로딩 중...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 w-1/2">
+        <div className="flex items-center justify-center h-32">
+          <div className="text-red-500">{error}</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (data.length === 0) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 w-1/2">
+        <div className="flex items-center justify-center h-32">
+          <div className="text-gray-500">첫 유입페이지 전환율 데이터가 없습니다.</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 w-1/2">
@@ -93,7 +128,7 @@ export const LandingConversionTable: React.FC = () => {
           </thead>
           <tbody>
             {sortedData.map((landing, idx) => (
-              <tr key={landing.landing} className="border-b border-gray-100 hover:bg-gray-50" data-tooltip-id={`landing-tooltip-${idx}`}>
+              <tr key={`${landing.landing}-${landing.source}-${landing.medium}`} className="border-b border-gray-100 hover:bg-gray-50" data-tooltip-id={`landing-tooltip-${idx}`}>
                 <td className="py-2 px-3 align-top text-center"> 
                   <div className="flex flex-col items-center">
                     <span className="font-medium text-gray-900 text-sm flex items-center gap-2">

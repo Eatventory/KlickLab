@@ -6,6 +6,7 @@ import { LandingConversionTable } from './LandingConversionTable';
 import { TrendingUp, Globe, Clock } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line } from 'recharts';
 import PathExplorer from './PathExplorer';
+import { useSegmentFilter } from '../../context/SegmentFilterContext';
 
 // 타입 정의
 interface FilterOptions {
@@ -80,6 +81,7 @@ function formatKoreanNumber(value: number) {
 }
 
 export const TrafficDashboard: React.FC = () => {
+  const { filter: globalFilter } = useSegmentFilter();
   const [filters, setFilters] = useState<FilterOptions>({
     period: 'hourly',
     gender: 'all',
@@ -102,13 +104,27 @@ export const TrafficDashboard: React.FC = () => {
       try {
         const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
         if (!token) throw new Error("No token");
+        
+        // 전역 필터 조건을 URL 파라미터로 변환
+        const globalFilterParams = new URLSearchParams();
+        if (globalFilter.conditions) {
+          Object.entries(globalFilter.conditions).forEach(([key, value]) => {
+            if (value !== undefined && value !== null && value !== '') {
+              globalFilterParams.append(key, String(value));
+            }
+          });
+        }
+        
+        const globalFilterString = globalFilterParams.toString();
+        const globalFilterQuery = globalFilterString ? `&${globalFilterString}` : '';
+        
         const queryParams = new URLSearchParams({
           period: filters.period,
           gender: filters.gender,
           ageGroup: filters.ageGroup
         });
 
-        const response = await fetch(`/api/traffic?${queryParams}`, { headers: { Authorization: `Bearer ${token}` } });
+        const response = await fetch(`/api/traffic?${queryParams}${globalFilterQuery}`, { headers: { Authorization: `Bearer ${token}` } });
         const data: TrafficData = await response.json();
         setTrafficData(data);
       } catch (error) {
@@ -124,7 +140,7 @@ export const TrafficDashboard: React.FC = () => {
     // 30초마다 데이터 갱신
     const interval = setInterval(fetchTrafficData, 30000);
     return () => clearInterval(interval);
-  }, [filters]);
+  }, [filters, JSON.stringify(globalFilter.conditions)]);
 
   if (loading) {
     return (

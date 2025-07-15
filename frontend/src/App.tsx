@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Dashboard } from './components/dashboard/Dashboard';
 import { useAuthStore } from './store/useAuthStore';
@@ -11,7 +11,7 @@ import './App.css';
 import { ConversionEventProvider } from './context/ConversionEventContext';
 import { SegmentFilterProvider } from './context/SegmentFilterContext';
 
-function AppRoutesWithProviders({ authState }) {
+function AppRoutesWithProviders({ authState }: { authState: string }) {
   return (
     <div className="App relative">
       <div
@@ -42,31 +42,15 @@ function AppRoutesWithProviders({ authState }) {
   );
 }
 
-function AppRoutesWithoutProviders({ authState }) {
+function AppRoutesWithoutProviders({ authState }: { authState: string }) {
   return (
-    <Routes>
-      <Route
-        path="/login"
-        element={
-          authState === 'loggedOut' ? <LoginForm /> : <Navigate to="/" />
-        }
-      />
-      <Route
-        path="/register"
-        element={
-          authState === 'loggedOut' ? <RegisterForm /> : <Navigate to="/" />
-        }
-      />
-      <Route
-        path="/"
-        element={
-          authState === 'checking'
-            ? <div>로딩 중...</div>
-            : <Navigate to="/login" />
-        }
-      />
-      <Route path="*" element={<ErrorPage />} />
-    </Routes>
+    <div className="App">
+      <Routes>
+        <Route path="/login" element={<LoginForm />} />
+        <Route path="/register" element={<RegisterForm />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    </div>
   );
 }
 
