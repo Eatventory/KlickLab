@@ -3,7 +3,15 @@ const router = express.Router();
 const clickhouse = require("../src/config/clickhouse");
 const authMiddleware = require("../middlewares/authMiddleware");
 const { formatLocalDateTime } = require("../utils/formatLocalDateTime");
-const { getLocalNow, getIsoNow, floorToNearest10Min, getNearestHourFloor, getOneHourAgo, getTodayStart, getYesterdayStart } = require("../utils/timeUtils");
+const {
+  getLocalNow,
+  getIsoNow,
+  floorToNearest10Min,
+  getNearestHourFloor,
+  getOneHourAgo,
+  getTodayStart,
+  getYesterdayStart,
+} = require("../utils/timeUtils");
 const { getConversionRate } = require("../utils/conversionUtils");
 
 const localNow = getLocalNow();
@@ -215,7 +223,7 @@ router.get("/conversion-today", authMiddleware, async (req, res) => {
       convertedSessions: today.converted,
       totalSessions: today.total,
       deltaRate: delta,
-      trend
+      trend,
     });
   } catch (err) {
     console.error("Conversion Quick API ERROR:", err);
@@ -287,6 +295,7 @@ router.get("/conversion-by-landing", authMiddleware, async (req, res) => {
       sum(is_converted) AS convertedSessions,
       round(sum(is_converted) / nullIf(count(), 0) * 100, 1) AS conversionRate
     FROM session_first_last
+    WHERE landing NOT IN ('/cart', '/checkout/success')
     GROUP BY landing, source, medium
     ORDER BY conversionRate DESC, totalSessions DESC
     LIMIT 50
