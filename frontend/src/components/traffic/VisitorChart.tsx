@@ -139,11 +139,12 @@ export const VisitorChart: React.FC<VisitorChartProps> = ({ data, period = 'dail
       days.push(dateStr);
     }
     displayData = days.map(dateStr => {
-      const found = displayData.find(d => d.date === dateStr);
+      const found = data.find(d => d.date === dateStr);
       return found || { date: dateStr, visitors: 0, newVisitors: 0, returningVisitors: 0 };
     });
+  } else { // 주별/월별은 DB에서 받은 순서대로 그대로 사용 (보정/매칭 X)
+    displayData = data;
   }
-  // 주별/월별은 DB에서 받은 순서대로 그대로 사용 (보정/매칭 X)
 
   return (
     <div className="card">

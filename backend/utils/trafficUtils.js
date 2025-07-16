@@ -69,8 +69,7 @@ function getWhereClause({
   startDateStr,
   endDateStr,
   gender,
-  ageGroup,
-  getAgeCondition,
+  ageGroup
 }) {
   let where = [
     `timestamp >= toDateTime('${startDateStr}')`,
@@ -171,181 +170,111 @@ function getCacheKey({ sdk_key, period, gender, ageGroup }) {
 }
 
 function getVisitorTrendQuery(period, sdk_key, gender, ageGroup, startDateStr, endDateStr) {
-  const genderCond = gender !== "all" ? `AND user_gender = '${gender}'` : "";
-  const ageCond = ageGroup !== "all" ? `AND ${getAgeCondition(ageGroup)}` : "";
+  let sumCond = '';
+  if (gender !== 'all' && ageGroup !== 'all') { // 교집합 조건: gender + ageGroup
+    sumCond = `segment_type = 'user_gender' AND segment_value = '${gender}' AND dist_type = 'ageGroup' AND dist_value = '${ageGroup}'`;
+  } else if (gender !== 'all') { // 성별만 필터
+    sumCond = `segment_type = 'user_gender' AND segment_value = '${gender}'`;
+  } else if (ageGroup !== 'all') { // 연령만 필터 (segment_type에 있음)
+    sumCond = `segment_type = 'user_age' AND segment_value = '${ageGroup}'`;
+  } else { // 모두 all이면 기본 기준은 user_age
+    sumCond = `segment_type = 'user_age'`;
+  }
 
-  if (period === "weekly") {
-    const joinGender = gender !== "all" ? `
-      JOIN daily_user_distribution g
-        ON m.date = g.date AND m.sdk_key = g.sdk_key
-        AND g.segment_type = 'user_gender' AND g.segment_value = '${gender}'` : "";
-  
-    const joinAge = ageGroup !== "all" ? `
-      JOIN daily_user_distribution a
-        ON m.date = a.date AND m.sdk_key = a.sdk_key
-        AND a.segment_type = 'user_age' AND a.segment_value = '${ageGroup}'` : "";
-  
+  if (period === 'weekly') {
     return `
       SELECT
-        concat(formatDateTime(m.date, '%m'), '월 ',
-          toString(toRelativeWeekNum(m.date) - toRelativeWeekNum(toStartOfMonth(m.date)) + 1),
+        concat(
+          formatDateTime(date, '%m'), '월 ',
+          toString(toRelativeWeekNum(date) - toRelativeWeekNum(toStartOfMonth(date)) + 1),
           '주차'
         ) AS date_str,
-        sum(m.visitors) AS visitors,
-        sum(m.new_visitors) AS newVisitors,
-        sum(m.existing_visitors) AS returningVisitors
-      FROM daily_metrics m
-      ${joinGender}
-      ${joinAge}
-      WHERE m.date >= toStartOfWeek(toDate('${startDateStr}'))
-        AND m.date <= toDate('${endDateStr}')
-        AND m.sdk_key = '${sdk_key}'
+        sumIf(user_count, ${sumCond}) AS visitors,
+        0 AS newVisitors,
+        0 AS returningVisitors
+      FROM daily_user_distribution
+      WHERE sdk_key = '${sdk_key}'
+        AND date >= toStartOfWeek(toDate('${startDateStr}'))
+        AND date <= toDate('${endDateStr}')
       GROUP BY date_str
       ORDER BY date_str ASC
     `;
   }
 
-  if (period === "monthly") {
-    const joinGender = gender !== "all" ? `
-      JOIN daily_user_distribution g
-        ON m.date = g.date AND m.sdk_key = g.sdk_key
-        AND g.segment_type = 'user_gender' AND g.segment_value = '${gender}'` : "";
-  
-    const joinAge = ageGroup !== "all" ? `
-      JOIN daily_user_distribution a
-        ON m.date = a.date AND m.sdk_key = a.sdk_key
-        AND a.segment_type = 'user_age' AND a.segment_value = '${ageGroup}'` : "";
-  
+  if (period === 'monthly') {
     return `
       SELECT
-        formatDateTime(m.date, '%Y-%m') AS date_str,
-        sum(m.visitors) AS visitors,
-        sum(m.new_visitors) AS newVisitors,
-        sum(m.existing_visitors) AS returningVisitors
-      FROM daily_metrics m
-      ${joinGender}
-      ${joinAge}
-      WHERE m.date >= toStartOfMonth(toDate('${startDateStr}'))
-        AND m.date <= toDate('${endDateStr}')
-        AND m.sdk_key = '${sdk_key}'
+        formatDateTime(date, '%Y-%m') AS date_str,
+        sumIf(user_count, ${sumCond}) AS visitors,
+        0 AS newVisitors,
+        0 AS returningVisitors
+      FROM daily_user_distribution
+      WHERE sdk_key = '${sdk_key}'
+        AND date >= toStartOfMonth(toDate('${startDateStr}'))
+        AND date <= toDate('${endDateStr}')
       GROUP BY date_str
       ORDER BY date_str ASC
     `;
   }
 
   if (period === "daily") {
-    const joinGender = gender !== "all" ? "AND d_gender.segment_value = '" + gender + "'" : "";
-    const joinAge = ageGroup !== "all" ? "AND d_age.segment_value = '" + ageGroup + "'" : "";
-  
     return `
       SELECT
         formatDateTime(date, '%Y-%m-%d') AS date_str,
-        sum(toUInt64(visitors)) AS visitors,
-        sum(toUInt64(new_visitors)) AS newVisitors,
-        sum(toUInt64(existing_visitors)) AS returningVisitors
+        sumIf(user_count, ${sumCond}) AS visitors,
+        0, 0
       FROM (
-        -- 과거 6일치: daily_metrics + daily_user_distribution
-        SELECT m.date, m.visitors, m.new_visitors, m.existing_visitors
-        FROM daily_metrics m
-        ${gender !== "all" ? `
-          JOIN daily_user_distribution d_gender
-            ON m.date = d_gender.date AND m.sdk_key = d_gender.sdk_key
-            AND d_gender.segment_type = 'user_gender' ${joinGender}` : ""}
-        ${ageGroup !== "all" ? `
-          JOIN daily_user_distribution d_age
-            ON m.date = d_age.date AND m.sdk_key = d_age.sdk_key
-            AND d_age.segment_type = 'user_age' ${joinAge}` : ""}
-        WHERE m.date BETWEEN toDate('${localNow}') - 6 AND toDate('${localNow}') - 1
-          AND m.sdk_key = '${sdk_key}'
-  
+        SELECT date, segment_type, segment_value, dist_type, dist_value, user_count
+        FROM daily_user_distribution
+        WHERE sdk_key = '${sdk_key}'
+          AND date BETWEEN toDate('${localNow}') - 6 AND toDate('${localNow}')
         UNION ALL
-  
-        -- 오늘: hourly + minutes
-        SELECT date, sum(visitors), sum(new_visitors), sum(existing_visitors)
-        FROM (
-          SELECT toDate(h.date_time) AS date, h.visitors, h.new_visitors, h.existing_visitors
-          FROM hourly_metrics h
-          ${gender !== "all" ? `
-            JOIN hourly_user_distribution d_gender
-              ON h.date_time = d_gender.date_time AND h.sdk_key = d_gender.sdk_key
-              AND d_gender.segment_type = 'user_gender' ${joinGender}` : ""}
-          ${ageGroup !== "all" ? `
-            JOIN hourly_user_distribution d_age
-              ON h.date_time = d_age.date_time AND h.sdk_key = d_age.sdk_key
-              AND d_age.segment_type = 'user_age' ${joinAge}` : ""}
-          WHERE h.date_time >= toDateTime('${todayStart}')
-            AND h.date_time <= toDateTime('${oneHourFloor}')
-            AND h.sdk_key = '${sdk_key}'
-  
-          UNION ALL
-  
-          SELECT toDate(m.date_time), m.visitors, m.new_visitors, m.existing_visitors
-          FROM minutes_metrics m
-          ${gender !== "all" ? `
-            JOIN minutes_user_distribution d_gender
-              ON m.date_time = d_gender.date_time AND m.sdk_key = d_gender.sdk_key
-              AND d_gender.segment_type = 'user_gender' ${joinGender}` : ""}
-          ${ageGroup !== "all" ? `
-            JOIN minutes_user_distribution d_age
-              ON m.date_time = d_age.date_time AND m.sdk_key = d_age.sdk_key
-              AND d_age.segment_type = 'user_age' ${joinAge}` : ""}
-          WHERE m.date_time > toDateTime('${oneHourFloor}')
-            AND m.date_time <= toDateTime('${tenMinutesFloor}')
-            AND m.sdk_key = '${sdk_key}')
-        GROUP BY date
+        SELECT toDate(date_time), segment_type, segment_value, dist_type, dist_value, user_count
+        FROM hourly_user_distribution
+        WHERE sdk_key = '${sdk_key}'
+          AND date_time >= toDateTime('${todayStart}')
+          AND date_time <= toDateTime('${oneHourFloor}')
+        UNION ALL
+        SELECT toDate(date_time), segment_type, segment_value, dist_type, dist_value, user_count
+        FROM minutes_user_distribution
+        WHERE sdk_key = '${sdk_key}'
+          AND date_time > toDateTime('${oneHourFloor}')
+          AND date_time <= toDateTime('${tenMinutesFloor}')
       )
       GROUP BY date
-      ORDER BY date ASC
+      ORDER BY date_str ASC
     `;
   }
 
   if (period === "hourly") {
-    const joinGender = gender !== "all" ? "AND d_gender.segment_value = '" + gender + "'" : "";
-    const joinAge = ageGroup !== "all" ? "AND d_age.segment_value = '" + ageGroup + "'" : "";
-  
     return `
       SELECT *
       FROM (
-        -- hourly: 최근 23시간
+        -- 1. 지난 23시간: hourly_user_distribution
         SELECT
-          formatDateTime(h.date_time, '%Y-%m-%d %H') AS date_str,
-          h.visitors,
-          h.new_visitors,
-          h.existing_visitors AS returningVisitors
-        FROM hourly_metrics h
-        ${gender !== "all" ? `
-          JOIN hourly_user_distribution d_gender
-            ON h.date_time = d_gender.date_time AND h.sdk_key = d_gender.sdk_key
-            AND d_gender.segment_type = 'user_gender' ${joinGender}` : ""}
-        ${ageGroup !== "all" ? `
-          JOIN hourly_user_distribution d_age
-            ON h.date_time = d_age.date_time AND h.sdk_key = d_age.sdk_key
-            AND d_age.segment_type = 'user_age' ${joinAge}` : ""}
-        WHERE h.date_time >= toDateTime('${isoNow}') - INTERVAL 24 HOUR
-          AND h.date_time < toDateTime('${nearestHourFloor}')
-          AND h.sdk_key = '${sdk_key}'
+          formatDateTime(date_time, '%Y-%m-%d %H') AS date_str,
+          sumIf(user_count, ${sumCond}) AS visitors,
+          0 AS newVisitors,
+          0 AS returningVisitors
+        FROM hourly_user_distribution
+        WHERE sdk_key = '${sdk_key}'
+          AND date_time >= toDateTime('${isoNow}') - INTERVAL 24 HOUR
+          AND date_time < toDateTime('${nearestHourFloor}')
+        GROUP BY date_time
   
         UNION ALL
   
-        -- minutes: 최근 1시간 보강
+        -- 2. 최근 1시간: minutes_user_distribution
         SELECT
-          formatDateTime(toStartOfHour(m.date_time), '%Y-%m-%d %H') AS date_str,
-          sum(m.visitors) AS visitors,
-          sum(m.new_visitors) AS new_visitors,
-          sum(m.existing_visitors) AS returningVisitors
-        FROM minutes_metrics m
-        ${gender !== "all" ? `
-          JOIN minutes_user_distribution d_gender
-            ON m.date_time = d_gender.date_time AND m.sdk_key = d_gender.sdk_key
-            AND d_gender.segment_type = 'user_gender' ${joinGender}` : ""}
-        ${ageGroup !== "all" ? `
-          JOIN minutes_user_distribution d_age
-            ON m.date_time = d_age.date_time AND m.sdk_key = d_age.sdk_key
-            AND d_age.segment_type = 'user_age' ${joinAge}` : ""}
-        WHERE m.date_time > toDateTime('${nearestHourFloor}')
-          AND m.date_time < toDateTime('${isoNow}')
-          AND m.sdk_key = '${sdk_key}'
-        GROUP BY toStartOfHour(m.date_time)
+          formatDateTime(toStartOfHour(date_time), '%Y-%m-%d %H') AS date_str,
+          sumIf(user_count, ${sumCond}) AS visitors,
+          0 AS newVisitors,
+          0 AS returningVisitors
+        FROM minutes_user_distribution
+        WHERE sdk_key = '${sdk_key}'
+          AND date_time >= toDateTime('${nearestHourFloor}')
+          AND date_time < toDateTime('${isoNow}')
+        GROUP BY toStartOfHour(date_time)
       )
       ORDER BY date_str ASC
     `;
