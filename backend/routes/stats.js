@@ -285,6 +285,8 @@ router.get("/dropoff-summary", authMiddleware, async (req, res) => {
 router.get("/userpath-summary", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   const segment = req.query.segment; // e.g. "converted", "abandoned_cart"
+  const threshold = parseInt(req.query.threshold || "90");
+
   const fromPage = "/cart";
   const toPage = "/checkout/success";
 
@@ -335,15 +337,26 @@ router.get("/userpath-summary", authMiddleware, async (req, res) => {
           arrayMap(i -> (ordered[i].2, ordered[i+1].2), range(length(ordered) - 1))
         ) AS pair
       FROM raw_paths
+    ),
+    ranked AS (
+      SELECT
+        pair.1 AS from,
+        pair.2 AS to,
+        count(*) AS value
+      FROM flattened
+      WHERE pair.1 != '' AND pair.2 != ''
+      GROUP BY from, to
+      ORDER BY value DESC
+    ),
+    cumulated AS (
+      SELECT *,
+        sum(value) OVER (ORDER BY value DESC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running,
+        sum(value) OVER () AS total
+      FROM ranked
     )
-    SELECT
-      pair.1 AS from,
-      pair.2 AS to,
-      count(*) AS value
-    FROM flattened
-    WHERE pair.1 != '' AND pair.2 != ''
-    GROUP BY from, to
-    ORDER BY value DESC
+    SELECT from, to, value
+    FROM cumulated
+    WHERE running <= total * ${threshold / 100}
     LIMIT 500
   `;
 
