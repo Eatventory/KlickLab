@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getPageLabel } from '../../utils/getPageLabel';
 
 interface PathData {
   from: string;
@@ -51,15 +52,13 @@ interface UserPathSankeyChartProps {
 export const UserPathSankeyChart: React.FC<UserPathSankeyChartProps> = ({ data: propData, refreshKey, loading }) => {
   const [data, setData] = useState<any[]>(propData || []);
   const [selectedSegment, setSelectedSegment] = useState<string>('');
+  const [topPercent, setTopPercent] = useState<number>(90);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // propData가 변경되면 내부 상태도 업데이트
   useEffect(() => {
-    if (propData) {
-      setData(propData);
-    }
-  }, [propData]);
+    fetchUserPath(selectedSegment, topPercent);
+  }, [refreshKey, selectedSegment, topPercent]);
 
   // propData가 없고 refreshKey가 있을 때만 자체 API 호출
   useEffect(() => {
@@ -73,8 +72,8 @@ export const UserPathSankeyChart: React.FC<UserPathSankeyChartProps> = ({ data: 
           if (!token) throw new Error("No token");
           
           const url = selectedSegment 
-            ? `/api/stats/userpath-summary?segment=${selectedSegment}`
-            : '/api/stats/userpath-summary';
+            ? `/api/stats/userpath-summary?segment=${selectedSegment}&threshold=${topPercent}`
+            : `/api/stats/userpath-summary?threshold=${topPercent}`;
             
           const response = await fetch(url, {
             headers: { Authorization: `Bearer ${token}` }
@@ -95,15 +94,15 @@ export const UserPathSankeyChart: React.FC<UserPathSankeyChartProps> = ({ data: 
       };
       fetchUserPath();
     }
-  }, [refreshKey, propData, selectedSegment]);
+  }, [refreshKey, propData, selectedSegment, topPercent]);
 
   const handleSegmentChange = async (event: React.ChangeEvent<HTMLSelectElement>) => {
     const newSegment = event.target.value;
     setSelectedSegment(newSegment);
-    await fetchUserPath(newSegment);
+    await fetchUserPath(newSegment, topPercent);
   };
   
-  const fetchUserPath = async (segment: string) => {
+  const fetchUserPath = async (segment: string, threshold: number) => {
     try {
       setIsLoading(true);
       setError(null);
@@ -111,8 +110,8 @@ export const UserPathSankeyChart: React.FC<UserPathSankeyChartProps> = ({ data: 
       if (!token) throw new Error("No token");
   
       const url = segment
-        ? `/api/stats/userpath-summary?segment=${segment}`
-        : '/api/stats/userpath-summary';
+        ? `/api/stats/userpath-summary?segment=${segment}&threshold=${threshold}`
+        : `/api/stats/userpath-summary?threshold=${threshold}`;
   
       const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` }
@@ -142,15 +141,15 @@ export const UserPathSankeyChart: React.FC<UserPathSankeyChartProps> = ({ data: 
     }
   };
 
-  const [topPercent, setTopPercent] = useState<number>(90); // 기본값: 상위 90%
   const safeData = Array.isArray(data) ? data : [];
-  const sortedData = [...safeData].sort((a, b) => b.value - a.value);
-  const total = sortedData.reduce((sum, d) => sum + d.value, 0);
-  let running = 0;
-  const filteredData = sortedData.filter((d) => {
-    running += d.value;
-    return running <= total * (topPercent / 100);
-  });
+  const mapped = (safeData || [])
+    .filter(p => p.from !== p.to)
+    .map(p => ({
+      from: getPageLabel(p.from),
+      to: getPageLabel(p.to),
+      value: Number(p.value)
+    }));
+  const filteredData = mapped;
   const [hoverLinkIdx, setHoverLinkIdx] = useState<number | null>(null);
   const nodeDepths = computeNodeDepths(filteredData);
   const nodeMap = new Map<string, { name: string; depth: number; totalIn: number; totalOut: number }>();
