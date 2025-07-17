@@ -7,7 +7,10 @@ import logo from '../../assets/klicklab.svg';
 export default function HeaderBar() {
   const authState = useAuthStore((s) => s.authState);
   const setAuthState = useAuthStore((s) => s.setAuthState);
-  const [timeLeft, setTimeLeft] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(() => {
+    const expiresAt = getExpiresAt();
+    return Math.max(0, expiresAt - Date.now());
+  });
 
   const handleLogout = () => {
     fetch('/api/auth/logout', {
