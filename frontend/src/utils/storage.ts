@@ -80,7 +80,7 @@ export const attemptAutoLogin = async (): Promise<boolean> => {
 
     if (res.ok) {
       const { accessToken } = await res.json();
-      setToken(accessToken, 15 * 60 * 1000, true); // 자동 로그인이므로 localStorage 사용
+      setToken(accessToken, 150 * 60 * 1000, true); // 자동 로그인이므로 localStorage 사용
       return true;
     }
   } catch (error) {
