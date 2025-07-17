@@ -56,7 +56,7 @@ export const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
+    <div className="h-screen bg-gray-50 overflow-hidden">
       {/* 상단 헤더바 */}
       <HeaderBar />
       <div className='flex'>
@@ -68,14 +68,11 @@ export const Dashboard: React.FC = () => {
           onToggleCollapse={toggleSidebar}
         />
 
-        {/* 메인 콘텐츠 */}
-        <div
-          className={clsx(
-            "flex-1 flex flex-col mt-16 min-w-0 transition-all duration-300",
-            isSidebarCollapsed ? "ml-16" : "ml-64"
-          )}
-        >
-          {/* 레벨2 헤더 */}
+        {/* 레벨2 헤더 */}
+        <div className={clsx(
+          'fixed top-16 w-full z-40 bg-white border-b',
+          isSidebarCollapsed ? 'ml-16' : 'ml-64'
+        )}>
           <div
             className={clsx(
               "fixed top-16 z-20 transition-all duration-300 bg-white border-b",
@@ -94,8 +91,7 @@ export const Dashboard: React.FC = () => {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    {/* 새로고침 버튼 */}
-                    {tabPath === 'overview' && (
+                    {/* {tabPath === 'overview' && (
                       <button
                         onClick={() => overviewRef.current?.fetchStats?.()}
                         className="p-2 rounded-full hover:bg-gray-100 transition-colors"
@@ -103,7 +99,7 @@ export const Dashboard: React.FC = () => {
                       >
                         <RefreshCw className="w-5 h-5 text-gray-500" />
                       </button>
-                    )}
+                    )} */}
                     <div className="text-right">
                       <p className="text-sm text-gray-600">마지막 업데이트</p>
                       <p className="text-sm font-medium text-gray-900">
@@ -120,9 +116,14 @@ export const Dashboard: React.FC = () => {
             {/* 전역 필터 바 */}
             <GlobalFilterBar />
           </div>
+        </div>
 
-          {/* 메인 콘텐츠 영역: 탭별 라우팅 */}
-          <main className="flex-1 p-6 mt-32">
+        {/* 메인 콘텐츠 영역: 탭별 라우팅 */}
+        <main className={clsx(
+          'flex-1 p-6 transition-all',
+          isSidebarCollapsed ? 'ml-16' : 'ml-64',
+          'overflow-y-auto h-[calc(100vh-192px)] mt-[192px]',
+        )}>
             <Routes>
               <Route path="overview" element={<OverviewDashboard ref={overviewRef} onLastUpdated={handleOverviewUpdate} />} />
               <Route path="users" element={<UserDashboard />} />
@@ -136,6 +137,5 @@ export const Dashboard: React.FC = () => {
           </main>
         </div>
       </div>
-    </div>
   );
 }; 
