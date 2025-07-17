@@ -1,10 +1,17 @@
-function buildConversionQuery({ fromPage, toPage, sdk_key, startDate, endDate }) {
+function buildConversionQuery({
+  fromPage,
+  toPage,
+  sdk_key,
+  startDate,
+  endDate,
+}) {
   return `
     WITH
     filtered_events AS (
       SELECT session_id, page_path, timestamp
       FROM events
-      WHERE page_path IN ('${fromPage}', '${toPage}')
+      WHERE event_name = 'page_view'
+        AND page_path IN ('${fromPage}', '${toPage}')
         AND timestamp BETWEEN toDateTime('${startDate}') AND toDateTime('${endDate}')
         AND sdk_key = '${sdk_key}'
     ),

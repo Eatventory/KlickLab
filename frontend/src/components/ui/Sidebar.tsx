@@ -39,6 +39,12 @@ const tabs = [
     description: '방문자 추이'
   },
   {
+    id: 'conversion',
+    label: '전환율',
+    icon: TrendingUp,
+    description: '전환 퍼널'
+  },
+  {
     id: 'engagement',
     label: '참여도 분석',
     icon: Clock,

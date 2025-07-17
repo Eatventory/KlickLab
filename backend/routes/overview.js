@@ -273,7 +273,8 @@ router.get("/conversion-by-landing", authMiddleware, async (req, res) => {
           traffic_source,
           traffic_medium
         FROM klicklab.events
-        WHERE ${dateFilter}
+        WHERE event_name = 'page_view'
+          AND ${dateFilter}
           AND sdk_key = '${sdk_key}'
         ORDER BY timestamp
       ),
@@ -354,7 +355,8 @@ router.get("/conversion-by-channel", authMiddleware, async (req, res) => {
         FROM (
           SELECT session_id, page_path, traffic_source, traffic_medium, traffic_campaign, timestamp
           FROM klicklab.events
-          WHERE ${dateFilter}
+          WHERE event_name = 'page_view'
+            AND ${dateFilter}
             AND sdk_key = '${sdk_key}'
           ORDER BY timestamp
         )
