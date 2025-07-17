@@ -14,24 +14,24 @@ router.get("/rules", async (req, res) => {
 
     try {
         // 두 종류의 규칙을 병렬로 조회
-        const [eventRulesResult, codelessConfigsResult] = await Promise.all([
+        const [eventRulesResult, eventbuttonResult] = await Promise.all([
             clickhouse.query({
                 query: `SELECT * FROM ttttest.event_rules WHERE sdk_key = '${sdk_key}'`,
                 format: "JSONEachRow"
             }),
             clickhouse.query({
-                query: `SELECT * FROM ttttest.codeless_event_configs WHERE sdk_key = '${sdk_key}'`,
+                query: `SELECT * FROM ttttest.event_button WHERE sdk_key = '${sdk_key}'`,
                 format: "JSONEachRow"
             })
         ]);
 
         const eventRules = await eventRulesResult.json();
-        const codelessConfigs = await codelessConfigsResult.json();
+        const eventbutton = await eventbuttonResult.json();
 
         // 하나의 응답으로 조합
         res.status(200).json({
             eventRules,       // 이벤트 변환 규칙
-            codelessConfigs   // 클릭 이벤트 규칙
+            eventbutton   // 클릭 이벤트 규칙
         });
 
     } catch (error) {
