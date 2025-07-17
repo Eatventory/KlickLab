@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { Dashboard } from './components/dashboard/Dashboard';
 import { useAuthStore } from './store/useAuthStore';
 import { setToken, attemptAutoLogin, isUsingLocalStorage } from './utils/storage';
@@ -21,9 +21,10 @@ function AppRoutesWithProviders({ authState }: { authState: string }) {
         }}
       >
         <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/login" element={<Navigate to="/" />} />
-          <Route path="/register" element={<Navigate to="/" />} />
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard/*" element={<Dashboard />} />
+          <Route path="/login" element={<Navigate to="/dashboard" />} />
+          <Route path="/register" element={<Navigate to="/dashboard" />} />
           <Route path="*" element={<ErrorPage />} />
         </Routes>
       </div>

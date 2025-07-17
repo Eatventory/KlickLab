@@ -62,8 +62,8 @@ export const ReportDashboard: React.FC = () => {
   }, []);
 
   const renderTableRows = () => {
-    if (kpiData) {
-      const rows: { title: string; data: KPIStat }[] = [
+    if (kpiData && !error) {
+      const rows: { title: string; data: KPIStat | undefined }[] = [
         { title: '일일 방문자 수', data: kpiData.daily_visitors },
         { title: '신규 방문자 수', data: kpiData.new_users },
         { title: '기존 방문자 수', data: kpiData.returning_users },
@@ -74,10 +74,10 @@ export const ReportDashboard: React.FC = () => {
         <tr key={index} className="border-b border-gray-100">
           <td className="py-3 px-4 text-gray-700">{stat.title}</td>
           <td className="py-3 px-4 text-right font-medium text-gray-900">
-            {stat.data.current.toLocaleString()}
+            {stat.data && typeof stat.data.current === 'number' ? stat.data.current.toLocaleString() : '-'}
           </td>
-          <td className="py-3 px-4 text-right text-gray-600">{stat.data.vs_yesterday}</td>
-          <td className="py-3 px-4 text-right text-gray-500">{stat.data.vs_last_week}</td>
+          <td className="py-3 px-4 text-right text-gray-600">{stat.data?.vs_yesterday ?? '-'}</td>
+          <td className="py-3 px-4 text-right text-gray-500">{stat.data?.vs_last_week ?? '-'}</td>
         </tr>
       ));
     } else {
@@ -188,7 +188,7 @@ export const ReportDashboard: React.FC = () => {
               {loading ? (
                 <tr><td colSpan={4} className="text-center py-6">로딩 중...</td></tr>
               ) : error ? (
-                <tr><td colSpan={4} className="text-center text-red-500 py-6">데이터 불러오기 실패</td></tr>
+                <tr><td colSpan={4} className="text-center text-red-500 py-6">데이터 불러오기 실패 (서버 오류)</td></tr>
               ) : (
                 renderTableRows()
               )}

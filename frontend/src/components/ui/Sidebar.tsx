@@ -20,7 +20,7 @@ interface SidebarProps {
 
 const tabs = [
   {
-    id: 'dashboard',
+    id: 'overview',
     label: '대시보드',
     icon: BarChart3,
     description: '전체 개요'
