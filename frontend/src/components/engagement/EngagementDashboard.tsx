@@ -254,22 +254,7 @@ export const EngagementDashboard: React.FC = () => {
           />
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 col-span-2">
-          {/* <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">조회수</h2>
-          </div>
-          <HorizontalLineChart
-            data={viewCounts.map((d) => ({
-              date: d.date,
-              value: d.totalViews
-            }))}
-            tooltipRenderer={(item) => (
-              <div className="text-sm">
-                <div className="text-gray-500">{item.date}</div>
-                <div className="font-bold text-gray-900">{item.value.toLocaleString()}건</div>
-              </div>
-            )}
-          /> */}
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 pt-0 col-span-2">
           <ChartWrapper
             metrics={[
               { key: 'viewCounts', label: '조회수', value: `${viewCounts.reduce((acc, d) => acc + d.totalViews, 0).toLocaleString()}` },
