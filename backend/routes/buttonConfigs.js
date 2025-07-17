@@ -1,4 +1,4 @@
-// 파일명: routes/buttonEvent.js
+// 파일명: routes/buttonConfigs.js
 // 설명: 코드리스 클릭 이벤트 규칙을 관리하는 API입니다. (대시보드용)
 
 const express = require("express");
@@ -11,13 +11,13 @@ const { randomUUID } = require("crypto");
 router.get("/", authMiddleware, async (req, res) => {
     const { sdk_key } = req.user;
     try {
-        const query = `SELECT * FROM ttttest.codeless_event_configs WHERE sdk_key = '${sdk_key}' ORDER BY created_at DESC`;
+        const query = `SELECT * FROM ttttest.event_button WHERE sdk_key = '${sdk_key}' ORDER BY created_at DESC`;
         const resultSet = await clickhouse.query({ query, format: "JSONEachRow" });
         const configs = await resultSet.json();
         res.status(200).json(configs);
     } catch (error) {
-        console.error("Error fetching codeless configs:", error);
-        res.status(500).json({ error: "Failed to fetch codeless configs" });
+        console.error("Error fetching button configs:", error);
+        res.status(500).json({ error: "Failed to fetch button configs" });
     }
 });
 
@@ -31,14 +31,14 @@ router.post("/", authMiddleware, async (req, res) => {
     const config_id = randomUUID();
     try {
         await clickhouse.insert({
-            table: "ttttest.codeless_event_configs",
+            table: "ttttest.event_button",
             values: [{ config_id, sdk_key, event_name, css_selector, description: description || '' }],
             format: "JSONEachRow",
         });
-        res.status(201).json({ message: "Codeless event config created", config_id });
+        res.status(201).json({ message: "event config created", config_id });
     } catch (error) {
-        console.error("Error creating codeless config:", error);
-        res.status(500).json({ error: "Failed to create codeless config" });
+        console.error("Error creating button configs:", error);
+        res.status(500).json({ error: "Failed to create button configs" });
     }
 });
 
@@ -47,13 +47,14 @@ router.delete("/:config_id", authMiddleware, async (req, res) => {
     const { sdk_key } = req.user;
     const { config_id } = req.params;
     try {
-        const query = `ALTER TABLE ttttest.codeless_event_configs DELETE WHERE config_id = '${config_id}' AND sdk_key = '${sdk_key}'`;
+        const query = `ALTER TABLE ttttest.event_button DELETE WHERE config_id = '${config_id}' AND sdk_key = '${sdk_key}'`;
         await clickhouse.command({ query });
         res.status(200).json({ message: "Codeless event config deleted" });
     } catch (error) {
-        console.error("Error deleting codeless config:", error);
-        res.status(500).json({ error: "Failed to delete codeless config" });
+        console.error("Error deleting button configs:", error);
+        res.status(500).json({ error: "Failed to delete button configs" });
     }
 });
 
 module.exports = router;
+

@@ -5,6 +5,7 @@ import { ConversionEventMapping } from './ConversionEventMapping';
 import { EventRuleManager } from './EventRuleManager';
 import SegmentFilterManager from './SegmentFilterManager';
 import { SegmentFilterBuilder } from '../ui/SegmentFilterBuilder';
+import {ButtonEventManager} from './ButtonEventManager'
 
 // 타입 정의
 interface DomainData {
@@ -73,6 +74,9 @@ export const SettingsDashboard: React.FC = () => {
 
       {/* 이벤트 생성 규칙 관리 */}
       <EventRuleManager />
+
+      {/* 버튼에 이벤트 넣기 */}
+      <ButtonEventManager />
 
       {/* SDK 설치 가이드 */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
