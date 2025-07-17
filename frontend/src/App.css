@@ -6,6 +6,11 @@
   text-align: center; */
 }
 
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
 /* .logo {
   will-change: filter;
   transition: filter 300ms;

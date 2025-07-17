@@ -128,7 +128,7 @@ function App() {
   }, [setAuthState]);
   
   if (authState === 'checking') {
-    return <div>로딩 중...</div>;
+    return;
   }
 
   return (

@@ -31,6 +31,7 @@ const PAGE_TYPE_CLAUSE = {
   checkout: "page_path LIKE '/checkout%'",
 };
 
+/* 페이지 체류시간 TOP 10 */
 router.get('/page-times', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   const { period = '1day', pageType = 'all', sessionLength = 'all' } = req.query;
@@ -62,8 +63,9 @@ router.get('/page-times', authMiddleware, async (req, res) => {
       ${sessionLengthCondition}
       AND sdk_key = '${sdk_key}'
     GROUP BY page_path
-    ORDER BY visitCount DESC
-    LIMIT 100
+    HAVING averageTime > 0
+    ORDER BY averageTime DESC
+    LIMIT 10
   `;
 
   try {
@@ -76,5 +78,222 @@ router.get('/page-times', authMiddleware, async (req, res) => {
   }
 });
 
+/* 이탈률 */
+router.get("/bounce-rate", authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+  try {
+    const query = `
+      SELECT
+        page_path,
+        sum(page_views) AS total_views,
+        sum(page_exits) AS total_exits,
+        round(total_exits / total_views * 100, 1) AS bounce_rate
+      FROM (
+        SELECT
+          page_path,
+          page_views,
+          page_exits
+        FROM daily_page_stats
+        WHERE date BETWEEN toDate('${localNow}') - 7 AND toDate('${localNow}') - 1
+          AND sdk_key = '${sdk_key}'
+
+        UNION ALL
+
+        SELECT
+          page_path,
+          page_views,
+          page_exits
+        FROM hourly_page_stats
+        WHERE date_time >= toDateTime('${todayStart}')
+          AND date_time <= toDateTime('${oneHourFloor}')
+          AND sdk_key = '${sdk_key}'
+
+        UNION ALL
+
+        SELECT
+          page_path,
+          page_views,
+          page_exits
+        FROM minutes_page_stats
+        WHERE date_time >= toDateTime('${NearestHourFloor}')
+          AND date_time < toDateTime('${tenMinutesFloor}')
+          AND sdk_key = '${sdk_key}'
+      )
+      GROUP BY page_path
+      HAVING total_views > 100 AND bounce_rate > 0
+      ORDER BY bounce_rate DESC
+      LIMIT 10;
+    `;
+    const result = await clickhouse.query({ query, format: "JSONEachRow" });
+    const data = await result.json();
+    res.status(200).json(data);
+  } catch (err) {
+    console.error("Bounce Top API ERROR:", err);
+    res.status(500).json({ error: "Failed to get bounce top data" });
+  }
+});
+
+/* 페이지 조회수 */
+router.get('/page-views', authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+
+  const query = `
+    SELECT
+      page_path AS page,
+      sum(page_views) AS totalViews
+    FROM (
+      SELECT
+        page_path,
+        page_views
+      FROM hourly_page_stats
+      WHERE date_time >= toDateTime('${todayStart}')
+        AND date_time <= toDateTime('${oneHourFloor}')
+        AND sdk_key = '${sdk_key}'
+
+      UNION ALL
+
+      SELECT
+        page_path,
+        page_views
+      FROM minutes_page_stats
+      WHERE date_time >= toDateTime('${NearestHourFloor}')
+        AND date_time < toDateTime('${tenMinutesFloor}')
+        AND sdk_key = '${sdk_key}'
+    )
+    GROUP BY page
+    HAVING totalViews > 0
+    ORDER BY totalViews DESC
+    LIMIT 10
+  `;
+
+  try {
+    const dataRes = await clickhouse.query({query, format: 'JSONEachRow'});
+    let data = await dataRes.json();
+    data = data.map(item => ({
+      ...item,
+      totalViews: Number(item.totalViews),
+    }));
+    res.status(200).json(data);
+  } catch (err) {
+    console.error("Page Times API ERROR:", err);
+    res.status(500).json({ error: "Failed to get page times data" });
+  }
+});
+
+/* 전체 조회수 */
+router.get('/view-counts', authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+
+  const query = `
+    SELECT
+      date,
+      sum(views) AS totalViews
+    FROM (
+      SELECT
+        date,
+        sum(page_views) AS views
+      FROM daily_page_stats
+      WHERE date >= toDate('${localNow}') - INTERVAL 30 DAYS
+        AND date <= toDate('${localNow}') - INTERVAL 1 DAYS
+        AND sdk_key = '${sdk_key}'
+      GROUP BY date
+
+      UNION ALL
+
+      SELECT
+        toDate(date_time) AS date,
+        sum(page_views) AS views
+      FROM hourly_page_stats
+      WHERE date_time >= toDateTime('${todayStart}')
+        AND date_time <= toDateTime('${oneHourFloor}')
+        AND sdk_key = '${sdk_key}'
+      GROUP BY toDate(date_time)
+
+      UNION ALL
+
+      SELECT
+        toDate(date_time) AS date,
+        sum(page_views) AS views
+      FROM minutes_page_stats
+      WHERE date_time >= toDateTime('${NearestHourFloor}')
+        AND date_time < toDateTime('${tenMinutesFloor}')
+        AND sdk_key = '${sdk_key}'
+      GROUP BY toDate(date_time)
+    )
+    GROUP BY date
+    ORDER BY date ASC
+  `;
+
+  try {
+    const dataRes = await clickhouse.query({query, format: 'JSONEachRow'});
+    let data = await dataRes.json();
+    data = data.map(item => ({
+      ...item,
+      totalViews: Number(item.totalViews),
+    }));
+    res.status(200).json(data);
+  } catch (err) {
+    console.error("View Counts API ERROR:", err);
+    res.status(500).json({ error: "Failed to get view counts data" });
+  }
+});
+
+/* 전체 클릭수 */
+router.get('/click-counts', authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+
+  const query = `
+    SELECT
+      date,
+      sum(total_clicks) AS totalClicks
+    FROM (
+      SELECT
+        date,
+        sum(total_clicks) AS total_clicks
+      FROM klicklab.daily_click_summary
+      WHERE date >= toDate('${localNow}') - INTERVAL 30 DAY
+        AND date <= toDate('${localNow}') - INTERVAL 1 DAY
+        AND sdk_key = '${sdk_key}'
+      GROUP BY date
+
+      UNION ALL
+
+      SELECT
+        toDate(date_time) AS date,
+        sum(total_clicks) AS total_clicks
+      FROM klicklab.hourly_click_summary
+      WHERE date_time >= toDateTime('${todayStart}')
+        AND date_time <= toDateTime('${oneHourFloor}')
+        AND sdk_key = '${sdk_key}'
+      GROUP BY toDate(date_time)
+
+      UNION ALL
+
+      SELECT
+        toDate(date_time) AS date,
+        sum(total_clicks) AS total_clicks
+      FROM klicklab.minutes_click_summary
+      WHERE date_time >= toDateTime('${NearestHourFloor}')
+        AND date_time < toDateTime('${tenMinutesFloor}')
+        AND sdk_key = '${sdk_key}'
+      GROUP BY toDate(date_time)
+    )
+    GROUP BY date
+    ORDER BY date ASC
+  `;
+
+  try {
+    const dataRes = await clickhouse.query({query, format: 'JSONEachRow'});
+    let data = await dataRes.json();
+    data = data.map(item => ({
+      ...item,
+      totalClicks: Number(item.totalClicks),
+    }));
+    res.status(200).json(data);
+  } catch (err) {
+    console.error("Click Counts API ERROR:", err);
+    res.status(500).json({ error: "Failed to get click counts data" });
+  }
+});
 
 module.exports = router;

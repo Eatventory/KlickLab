@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { ExitPageChart } from './ExitPageChart';
-import { PageTimeChart } from './PageTimeChart';
-import { DropoffInsightsCard } from './DropoffInsightsCard';
-import { Clock, BarChart3, TrendingUp } from 'lucide-react';
-import { mockDashboardData } from '../../data/mockData';
+// import { ExitPageChart } from './ExitPageChart';
+// import { PageTimeChart } from './PageTimeChart';
+// import { Clock, BarChart3, TrendingUp } from 'lucide-react';
+// import { mockDashboardData } from '../../data/mockData';
 import { useSegmentFilter } from '../../context/SegmentFilterContext';
+import { getPageLabel } from '../../utils/getPageLabel';
+import HorizontalBarChart from '../HorizontalBarChart';
+import HorizontalLineChart from '../HorizontalLineChart';
+import ChartWrapper from '../ChartWrapper';
 
 // 타입 정의
 interface FilterOptions {
@@ -19,6 +22,28 @@ interface PageTimeData {
   visitCount: number;
 }
 
+interface PageViewCountsData {
+  page: string;
+  totalViews: number;
+}
+
+interface BounceRatesData {
+  page_path: string;
+  total_views: string;
+  total_exits: string;
+  bounce_rate: number;
+}
+
+interface ViewCountsData {
+  date: string;
+  totalViews: number;
+}
+
+interface ClickCountsData {
+  date: string;
+  totalClicks: number;
+}
+
 export const EngagementDashboard: React.FC = () => {
   const { filter: globalFilter } = useSegmentFilter();
   const [filters, setFilters] = useState<FilterOptions>({
@@ -28,8 +53,14 @@ export const EngagementDashboard: React.FC = () => {
   });
 
   const [pageTimes, setPageTimes] = useState<PageTimeData[]>([]);
+  const [pageViewCounts, setPageViewCounts] = useState<PageViewCountsData[]>([]);
+  const [bounceRates, setBounceRates] = useState<BounceRatesData[]>([]);
+  const [viewCounts, setViewCounts] = useState<ViewCountsData[]>([]);
+  const [clickCounts, setClickCounts] = useState<ViewCountsData[]>([]);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedMetric, setSelectedMetric] = useState<'viewCounts' | 'clickCounts'>('viewCounts');
 
   const fetchData = async () => {
     try {
@@ -38,24 +69,48 @@ export const EngagementDashboard: React.FC = () => {
       setLoading(true);
       setError(null);
       
-      // 전역 필터 조건을 URL 파라미터로 변환
-      const globalFilterParams = new URLSearchParams();
-      if (globalFilter.conditions) {
-        Object.entries(globalFilter.conditions).forEach(([key, value]) => {
-          if (value !== undefined && value !== null && value !== '') {
-            globalFilterParams.append(key, String(value));
-          }
-        });
-      }
+      // const globalFilterParams = new URLSearchParams();
+      // if (globalFilter.conditions) {
+      //   Object.entries(globalFilter.conditions).forEach(([key, value]) => {
+      //     if (value !== undefined && value !== null && value !== '') {
+      //       globalFilterParams.append(key, String(value));
+      //     }
+      //   });
+      // }
       
-      const globalFilterString = globalFilterParams.toString();
-      const globalFilterQuery = globalFilterString ? `&${globalFilterString}` : '';
+      // const globalFilterString = globalFilterParams.toString();
+      // const globalFilterQuery = globalFilterString ? `&${globalFilterString}` : '';
       
-      const params = new URLSearchParams(filters as any).toString();
-      const res = await fetch(`/api/engagement/page-times?${params}${globalFilterQuery}`, {headers: { Authorization: `Bearer ${token}` }});
-      if (!res.ok) throw new Error('페이지 체류시간 데이터를 불러오지 못했습니다.');
-      const data = await res.json();
-      setPageTimes(data);
+      // const params = new URLSearchParams(filters as any).toString();
+      // const res = await fetch(`/api/engagement/page-times?${params}${globalFilterQuery}`, {headers: { Authorization: `Bearer ${token}` }});
+
+      const [resPageTimes, resPageViewCounts, resBounceRates, resViewCounts, resClickCounts] = await Promise.all([
+        fetch(`/api/engagement/page-times`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/engagement/page-views`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch('/api/engagement/bounce-rate', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch('/api/engagement/view-counts', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch('/api/engagement/click-counts', { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+
+      if (!resPageTimes.ok) throw new Error('Page Times 데이터를 불러오지 못했습니다.');
+      if (!resPageViewCounts.ok) throw new Error('Page viewCounts 데이터를 불러오지 못했습니다.');
+      if (!resBounceRates.ok) throw new Error('Bounce 데이터를 불러오지 못했습니다.');
+      if (!resViewCounts.ok) throw new Error('Bounce 데이터를 불러오지 못했습니다.');
+      if (!resClickCounts.ok) throw new Error('Bounce 데이터를 불러오지 못했습니다.');
+
+      const [dataPageTimes, dataPageViewCounts, dataBounceRates, dataViewCounts, dataClickCounts] = await Promise.all([
+        resPageTimes.json(),
+        resPageViewCounts.json(),
+        resBounceRates.json(),
+        resViewCounts.json(),
+        resClickCounts.json()
+      ]);
+
+      setPageTimes(dataPageTimes);
+      setPageViewCounts(dataPageViewCounts);
+      setBounceRates(dataBounceRates);
+      setViewCounts(dataViewCounts);
+      setClickCounts(dataClickCounts);
     } catch (err: any) {
       console.error(err);
       setError(err.message || '알 수 없는 오류');
@@ -66,6 +121,8 @@ export const EngagementDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchData();
+    const interval = setInterval(fetchData, 60000); // 1분마다 갱신
+    return () => clearInterval(interval);
   }, [filters, JSON.stringify(globalFilter.conditions)]);
 
   const handleFilterChange = (key: keyof FilterOptions, value: string) => {
@@ -75,12 +132,9 @@ export const EngagementDashboard: React.FC = () => {
     }));
   };
 
-  return (
-    <div className="space-y-8">
-      {/* 필터 */}
+  const engagementFilter = (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex items-center gap-2 mb-4">
-          <Clock className="w-5 h-5 text-gray-600" />
           <h2 className="text-lg font-semibold text-gray-900">참여도 분석 필터</h2>
         </div>
         <div className="flex gap-4">
@@ -116,55 +170,129 @@ export const EngagementDashboard: React.FC = () => {
           </select>
         </div>
       </div>
+  );
 
-      {/* 이탈 페이지 & 페이지별 체류시간 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+  return (
+    <div className="space-y-8">
+      {/* {engagementFilter} */}
+
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-[repeat(auto-fit,minmax(320px,1fr))]">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center gap-2 mb-4">
-            <BarChart3 className="w-5 h-5 text-gray-600" />
-            <h2 className="text-lg font-semibold text-gray-900">이탈 페이지 분석</h2>
+            <h2 className="text-lg font-semibold text-gray-900">페이지 체류시간</h2>
           </div>
-          <ExitPageChart data={mockDashboardData.exitPages} />
+          <HorizontalBarChart
+            data={pageTimes.map((d) => ({
+              label: getPageLabel(d.page),
+              value: d.averageTime,
+              raw: d,
+            }))}
+            tooltipRenderer={(item) => (
+              <>
+                <div className="text-xs text-gray-500 mb-1">최근 7일간</div>
+                <div className="text-xs font-semibold text-gray-600 mb-1">
+                  {item.raw.page}
+                </div>
+                <div className="text-sm font-bold text-gray-900">
+                  평균 체류시간 {item.value < 1
+                    ? `${Math.round(item.value * 60)}초`
+                    : `${item.value.toFixed(1)}분`}
+                </div>
+              </>
+            )}
+            isLoading={loading}
+          />
         </div>
 
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center gap-2 mb-4">
-            <Clock className="w-5 h-5 text-gray-600" />
-            <h2 className="text-lg font-semibold text-gray-900">페이지별 체류시간</h2>
+            <h2 className="text-lg font-semibold text-gray-900">페이지 별 조회수</h2>
           </div>
-          <PageTimeChart data={pageTimes} />
+          <HorizontalBarChart
+            data={pageViewCounts.map((d) => ({
+              label: getPageLabel(d.page),
+              value: d.totalViews,
+              raw: d
+            }))}
+            tooltipRenderer={(item) => (
+              <>
+                <div className="text-xs text-gray-500 mb-1">최근 1일간</div>
+                <div className="text-xs font-semibold text-gray-600 mb-1">
+                  {item.raw.page}
+                </div>
+                <div className="text-sm font-bold text-gray-900">
+                  조회수 {item.value.toLocaleString()}회
+                </div>
+              </>
+            )}
+            isLoading={loading}
+          />
         </div>
 
-      </div>
-
-      {/* 이탈률 요약 & 세션 길이 분포 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
-          <DropoffInsightsCard />
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">이탈률</h2>
+          </div>
+          <HorizontalBarChart
+            data={bounceRates.map((item) => ({
+              label: getPageLabel(item.page_path),
+              value: item.bounce_rate,
+              raw: item,
+            }))}
+            tooltipRenderer={(item) => (
+              <>
+                <div className="text-sm text-gray-500 mb-1">최근 7일간</div>
+                <div className="text-sm font-semibold text-gray-600 mb-1">
+                  {item.raw.page_path}
+                </div>
+                <div className="text-md font-bold text-gray-900">
+                  이탈률 {item.value.toLocaleString()}%
+                </div>
+              </>
+            )}
+            isLoading={loading}
+          />
         </div>
 
-        {/* 세션 길이 분포 */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <TrendingUp className="w-5 h-5 text-gray-600" />
-            <h3 className="text-lg font-semibold text-gray-900">세션 길이 분포</h3>
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 col-span-2">
+          {/* <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">조회수</h2>
           </div>
-          <div className="flex items-center justify-center h-32 text-gray-500">
-            개발 중...
-          </div>
-        </div>
-      </div>
-
-      {/* 클릭 전 체류시간 */}
-      <div className="grid grid-cols-1 gap-8">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Clock className="w-5 h-5 text-gray-600" />
-            <h3 className="text-lg font-semibold text-gray-900">클릭 전 체류시간</h3>
-          </div>
-          <div className="flex items-center justify-center h-32 text-gray-500">
-            개발 중...
-          </div>
+          <HorizontalLineChart
+            data={viewCounts.map((d) => ({
+              date: d.date,
+              value: d.totalViews
+            }))}
+            tooltipRenderer={(item) => (
+              <div className="text-sm">
+                <div className="text-gray-500">{item.date}</div>
+                <div className="font-bold text-gray-900">{item.value.toLocaleString()}건</div>
+              </div>
+            )}
+          /> */}
+          <ChartWrapper
+            metrics={[
+              { key: 'viewCounts', label: '조회수', value: `${viewCounts.reduce((acc, d) => acc + d.totalViews, 0).toLocaleString()}` },
+              { key: 'clickCounts', label: '클릭수', value: `${clickCounts.reduce((acc, d) => acc + d.totalClicks, 0).toLocaleString() || '-'}` },
+            ]}
+            selectedKey={selectedMetric}
+            onSelect={(key) => setSelectedMetric(key as 'viewCounts' | 'clickCounts')}
+          >
+            <HorizontalLineChart
+              data={(selectedMetric === 'viewCounts' ? viewCounts : clickCounts).map((d) => ({
+                date: d.date,
+                value: selectedMetric === 'viewCounts' ? d.totalViews : d.totalClicks,
+              }))}
+              tooltipRenderer={(item) => (
+                <div className="text-sm">
+                  <div className="text-gray-500">{item.date}</div>
+                  <div className="font-bold text-gray-900">
+                    {item.value.toLocaleString()}건
+                  </div>
+                </div>
+              )}
+            />
+          </ChartWrapper>
         </div>
       </div>
     </div>

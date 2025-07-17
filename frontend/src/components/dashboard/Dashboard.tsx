@@ -17,7 +17,7 @@ import { ConversionDashboard } from '../conversion/ConversionDashboard';
 
 export const Dashboard: React.FC = () => {
   // activeTab, setActiveTab 제거
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
   const overviewRef = useRef<any>(null);
   const [overviewLastUpdated, setOverviewLastUpdated] = useState<Date | null>(null);
   const navigate = useNavigate();
@@ -59,32 +59,22 @@ export const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
+    <div className="h-screen flex flex-col overflow-hidden">
       {/* 상단 헤더바 */}
       <HeaderBar />
-      <div className='flex'>
+      <div className="flex flex-1 overflow-hidden">
       {/* 사이드바 */}
       <Sidebar
-          activeTab={tabPath}
+        activeTab={tabPath}
         onTabChange={handleTabChange}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={toggleSidebar}
       />
 
       {/* 메인 콘텐츠 */}
-        <div
-          className={clsx(
-            "flex-1 flex flex-col mt-16 min-w-0 transition-all duration-300",
-            isSidebarCollapsed ? "ml-16" : "ml-64"
-          )}
-        >
+        <div className={"flex-1 flex flex-col min-w-0 transition-all duration-300 overflow-hidden ml-16"}>
           {/* 레벨2 헤더 */}
-          <div
-            className={clsx(
-              "fixed top-16 z-20 transition-all duration-300 bg-white border-b",
-              isSidebarCollapsed ? "left-16 w-[calc(100%-4rem)]" : "left-64 w-[calc(100%-16rem)]"
-            )}
-          >
+          <div className={"fixed top-16 z-20 transition-all duration-300 bg-white border-b left-16 w-[calc(100%-4rem)]"}>
             <header className="bg-white shadow-sm border-b border-gray-200">
               <div className="px-6 py-4">
                 <div className="flex items-center justify-between">
@@ -98,7 +88,7 @@ export const Dashboard: React.FC = () => {
                   </div>
                   <div className="flex items-center gap-2">
                     {/* 새로고침 버튼 */}
-                    {tabPath === 'overview' && (
+                    {/* {tabPath === 'overview' && (
                       <button
                         onClick={() => overviewRef.current?.fetchStats?.()}
                         className="p-2 rounded-full hover:bg-gray-100 transition-colors"
@@ -106,7 +96,7 @@ export const Dashboard: React.FC = () => {
                       >
                         <RefreshCw className="w-5 h-5 text-gray-500" />
                       </button>
-                    )}
+                    )} */}
                     <div className="text-right">
                       <p className="text-sm text-gray-600">마지막 업데이트</p>
                       <p className="text-sm font-medium text-gray-900">
@@ -125,7 +115,8 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* 메인 콘텐츠 영역: 탭별 라우팅 */}
-          <main className="flex-1 p-6 mt-32">
+          {/* <main className="flex-1 overflow-y-auto mt-32 p-6"> */}
+          <main className={"flex-1 p-6 transition-all overflow-y-auto h-[calc(100vh-192px)] mt-[192px]"}>
             <Routes>
               <Route path="overview" element={<OverviewDashboard ref={overviewRef} onLastUpdated={handleOverviewUpdate} />} />
               <Route path="users" element={<UserDashboard />} />
@@ -137,7 +128,7 @@ export const Dashboard: React.FC = () => {
               <Route path="" element={<Navigate to="/dashboard/overview" replace />} />
               <Route path="*" element={<Navigate to="/dashboard/overview" replace />} />
             </Routes>
-        </main>
+          </main>
         </div>
       </div>
     </div>
