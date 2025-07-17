@@ -44,6 +44,18 @@ interface ClickCountsData {
   totalClicks: number;
 }
 
+interface AvgSessionSecsData {
+  date: string;
+  avgSessionSeconds: number;
+}
+
+interface SessionsPerUsersData {
+  date: string;
+  totalVisitors: number;
+  totalClicks: number;
+  sessionsPerUser: number;
+}
+
 export const EngagementDashboard: React.FC = () => {
   const { filter: globalFilter } = useSegmentFilter();
   const [filters, setFilters] = useState<FilterOptions>({
@@ -56,11 +68,14 @@ export const EngagementDashboard: React.FC = () => {
   const [pageViewCounts, setPageViewCounts] = useState<PageViewCountsData[]>([]);
   const [bounceRates, setBounceRates] = useState<BounceRatesData[]>([]);
   const [viewCounts, setViewCounts] = useState<ViewCountsData[]>([]);
-  const [clickCounts, setClickCounts] = useState<ViewCountsData[]>([]);
+  const [clickCounts, setClickCounts] = useState<ClickCountsData[]>([]);
+  const [avgSessionSecs, setAvgSessionSecs] = useState<AvgSessionSecsData[]>([]);
+  const [sessionsPerUsers, setSessionsPerUsers] = useState<SessionsPerUsersData[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedMetric, setSelectedMetric] = useState<'viewCounts' | 'clickCounts'>('viewCounts');
+  const [selectedMetric2, setSelectedMetric2] = useState<'avgSessionSecs' | 'sessionsPerUsers'>('avgSessionSecs');
 
   const fetchData = async () => {
     try {
@@ -84,21 +99,24 @@ export const EngagementDashboard: React.FC = () => {
       // const params = new URLSearchParams(filters as any).toString();
       // const res = await fetch(`/api/engagement/page-times?${params}${globalFilterQuery}`, {headers: { Authorization: `Bearer ${token}` }});
 
-      const [resPageTimes, resPageViewCounts, resBounceRates, resViewCounts, resClickCounts] = await Promise.all([
-        fetch(`/api/engagement/page-times`, { headers: { Authorization: `Bearer ${token}` } }),
+      const [resOverview, resPageTimes, resPageViewCounts, resBounceRates, resViewCounts, resClickCounts] = await Promise.all([
+        fetch('/api/engagement/overview', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/engagement/page-times-simple`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`/api/engagement/page-views`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch('/api/engagement/bounce-rate', { headers: { Authorization: `Bearer ${token}` } }),
         fetch('/api/engagement/view-counts', { headers: { Authorization: `Bearer ${token}` } }),
         fetch('/api/engagement/click-counts', { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
+      if (!resOverview.ok) throw new Error('Engagement Overview 데이터를 불러오지 못했습니다.');
       if (!resPageTimes.ok) throw new Error('Page Times 데이터를 불러오지 못했습니다.');
-      if (!resPageViewCounts.ok) throw new Error('Page viewCounts 데이터를 불러오지 못했습니다.');
+      if (!resPageViewCounts.ok) throw new Error('Page Views 데이터를 불러오지 못했습니다.');
       if (!resBounceRates.ok) throw new Error('Bounce 데이터를 불러오지 못했습니다.');
-      if (!resViewCounts.ok) throw new Error('Bounce 데이터를 불러오지 못했습니다.');
-      if (!resClickCounts.ok) throw new Error('Bounce 데이터를 불러오지 못했습니다.');
+      if (!resViewCounts.ok) throw new Error('View Counts 데이터를 불러오지 못했습니다.');
+      if (!resClickCounts.ok) throw new Error('Click Counts 데이터를 불러오지 못했습니다.');
 
-      const [dataPageTimes, dataPageViewCounts, dataBounceRates, dataViewCounts, dataClickCounts] = await Promise.all([
+      const [dataOverview, dataPageTimes, dataPageViewCounts, dataBounceRates, dataViewCounts, dataClickCounts] = await Promise.all([
+        resOverview.json(),
         resPageTimes.json(),
         resPageViewCounts.json(),
         resBounceRates.json(),
@@ -106,6 +124,8 @@ export const EngagementDashboard: React.FC = () => {
         resClickCounts.json()
       ]);
 
+      setAvgSessionSecs(dataOverview.data.avgSessionSeconds);
+      setSessionsPerUsers(dataOverview.data.sessionsPerUser);
       setPageTimes(dataPageTimes);
       setPageViewCounts(dataPageViewCounts);
       setBounceRates(dataBounceRates);
@@ -177,9 +197,43 @@ export const EngagementDashboard: React.FC = () => {
       {/* {engagementFilter} */}
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-[repeat(auto-fit,minmax(320px,1fr))]">
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 pt-0 col-span-2">
+          <ChartWrapper
+            metrics={[
+              { key: 'avgSessionSecs', label: '평균 온라인 세션 참여 시간',
+                value: avgSessionSecs.length
+                  ? `${(avgSessionSecs.reduce((acc, d) => acc + d.avgSessionSeconds, 0) / avgSessionSecs.length).toFixed(1)}초`
+                  : '-'
+              },
+              { key: 'sessionsPerUsers', label: '활성 사용자 당 세션 수',
+                value: sessionsPerUsers.length
+                  ? `${(sessionsPerUsers.reduce((acc, d) => acc + d.sessionsPerUser, 0) / sessionsPerUsers.length).toFixed(1)}`
+                  : '-' 
+              },
+            ]}
+            selectedKey={selectedMetric2}
+            onSelect={(key) => setSelectedMetric2(key as 'avgSessionSecs' | 'sessionsPerUsers')}
+          >
+            <HorizontalLineChart
+              data={(selectedMetric2 === 'avgSessionSecs' ? avgSessionSecs : sessionsPerUsers).map((d) => ({
+                date: d.date,
+                value: selectedMetric2 === 'avgSessionSecs' ? d.avgSessionSeconds : d.sessionsPerUser,
+              }))}
+              tooltipRenderer={(item) => (
+                <div className="text-sm">
+                  <div className="text-gray-500">{item.date}</div>
+                  <div className="font-bold text-gray-900">
+                    {selectedMetric2 === 'avgSessionSecs' ? `${item.value.toFixed(1)}초` : item.value.toFixed(1)}
+                  </div>
+                </div>
+              )}
+            />
+          </ChartWrapper>
+        </div>
+
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">페이지 체류시간</h2>
+            <h2 className="text-lg font-semibold text-gray-900">페이지 평균 체류시간</h2>
           </div>
           <HorizontalBarChart
             data={pageTimes.map((d) => ({
@@ -201,6 +255,7 @@ export const EngagementDashboard: React.FC = () => {
               </>
             )}
             isLoading={loading}
+            valueFormatter={(val) => `${val.toFixed(1)}분`}
           />
         </div>
 
@@ -216,7 +271,7 @@ export const EngagementDashboard: React.FC = () => {
             }))}
             tooltipRenderer={(item) => (
               <>
-                <div className="text-xs text-gray-500 mb-1">최근 1일간</div>
+                <div className="text-xs text-gray-500 mb-1">최근 7일간</div>
                 <div className="text-xs font-semibold text-gray-600 mb-1">
                   {item.raw.page}
                 </div>
@@ -226,6 +281,7 @@ export const EngagementDashboard: React.FC = () => {
               </>
             )}
             isLoading={loading}
+            valueFormatter={(val) => val.toLocaleString() + '회'}
           />
         </div>
 

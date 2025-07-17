@@ -11,6 +11,7 @@ interface HorizontalBarChartProps {
   data: BarChartItem[];
   tooltipRenderer?: (item: BarChartItem, startDate: string, endDate: string) => React.ReactNode;
   isLoading?: boolean;
+  valueFormatter?: (value: number, raw?: any) => string;
 }
 
 const AnimatedBar: React.FC<{ percentage: number }> = ({ percentage }) => {
@@ -31,7 +32,7 @@ const AnimatedBar: React.FC<{ percentage: number }> = ({ percentage }) => {
   );
 };
 
-const HorizontalBarChart: React.FC<HorizontalBarChartProps> = ({ data, tooltipRenderer, isLoading }) => {
+const HorizontalBarChart: React.FC<HorizontalBarChartProps> = ({ data, tooltipRenderer, isLoading, valueFormatter }) => {
   const [hoveredItem, setHoveredItem] = useState<BarChartItem | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
 
@@ -87,7 +88,9 @@ const HorizontalBarChart: React.FC<HorizontalBarChartProps> = ({ data, tooltipRe
               <div className="flex-1 overflow-hidden hover:bg-gray-100 p-1">
                 <div className="flex justify-between items-center text-sm text-gray-800">
                   <span className="truncate">{item.label}</span>
-                  <span className="ml-2 font-semibold">{item.value.toFixed(1)}%</span>
+                  <span className="ml-2 font-semibold">
+                    {valueFormatter ? valueFormatter(item.value, item.raw) : `${item.value.toFixed(1)}%`}
+                  </span>
                 </div>
                 <AnimatedBar percentage={percentage} />
               </div>

@@ -6,8 +6,12 @@
  * @returns 한글 페이지 라벨 (예: "상품상세")
  */
 export function getPageLabel(path: string): string {
-    if (path === '/') return '메인페이지';
-    if (path.startsWith('/products/')) return '상품상세';
+    if (path === '/' || path === '/home') return '메인페이지';
+    if (path.startsWith('/products/')) {
+        const match = path.match(/^\/products\/(.+)$/);
+        if (match) return `상품상세 ${match[1]}`;
+        else return '상품상세 1';
+    }
     if (path === '/products') return '상품목록';
     if (path === '/cart') return '장바구니';
     if (path === '/checkout/success') return '결제완료';

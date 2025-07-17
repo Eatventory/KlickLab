@@ -4,6 +4,7 @@ const clickhouse = require("../src/config/clickhouse");
 const authMiddleware = require('../middlewares/authMiddleware');
 const { formatLocalDateTime } = require('../utils/formatLocalDateTime');
 const { getLocalNow, getIsoNow, floorToNearest10Min, getNearestHourFloor, getOneHourAgo, getTodayStart } = require('../utils/timeUtils');
+const { buildQueryWhereClause } = require('../utils/queryUtils');
 
 const localNow = getLocalNow();
 const isoNow = getIsoNow();
@@ -30,6 +31,83 @@ const PAGE_TYPE_CLAUSE = {
   product: "page_path LIKE '/product%'",
   checkout: "page_path LIKE '/checkout%'",
 };
+
+router.get('/overview', authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+  try {
+    const [avgSessionTimeRes, sessionsPerUserRes] = await Promise.all([
+      clickhouse.query({
+        query: `
+          SELECT
+            toDate(date_time) AS date,
+            round(avg(avg_session_seconds), 2) AS avgSessionSeconds
+          FROM (
+            SELECT cast(date AS DateTime) AS date_time, avg_session_seconds FROM daily_metrics
+            WHERE ${buildQueryWhereClause("daily", 30)}
+              AND sdk_key = '${sdk_key}'
+            UNION ALL
+            SELECT date_time, avg_session_seconds FROM hourly_metrics
+            WHERE ${buildQueryWhereClause("hourly")}
+              AND sdk_key = '${sdk_key}'
+            UNION ALL
+            SELECT date_time, avg_session_seconds FROM minutes_metrics
+            WHERE ${buildQueryWhereClause("minutes")}
+              AND sdk_key = '${sdk_key}'
+          )
+          GROUP BY date
+          ORDER BY date ASC
+        `,
+        format: 'JSON',
+      }).then(r => r.json()),
+      
+      clickhouse.query({
+        query: `
+          SELECT
+            toDate(date_time) AS date,
+            sum(visitors) AS totalVisitors,
+            sum(clicks) AS totalClicks,
+            round(sum(clicks) / nullIf(sum(visitors), 0), 2) AS sessionsPerUser
+          FROM (
+            SELECT cast(date AS DateTime) AS date_time, clicks, visitors FROM daily_metrics
+            WHERE ${buildQueryWhereClause("daily", 30)}
+              AND sdk_key = '${sdk_key}'
+            UNION ALL
+            SELECT date_time, clicks, visitors FROM hourly_metrics
+            WHERE ${buildQueryWhereClause("hourly")}
+              AND sdk_key = '${sdk_key}'
+            UNION ALL
+            SELECT date_time, clicks, visitors FROM minutes_metrics
+            WHERE ${buildQueryWhereClause("minutes")}
+              AND sdk_key = '${sdk_key}'
+          )
+          GROUP BY date
+          ORDER BY date ASC
+        `,
+        format: 'JSON',
+      }).then(r => r.json()),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        avgSessionSeconds: avgSessionTimeRes.data.map(d => ({
+          date: d.date,
+          avgSessionSeconds: Number(d.avgSessionSeconds),
+        })),
+        sessionsPerUser: sessionsPerUserRes.data.map(d => ({
+          date: d.date,
+          totalVisitors: Number(d.totalVisitors),
+          totalClicks: Number(d.totalClicks),
+          sessionsPerUser: Number(d.sessionsPerUser),
+        })),
+      },
+    });
+    
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: 'Query failed' });
+  }
+});
 
 /* 페이지 체류시간 TOP 10 */
 router.get('/page-times', authMiddleware, async (req, res) => {
@@ -78,6 +156,44 @@ router.get('/page-times', authMiddleware, async (req, res) => {
   }
 });
 
+router.get('/page-times-simple', authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+
+  const query = `
+    SELECT
+      page_path AS page,
+      round(sum(avg_time_on_page_seconds * page_views) / sum(page_views), 1) AS averageTime
+    FROM (
+      SELECT page_path, avg_time_on_page_seconds, page_views
+      FROM daily_page_stats
+      WHERE ${buildQueryWhereClause("daily", 7)}
+        AND sdk_key = '${sdk_key}'
+      UNION ALL
+      SELECT page_path, avg_time_on_page_seconds, page_views
+      FROM hourly_page_stats
+      WHERE ${buildQueryWhereClause("hourly")}
+        AND sdk_key = '${sdk_key}'
+      UNION ALL
+      SELECT page_path, avg_time_on_page_seconds, page_views
+      FROM minutes_page_stats
+      WHERE ${buildQueryWhereClause("minutes")}
+        AND sdk_key = '${sdk_key}'
+    )
+    GROUP BY page
+    ORDER BY averageTime DESC
+    LIMIT 10
+  `;
+
+  try {
+    const dataRes = await clickhouse.query({ query, format: 'JSONEachRow' });
+    const data = await dataRes.json();
+    res.status(200).json(data);
+  } catch (err) {
+    console.error("Page Times (Simple) API ERROR:", err);
+    res.status(500).json({ error: "Failed to get page time data" });
+  }
+});
+
 /* 이탈률 */
 router.get("/bounce-rate", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
@@ -94,7 +210,7 @@ router.get("/bounce-rate", authMiddleware, async (req, res) => {
           page_views,
           page_exits
         FROM daily_page_stats
-        WHERE date BETWEEN toDate('${localNow}') - 7 AND toDate('${localNow}') - 1
+        WHERE ${buildQueryWhereClause("daily", 7)}
           AND sdk_key = '${sdk_key}'
 
         UNION ALL
@@ -104,8 +220,7 @@ router.get("/bounce-rate", authMiddleware, async (req, res) => {
           page_views,
           page_exits
         FROM hourly_page_stats
-        WHERE date_time >= toDateTime('${todayStart}')
-          AND date_time <= toDateTime('${oneHourFloor}')
+        WHERE ${buildQueryWhereClause("hourly")}
           AND sdk_key = '${sdk_key}'
 
         UNION ALL
@@ -115,8 +230,7 @@ router.get("/bounce-rate", authMiddleware, async (req, res) => {
           page_views,
           page_exits
         FROM minutes_page_stats
-        WHERE date_time >= toDateTime('${NearestHourFloor}')
-          AND date_time < toDateTime('${tenMinutesFloor}')
+        WHERE ${buildQueryWhereClause("minutes")}
           AND sdk_key = '${sdk_key}'
       )
       GROUP BY page_path
@@ -142,22 +256,19 @@ router.get('/page-views', authMiddleware, async (req, res) => {
       page_path AS page,
       sum(page_views) AS totalViews
     FROM (
-      SELECT
-        page_path,
-        page_views
-      FROM hourly_page_stats
-      WHERE date_time >= toDateTime('${todayStart}')
-        AND date_time <= toDateTime('${oneHourFloor}')
+      SELECT page_path, page_views
+      FROM daily_page_stats
+      WHERE ${buildQueryWhereClause("daily", 7)}
         AND sdk_key = '${sdk_key}'
-
       UNION ALL
-
-      SELECT
-        page_path,
-        page_views
+      SELECT page_path, page_views
+      FROM hourly_page_stats
+      WHERE ${buildQueryWhereClause("hourly")}
+        AND sdk_key = '${sdk_key}'
+      UNION ALL
+      SELECT page_path, page_views
       FROM minutes_page_stats
-      WHERE date_time >= toDateTime('${NearestHourFloor}')
-        AND date_time < toDateTime('${tenMinutesFloor}')
+      WHERE ${buildQueryWhereClause("minutes")}
         AND sdk_key = '${sdk_key}'
     )
     GROUP BY page
@@ -189,34 +300,21 @@ router.get('/view-counts', authMiddleware, async (req, res) => {
       date,
       sum(views) AS totalViews
     FROM (
-      SELECT
-        date,
-        sum(page_views) AS views
+      SELECT date, sum(page_views) AS views
       FROM daily_page_stats
-      WHERE date >= toDate('${localNow}') - INTERVAL 30 DAYS
-        AND date <= toDate('${localNow}') - INTERVAL 1 DAYS
+      WHERE ${buildQueryWhereClause("daily", 30)}
         AND sdk_key = '${sdk_key}'
       GROUP BY date
-
       UNION ALL
-
-      SELECT
-        toDate(date_time) AS date,
-        sum(page_views) AS views
+      SELECT toDate(date_time) AS date, sum(page_views) AS views
       FROM hourly_page_stats
-      WHERE date_time >= toDateTime('${todayStart}')
-        AND date_time <= toDateTime('${oneHourFloor}')
+      WHERE ${buildQueryWhereClause("hourly")}
         AND sdk_key = '${sdk_key}'
       GROUP BY toDate(date_time)
-
       UNION ALL
-
-      SELECT
-        toDate(date_time) AS date,
-        sum(page_views) AS views
+      SELECT toDate(date_time) AS date, sum(page_views) AS views
       FROM minutes_page_stats
-      WHERE date_time >= toDateTime('${NearestHourFloor}')
-        AND date_time < toDateTime('${tenMinutesFloor}')
+      WHERE ${buildQueryWhereClause("minutes")}
         AND sdk_key = '${sdk_key}'
       GROUP BY toDate(date_time)
     )
@@ -250,9 +348,8 @@ router.get('/click-counts', authMiddleware, async (req, res) => {
       SELECT
         date,
         sum(total_clicks) AS total_clicks
-      FROM klicklab.daily_click_summary
-      WHERE date >= toDate('${localNow}') - INTERVAL 30 DAY
-        AND date <= toDate('${localNow}') - INTERVAL 1 DAY
+      FROM daily_click_summary
+      WHERE ${buildQueryWhereClause("daily", 30)}
         AND sdk_key = '${sdk_key}'
       GROUP BY date
 
@@ -261,9 +358,8 @@ router.get('/click-counts', authMiddleware, async (req, res) => {
       SELECT
         toDate(date_time) AS date,
         sum(total_clicks) AS total_clicks
-      FROM klicklab.hourly_click_summary
-      WHERE date_time >= toDateTime('${todayStart}')
-        AND date_time <= toDateTime('${oneHourFloor}')
+      FROM hourly_click_summary
+      WHERE ${buildQueryWhereClause("hourly")}
         AND sdk_key = '${sdk_key}'
       GROUP BY toDate(date_time)
 
@@ -272,9 +368,8 @@ router.get('/click-counts', authMiddleware, async (req, res) => {
       SELECT
         toDate(date_time) AS date,
         sum(total_clicks) AS total_clicks
-      FROM klicklab.minutes_click_summary
-      WHERE date_time >= toDateTime('${NearestHourFloor}')
-        AND date_time < toDateTime('${tenMinutesFloor}')
+      FROM minutes_click_summary
+      WHERE ${buildQueryWhereClause("minutes")}
         AND sdk_key = '${sdk_key}'
       GROUP BY toDate(date_time)
     )
