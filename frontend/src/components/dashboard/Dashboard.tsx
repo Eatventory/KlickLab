@@ -112,8 +112,6 @@ export const Dashboard: React.FC = () => {
                 </div>
               </div>
             </header>
-
-            {/* 전역 필터 바 */}
             <GlobalFilterBar />
           </div>
         </div>
@@ -122,20 +120,21 @@ export const Dashboard: React.FC = () => {
         <main className={clsx(
           'flex-1 p-6 transition-all',
           isSidebarCollapsed ? 'ml-16' : 'ml-64',
-          'overflow-y-auto h-[calc(100vh-192px)] mt-[192px]',
+          'overflow-y-auto h-[calc(100vh-12rem)] mt-48',
         )}>
-            <Routes>
-              <Route path="overview" element={<OverviewDashboard ref={overviewRef} onLastUpdated={handleOverviewUpdate} />} />
-              <Route path="users" element={<UserDashboard />} />
-              <Route path="traffic" element={<TrafficDashboard />} />
-              <Route path="engagement" element={<EngagementDashboard />} />
-              <Route path="reports" element={<ReportDashboard />} />
-              <Route path="settings" element={<SettingsDashboard />} />
-              <Route path="" element={<Navigate to="overview" replace />} />
-              <Route path="*" element={<Navigate to="overview" replace />} />
-            </Routes>
-          </main>
-        </div>
+          <Routes>
+            {/* <Route path="overview" element={<OverviewDashboard ref={overviewRef} onLastUpdated={handleOverviewUpdate} />} /> */}
+            <Route path="overview" element={<OverviewDashboard />} />
+            <Route path="users" element={<UserDashboard />} />
+            <Route path="traffic" element={<TrafficDashboard />} />
+            <Route path="engagement" element={<EngagementDashboard />} />
+            <Route path="reports" element={<ReportDashboard />} />
+            <Route path="settings" element={<SettingsDashboard />} />
+            <Route path="" element={<Navigate to="overview" replace />} />
+            <Route path="*" element={<Navigate to="overview" replace />} />
+          </Routes>
+        </main>
       </div>
+    </div>
   );
 }; 

@@ -78,7 +78,7 @@ export const EngagementDashboard: React.FC = () => {
   return (
     <div className="space-y-8">
       {/* 필터 */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      {/* <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Clock className="w-5 h-5 text-gray-600" />
           <h2 className="text-lg font-semibold text-gray-900">참여도 분석 필터</h2>
@@ -115,10 +115,9 @@ export const EngagementDashboard: React.FC = () => {
             <option value="long">긴 세션 (5분 이상)</option>
           </select>
         </div>
-      </div>
+      </div> */}
 
-      {/* 이탈 페이지 & 페이지별 체류시간 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-[repeat(auto-fit,minmax(320px,1fr))]">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center gap-2 mb-4">
             <BarChart3 className="w-5 h-5 text-gray-600" />
@@ -135,36 +134,8 @@ export const EngagementDashboard: React.FC = () => {
           <PageTimeChart data={pageTimes} />
         </div>
 
-      </div>
-
-      {/* 이탈률 요약 & 세션 길이 분포 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
           <DropoffInsightsCard />
-        </div>
-
-        {/* 세션 길이 분포 */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <TrendingUp className="w-5 h-5 text-gray-600" />
-            <h3 className="text-lg font-semibold text-gray-900">세션 길이 분포</h3>
-          </div>
-          <div className="flex items-center justify-center h-32 text-gray-500">
-            개발 중...
-          </div>
-        </div>
-      </div>
-
-      {/* 클릭 전 체류시간 */}
-      <div className="grid grid-cols-1 gap-8">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Clock className="w-5 h-5 text-gray-600" />
-            <h3 className="text-lg font-semibold text-gray-900">클릭 전 체류시간</h3>
-          </div>
-          <div className="flex items-center justify-center h-32 text-gray-500">
-            개발 중...
-          </div>
         </div>
       </div>
     </div>
