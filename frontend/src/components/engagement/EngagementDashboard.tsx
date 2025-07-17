@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 // import { mockDashboardData } from '../../data/mockData';
 import { useSegmentFilter } from '../../context/SegmentFilterContext';
 import HorizontalBarChart from '../HorizontalBarChart';
+import HorizontalLineChart from '../HorizontalLineChart';
 import { getPageLabel } from '../../utils/getPageLabel';
 
 // 타입 정의
@@ -31,6 +32,22 @@ interface BounceRatesData {
   total_exits: string;
   bounce_rate: number;
 }
+
+const testdata = [
+  { date: '6월 20일', value: 11000 },
+  { date: '6월 22일', value: 9000 },
+  { date: '6월 24일', value: 14000 },
+  { date: '6월 26일', value: 15000 },
+  { date: '6월 28일', value: 10000 },
+  { date: '7월 1일', value: 12000 },
+  { date: '7월 3일', value: 8000 },
+  { date: '7월 5일', value: 7000 },
+  { date: '7월 7일', value: 13000 },
+  { date: '7월 9일', value: 14000 },
+  { date: '7월 11일', value: 10000 },
+  { date: '7월 13일', value: 16000 },
+  { date: '7월 15일', value: 12000 },
+];
 
 export const EngagementDashboard: React.FC = () => {
   const { filter: globalFilter } = useSegmentFilter();
@@ -176,6 +193,7 @@ export const EngagementDashboard: React.FC = () => {
                 </div>
               </>
             )}
+            isLoading={loading}
           />
         </div>
 
@@ -200,6 +218,7 @@ export const EngagementDashboard: React.FC = () => {
                 </div>
               </>
             )}
+            isLoading={loading}
           />
         </div>
 
@@ -224,6 +243,16 @@ export const EngagementDashboard: React.FC = () => {
                 </div>
               </>
             )}
+            isLoading={loading}
+          />
+        </div>
+
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 col-span-2">
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">이탈률</h2>
+          </div>
+          <HorizontalLineChart
+            data={testdata}
           />
         </div>
       </div>

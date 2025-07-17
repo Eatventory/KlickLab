@@ -10,9 +10,10 @@ interface BarChartItem {
 interface HorizontalBarChartProps {
   data: BarChartItem[];
   tooltipRenderer?: (item: BarChartItem, startDate: string, endDate: string) => React.ReactNode;
+  isLoading?: boolean;
 }
 
-const HorizontalBarChart: React.FC<HorizontalBarChartProps> = ({ data, tooltipRenderer }) => {
+const HorizontalBarChart: React.FC<HorizontalBarChartProps> = ({ data, tooltipRenderer, isLoading }) => {
   const [hoveredItem, setHoveredItem] = useState<BarChartItem | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
 
@@ -24,7 +25,23 @@ const HorizontalBarChart: React.FC<HorizontalBarChartProps> = ({ data, tooltipRe
 
   const maxValue = Math.max(...data.map(d => d.value));
 
-  if (data.length === 0) {
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-3 mt-3 animate-pulse">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="flex flex-col gap-1 px-1">
+            <div className="flex justify-between items-center text-sm">
+              <div className="bg-gray-200 rounded w-1/3 h-4" />
+              <div className="bg-gray-200 rounded w-10 h-4" />
+            </div>
+            <div className="w-full h-1.5 bg-gray-200 rounded" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (!isLoading && data.length === 0) {
     return (
       <div className="text-center text-gray-500 mt-8">
         <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-gray-400" />
