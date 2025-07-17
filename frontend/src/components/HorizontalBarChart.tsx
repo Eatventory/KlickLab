@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { AlertTriangle } from 'lucide-react';
 
 interface BarChartItem {
   label: string;
@@ -22,6 +23,15 @@ const HorizontalBarChart: React.FC<HorizontalBarChartProps> = ({ data, tooltipRe
   });
 
   const maxValue = Math.max(...data.map(d => d.value));
+
+  if (data.length === 0) {
+    return (
+      <div className="text-center text-gray-500 mt-8">
+        <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+        <p>데이터가 없습니다</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col">

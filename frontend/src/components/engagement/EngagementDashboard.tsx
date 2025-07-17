@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { ExitPageChart } from './ExitPageChart';
 import { PageTimeChart } from './PageTimeChart';
 import { BounceInsightsCard } from './BounceInsightsCard';
-import { Clock, BarChart3, TrendingUp } from 'lucide-react';
+// import { Clock, BarChart3, TrendingUp } from 'lucide-react';
 import { mockDashboardData } from '../../data/mockData';
 import { useSegmentFilter } from '../../context/SegmentFilterContext';
+import HorizontalBarChart from '../HorizontalBarChart';
 
 // 타입 정의
 interface FilterOptions {
@@ -78,7 +79,6 @@ export const EngagementDashboard: React.FC = () => {
   const engagementFilter = (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex items-center gap-2 mb-4">
-          <Clock className="w-5 h-5 text-gray-600" />
           <h2 className="text-lg font-semibold text-gray-900">참여도 분석 필터</h2>
         </div>
         <div className="flex gap-4">
@@ -132,7 +132,30 @@ export const EngagementDashboard: React.FC = () => {
           <div className="flex items-center gap-2 mb-4">
             <h2 className="text-lg font-semibold text-gray-900">페이지별 체류시간</h2>
           </div>
-          <PageTimeChart data={pageTimes} />
+          {/* <PageTimeChart data={pageTimes} /> */}
+          <HorizontalBarChart
+            data={pageTimes.map((d) => ({
+              label: d.page,
+              value: d.averageTime,
+              raw: d,
+            }))}
+            tooltipRenderer={(item) => (
+              <>
+                <div className="text-xs text-gray-500 mb-1">최근 7일간</div>
+                <div className="text-xs font-semibold text-gray-600 mb-1">
+                  {item.label}
+                </div>
+                <div className="text-sm font-bold text-gray-900">
+                  평균 체류시간 {item.value < 1
+                    ? `${Math.round(item.value * 60)}초`
+                    : `${item.value.toFixed(1)}분`}
+                </div>
+                <div className="text-sm text-gray-600">
+                  방문 수 {item.raw.visitCount.toLocaleString()}회
+                </div>
+              </>
+            )}
+          />
         </div>
 
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">

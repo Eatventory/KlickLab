@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AlertTriangle } from 'lucide-react';
+// import { AlertTriangle } from 'lucide-react';
 import HorizontalBarChart from '../HorizontalBarChart';
 
 interface BounceData {
@@ -47,14 +47,14 @@ export const BounceInsightsCard: React.FC<BounceInsightsCardProps> = ({ refreshK
     );
   }
 
-  if (data.length === 0) {
-    return (
-      <div className="text-center text-gray-500">
-        <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-        <p>이탈률 데이터가 없습니다</p>
-      </div>
-    );
-  }
+  // if (data.length === 0) {
+  //   return (
+  //     <div className="text-center text-gray-500">
+  //       <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+  //       <p>이탈률 데이터가 없습니다</p>
+  //     </div>
+  //   );
+  // }
 
   const top10 = data.slice(0, 10);
 
