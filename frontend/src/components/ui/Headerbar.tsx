@@ -60,30 +60,6 @@ export default function HeaderBar() {
     }
   };
 
-  // if (authState === 'expired') {
-  //   return (
-  //     <div className="flex items-center">
-  //       <div className="flex items-center gap-2 px-4 py-2">
-  //         <span className="text-red-600 text-sm font-medium whitespace-nowrap">
-  //           세션이 만료되었습니다. 아무거나 클릭하면 세션을 연장합니다.
-  //         </span>
-  //         <button
-  //           onClick={handleExtend}
-  //           className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1 rounded-md whitespace-nowrap"
-  //         >
-  //           세션 연장
-  //         </button>
-  //         <button
-  //           onClick={handleLogout}
-  //           className="text-gray-400 hover:text-gray-500 underline text-sm px-3 py-1 rounded-md whitespace-nowrap"
-  //         >
-  //           로그아웃
-  //         </button>
-  //       </div>
-  //     </div>
-  //   );
-  // }
-
   return (
     <div className="fixed top-0 left-0 w-full h-16 bg-white border-b flex items-center flex justify-between px-6 gap-4 z-40">
       {/* 타이틀 */}
