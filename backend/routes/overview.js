@@ -273,7 +273,8 @@ router.get("/conversion-by-landing", authMiddleware, async (req, res) => {
           traffic_source,
           traffic_medium
         FROM klicklab.events
-        WHERE ${dateFilter}
+        WHERE event_name = 'page_view'
+          AND ${dateFilter}
           AND sdk_key = '${sdk_key}'
         ORDER BY timestamp
       ),
@@ -354,7 +355,8 @@ router.get("/conversion-by-channel", authMiddleware, async (req, res) => {
         FROM (
           SELECT session_id, page_path, traffic_source, traffic_medium, traffic_campaign, timestamp
           FROM klicklab.events
-          WHERE ${dateFilter}
+          WHERE event_name = 'page_view'
+            AND ${dateFilter}
             AND sdk_key = '${sdk_key}'
           ORDER BY timestamp
         )
@@ -586,6 +588,74 @@ router.get("/summary", authMiddleware, async (req, res) => {
   } catch (error) {
     console.error("Error in /summary:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
+  }
+});
+
+// [이벤트별 트렌드] 여러 이벤트의 일별 발생 수를 반환
+router.get("/event-trend", authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+  const { events = "", start_date, end_date } = req.query;
+  const eventList = events
+    .split(",")
+    .map((e) => e.trim())
+    .filter(Boolean);
+  if (!eventList.length)
+    return res.status(400).json({ error: "이벤트를 지정하세요." });
+  const start = start_date ? `toDate('${start_date}')` : `today() - 13`;
+  const end = end_date ? `toDate('${end_date}')` : `today()`;
+  const eventCases = eventList
+    .map((e) => {
+      const safeCol = e.replace(/[^a-zA-Z0-9_]/g, "_");
+      return `sumIf(1, event_name = '${e}') AS ${safeCol}`;
+    })
+    .join(", ");
+  const query = `
+    SELECT formatDateTime(toDate(timestamp), '%Y-%m-%d') AS date, ${eventCases}
+    FROM events
+    WHERE toDate(timestamp) BETWEEN ${start} AND ${end}
+      AND sdk_key = '${sdk_key}'
+    GROUP BY toDate(timestamp)
+    ORDER BY date ASC
+  `;
+  try {
+    const result = await clickhouse.query({ query, format: "JSON" });
+    const data = (await result.json()).data || [];
+    res.json({ data });
+  } catch (err) {
+    console.error("Event Trend API ERROR:", err);
+    res.status(500).json({ error: "Failed to get event trend data" });
+  }
+});
+
+// [이벤트별 요약] 여러 이벤트의 전체 발생 수/사용자 수를 반환
+router.get("/event-summary", authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+  const { events = "", start_date, end_date } = req.query;
+  const eventList = events
+    .split(",")
+    .map((e) => e.trim())
+    .filter(Boolean);
+  if (!eventList.length)
+    return res.status(400).json({ error: "이벤트를 지정하세요." });
+  const start = start_date ? `toDate('${start_date}')` : `today() - 13`;
+  const end = end_date ? `toDate('${end_date}')` : `today()`;
+  const eventCases = eventList.map((e) => `('${e}')`).join(", ");
+  const query = `
+    SELECT event_name AS event, count() AS count, uniq(user_id) AS users
+    FROM events
+    WHERE event_name IN (${eventCases})
+      AND toDate(timestamp) BETWEEN ${start} AND ${end}
+      AND sdk_key = '${sdk_key}'
+    GROUP BY event_name
+    ORDER BY count DESC
+  `;
+  try {
+    const result = await clickhouse.query({ query, format: "JSON" });
+    const data = (await result.json()).data || [];
+    res.json({ data });
+  } catch (err) {
+    console.error("Event Summary API ERROR:", err);
+    res.status(500).json({ error: "Failed to get event summary data" });
   }
 });
 

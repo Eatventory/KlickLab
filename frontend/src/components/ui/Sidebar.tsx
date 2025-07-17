@@ -38,6 +38,12 @@ const tabs = [
     description: '방문자 추이'
   },
   {
+    id: 'conversion',
+    label: '전환율',
+    icon: TrendingUp,
+    description: '전환 퍼널'
+  },
+  {
     id: 'engagement',
     label: '참여도 분석',
     icon: Clock,
@@ -63,37 +69,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isCollapsed, 
   onToggleCollapse 
 }) => {
-  
   return (
     <div
       className={clsx(
-        'fixed top-[64px] h-[calc(100vh-64px)] z-30 bg-white border-r border-gray-200 transition-all duration-300 flex flex-col',
+        'fixed top-[64px] h-[calc(100vh-64px)] z-30 bg-white border-r border-gray-200 flex flex-col',
         isCollapsed ? 'w-16' : 'w-64'
       )}
+      style={{
+        transition: 'width 0.4s cubic-bezier(0.77,0,0.18,1)',
+        willChange: 'width'
+      }}
+      onMouseEnter={() => { if (isCollapsed) onToggleCollapse(); }}
+      onMouseLeave={() => { if (!isCollapsed) onToggleCollapse(); }}
     >
       {/* 헤더 */}
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-between">
-          <button
-            onClick={onToggleCollapse}
-            className="p-1 rounded-md hover:bg-gray-100 transition-colors"
-          >
-            {isCollapsed ? (
-              <ChevronRight className="w-4 h-4 text-gray-600" />
-            ) : (
-              <ChevronLeft className="w-4 h-4 text-gray-600" />
-            )}
-          </button>
+          {/* 펼침/접힘 버튼 완전 제거 */}
         </div>
       </div>
-
       {/* 탭 메뉴 */}
       <nav className="flex-1 p-2">
         <ul className="space-y-1">
           {tabs.map((tab) => {
             const IconComponent = tab.icon;
             const isActive = activeTab === tab.id;
-            
             return (
               <li key={tab.id}>
                 <button
@@ -112,9 +112,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   {!isCollapsed && (
                     <div className="flex-1 min-w-0">
                       <div className="font-medium">{tab.label}</div>
-                      <div className="text-xs text-gray-500 truncate">
-                        {tab.description}
-                      </div>
+                      <div className="text-xs text-gray-500 truncate">{tab.description}</div>
                     </div>
                   )}
                 </button>
@@ -123,7 +121,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           })}
         </ul>
       </nav>
-
       {/* 하단 정보 */}
       {!isCollapsed && (
         <div className="p-4 border-t border-gray-200">
