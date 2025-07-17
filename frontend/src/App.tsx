@@ -3,7 +3,6 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Dashboard } from './components/dashboard/Dashboard';
 import { useAuthStore } from './store/useAuthStore';
 import { setToken, attemptAutoLogin, isUsingLocalStorage } from './utils/storage';
-import SessionTimer from './components/ui/SessionTimer';
 import LoginForm from './components/auth/LoginForm';
 import RegisterForm from './components/auth/RegisterForm';
 import ErrorPage from "./Error";
@@ -21,7 +20,6 @@ function AppRoutesWithProviders({ authState }: { authState: string }) {
           minHeight: '100vh',
         }}
       >
-        <SessionTimer />
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/login" element={<Navigate to="/" />} />
