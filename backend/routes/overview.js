@@ -591,10 +591,10 @@ router.get("/summary", authMiddleware, async (req, res) => {
   }
 });
 
-// [이벤트별 트렌드] 여러 이벤트의 일별 발생 수를 반환
+// [이벤트별 트렌드] 여러 이벤트의 일별/주별/월별 발생 수를 반환
 router.get("/event-trend", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
-  const { events = "", start_date, end_date } = req.query;
+  const { events = "", start_date, end_date, period = "daily" } = req.query;
   const eventList = events
     .split(",")
     .map((e) => e.trim())
@@ -609,12 +609,21 @@ router.get("/event-trend", authMiddleware, async (req, res) => {
       return `sumIf(1, event_name = '${e}') AS ${safeCol}`;
     })
     .join(", ");
+  let groupExpr = "toDate(timestamp)";
+  let dateFormat = "%Y-%m-%d";
+  if (period === "weekly") {
+    groupExpr = "toStartOfWeek(toDate(timestamp))";
+    dateFormat = "%Y-%m-%d";
+  } else if (period === "monthly") {
+    groupExpr = "toStartOfMonth(toDate(timestamp))";
+    dateFormat = "%Y-%m";
+  }
   const query = `
-    SELECT formatDateTime(toDate(timestamp), '%Y-%m-%d') AS date, ${eventCases}
+    SELECT formatDateTime(${groupExpr}, '${dateFormat}') AS date, ${eventCases}
     FROM events
     WHERE toDate(timestamp) BETWEEN ${start} AND ${end}
       AND sdk_key = '${sdk_key}'
-    GROUP BY toDate(timestamp)
+    GROUP BY ${groupExpr}
     ORDER BY date ASC
   `;
   try {
@@ -656,6 +665,126 @@ router.get("/event-summary", authMiddleware, async (req, res) => {
   } catch (err) {
     console.error("Event Summary API ERROR:", err);
     res.status(500).json({ error: "Failed to get event summary data" });
+  }
+});
+
+// [URL별 page_view/세션 집계] 여러 URL의 page_view 이벤트 수/세션 수 반환
+router.get("/pageview-summary", authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+  const { urls = "", start_date, end_date } = req.query;
+  const urlList = urls
+    .split(",")
+    .map((u) => u.trim())
+    .filter(Boolean);
+  if (!urlList.length)
+    return res.status(400).json({ error: "URL을 지정하세요." });
+  const start = start_date ? `toDate('${start_date}')` : `today() - 13`;
+  const end = end_date ? `toDate('${end_date}')` : `today()`;
+  const urlCases = urlList.map((u) => `'${u}'`).join(", ");
+  const query = `
+    SELECT page_path AS url, count() AS pageViews, uniq(session_id) AS sessions
+    FROM events
+    WHERE event_name = 'page_view'
+      AND page_path IN (${urlCases})
+      AND toDate(timestamp) BETWEEN ${start} AND ${end}
+      AND sdk_key = '${sdk_key}'
+    GROUP BY page_path
+    ORDER BY pageViews DESC
+  `;
+  try {
+    const result = await clickhouse.query({ query, format: "JSON" });
+    const data = (await result.json()).data || [];
+    res.json({ data });
+  } catch (err) {
+    console.error("PageView Summary API ERROR:", err);
+    res.status(500).json({ error: "Failed to get pageview summary data" });
+  }
+});
+
+// [URL별 page_view 트렌드] 여러 URL의 일별/주별/월별 page_view 수를 반환
+router.get("/pageview-trend", authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+  const { urls = "", start_date, end_date, period = "daily" } = req.query;
+  const urlList = urls
+    .split(",")
+    .map((u) => u.trim())
+    .filter(Boolean);
+  if (!urlList.length)
+    return res.status(400).json({ error: "URL을 지정하세요." });
+  const start = start_date ? `toDate('${start_date}')` : `today() - 13`;
+  const end = end_date ? `toDate('${end_date}')` : `today()`;
+  let groupExpr = "toDate(timestamp)";
+  let dateFormat = "%Y-%m-%d";
+  if (period === "weekly") {
+    groupExpr = "toStartOfWeek(toDate(timestamp))";
+    dateFormat = "%Y-%m-%d";
+  } else if (period === "monthly") {
+    groupExpr = "toStartOfMonth(toDate(timestamp))";
+    dateFormat = "%Y-%m";
+  }
+  const urlCases = urlList.map((u) => `'${u}'`).join(", ");
+  const query = `
+    SELECT formatDateTime(${groupExpr}, '${dateFormat}') AS date, page_path AS url, count() AS pageViews
+    FROM events
+    WHERE event_name = 'page_view'
+      AND page_path IN (${urlCases})
+      AND toDate(timestamp) BETWEEN ${start} AND ${end}
+      AND sdk_key = '${sdk_key}'
+    GROUP BY date, page_path
+    ORDER BY date ASC, page_path ASC
+  `;
+  try {
+    const result = await clickhouse.query({ query, format: "JSON" });
+    const data = (await result.json()).data || [];
+    res.json({
+      data: data.map((row) => ({
+        ...row,
+        pageViews: Number(row.pageViews) || 0,
+      })),
+    });
+  } catch (err) {
+    console.error("PageView Trend API ERROR:", err);
+    res.status(500).json({ error: "Failed to get pageview trend data" });
+  }
+});
+
+// 모든 page_path를 중복 없이 반환하는 API (sdk_key별)
+router.get("/all-page-paths", authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+  try {
+    const query = `
+      SELECT DISTINCT page_path
+      FROM events
+      WHERE page_path IS NOT NULL AND sdk_key = '${sdk_key}'
+      ORDER BY page_path
+    `;
+    const result = await clickhouse.query({ query, format: "JSONEachRow" });
+    const rows = await result.json();
+    const paths = rows.map((r) => r.page_path).filter(Boolean);
+    res.json({ data: paths });
+  } catch (err) {
+    console.error("all-page-paths API ERROR:", err);
+    res.status(500).json({ error: "Failed to get all page paths" });
+  }
+});
+
+// page_view 이벤트가 실제로 기록된 URL만 중복 없이 반환하는 API (sdk_key별)
+router.get("/pageview-urls", authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+  try {
+    const query = `
+      SELECT DISTINCT page_path
+      FROM events
+      WHERE page_path IS NOT NULL AND event_name = 'page_view' AND sdk_key = '${sdk_key}'
+      ORDER BY page_path
+    `;
+    const result = await clickhouse.query({ query, format: "JSONEachRow" });
+    const rows = await result.json();
+    const paths = rows.map((r) => r.page_path).filter(Boolean);
+    res.json({ data: paths });
+  } catch (err) {
+    console.error("pageview-urls API ERROR:", err);
+    res.status(500).json({ error: "Failed to get pageview urls" });
   }
 });
 
