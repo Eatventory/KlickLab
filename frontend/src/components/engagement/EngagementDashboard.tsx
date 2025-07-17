@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 // import { Clock, BarChart3, TrendingUp } from 'lucide-react';
 // import { mockDashboardData } from '../../data/mockData';
 import { useSegmentFilter } from '../../context/SegmentFilterContext';
-import { BounceInsightsCard } from './BounceInsightsCard';
 import HorizontalBarChart from '../HorizontalBarChart';
 import { getPageLabel } from '../../utils/getPageLabel';
 
@@ -26,6 +25,13 @@ interface PageViewData {
   totalViews: number;
 }
 
+interface BounceRatesData {
+  page_path: string;
+  total_views: string;
+  total_exits: string;
+  bounce_rate: number;
+}
+
 export const EngagementDashboard: React.FC = () => {
   const { filter: globalFilter } = useSegmentFilter();
   const [filters, setFilters] = useState<FilterOptions>({
@@ -36,6 +42,7 @@ export const EngagementDashboard: React.FC = () => {
 
   const [pageTimes, setPageTimes] = useState<PageTimeData[]>([]);
   const [pageViews, setPageViews] = useState<PageViewData[]>([]);
+  const [bounceRates, setBounceRates] = useState<BounceRatesData[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,37 +53,40 @@ export const EngagementDashboard: React.FC = () => {
       setLoading(true);
       setError(null);
       
-      // 전역 필터 조건을 URL 파라미터로 변환
-      const globalFilterParams = new URLSearchParams();
-      if (globalFilter.conditions) {
-        Object.entries(globalFilter.conditions).forEach(([key, value]) => {
-          if (value !== undefined && value !== null && value !== '') {
-            globalFilterParams.append(key, String(value));
-          }
-        });
-      }
+      // const globalFilterParams = new URLSearchParams();
+      // if (globalFilter.conditions) {
+      //   Object.entries(globalFilter.conditions).forEach(([key, value]) => {
+      //     if (value !== undefined && value !== null && value !== '') {
+      //       globalFilterParams.append(key, String(value));
+      //     }
+      //   });
+      // }
       
-      const globalFilterString = globalFilterParams.toString();
-      const globalFilterQuery = globalFilterString ? `&${globalFilterString}` : '';
+      // const globalFilterString = globalFilterParams.toString();
+      // const globalFilterQuery = globalFilterString ? `&${globalFilterString}` : '';
       
-      const params = new URLSearchParams(filters as any).toString();
+      // const params = new URLSearchParams(filters as any).toString();
       // const res = await fetch(`/api/engagement/page-times?${params}${globalFilterQuery}`, {headers: { Authorization: `Bearer ${token}` }});
 
-      const [resPageTimes, resPageViews] = await Promise.all([
+      const [resPageTimes, resPageViews, resBounceRates] = await Promise.all([
         fetch(`/api/engagement/page-times`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`/api/engagement/page-views`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch('/api/engagement/bounce-rate', { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
       if (!resPageTimes.ok) throw new Error('Page Times 데이터를 불러오지 못했습니다.');
       if (!resPageViews.ok) throw new Error('Page Views 데이터를 불러오지 못했습니다.');
+      if (!resBounceRates.ok) throw new Error('Bounce 데이터를 불러오지 못했습니다.');
 
-      const [dataPageTimes, dataPageViews] = await Promise.all([
+      const [dataPageTimes, dataPageViews, dataBounceRates] = await Promise.all([
         resPageTimes.json(),
         resPageViews.json(),
+        resBounceRates.json(),
       ]);
 
       setPageTimes(dataPageTimes);
       setPageViews(dataPageViews);
+      setBounceRates(dataBounceRates);
     } catch (err: any) {
       console.error(err);
       setError(err.message || '알 수 없는 오류');
@@ -164,9 +174,6 @@ export const EngagementDashboard: React.FC = () => {
                     ? `${Math.round(item.value * 60)}초`
                     : `${item.value.toFixed(1)}분`}
                 </div>
-                {/* <div className="text-sm text-gray-600">
-                  방문 수 {item.raw.visitCount.toLocaleString()}회
-                </div> */}
               </>
             )}
           />
@@ -200,7 +207,24 @@ export const EngagementDashboard: React.FC = () => {
           <div className="flex items-center gap-2 mb-4">
             <h2 className="text-lg font-semibold text-gray-900">이탈률</h2>
           </div>
-          <BounceInsightsCard />
+          <HorizontalBarChart
+            data={bounceRates.map((item) => ({
+              label: getPageLabel(item.page_path),
+              value: item.bounce_rate,
+              raw: item,
+            }))}
+            tooltipRenderer={(item) => (
+              <>
+                <div className="text-sm text-gray-500 mb-1">최근 7일간</div>
+                <div className="text-sm font-semibold text-gray-600 mb-1">
+                  {item.raw.page_path}
+                </div>
+                <div className="text-md font-bold text-gray-900">
+                  이탈률 {item.value.toLocaleString()}%
+                </div>
+              </>
+            )}
+          />
         </div>
       </div>
     </div>

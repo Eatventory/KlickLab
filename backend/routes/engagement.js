@@ -126,7 +126,7 @@ router.get("/bounce-rate", authMiddleware, async (req, res) => {
     `;
     const result = await clickhouse.query({ query, format: "JSONEachRow" });
     const data = await result.json();
-    res.status(200).json({ data: data });
+    res.status(200).json(data);
   } catch (err) {
     console.error("Bounce Top API ERROR:", err);
     res.status(500).json({ error: "Failed to get bounce top data" });
