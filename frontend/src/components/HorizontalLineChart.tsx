@@ -5,6 +5,8 @@ import {
   XAxis,
   YAxis,
   ResponsiveContainer,
+  CartesianGrid,
+  Tooltip
 } from 'recharts';
 
 interface DataPoint {
@@ -48,6 +50,20 @@ const HorizontalLineChart: React.FC<HorizontalLineChartProps> = ({
               value >= 10000 ? `${value / 10000}만` : value
             }
           />
+          <CartesianGrid
+            stroke="#e5e7eb"
+            strokeDasharray="1 1"
+            vertical={false}
+            horizontal={true}
+          />
+          <Tooltip
+            content={() => null}
+            cursor={{
+              stroke: '#e5e7eb',
+              strokeWidth: 1,
+              strokeDasharray: '3 3',
+            }}
+          />
           <Line
             type="monotone"
             dataKey="value"
@@ -55,6 +71,8 @@ const HorizontalLineChart: React.FC<HorizontalLineChartProps> = ({
             strokeWidth={2}
             dot={{ stroke: '#3b82f6', strokeWidth: 2, fill: '#fff' }}
             activeDot={{ r: 5 }}
+            isAnimationActive={true}
+            animationDuration={500}
           />
         </LineChart>
       </ResponsiveContainer>

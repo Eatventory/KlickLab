@@ -181,7 +181,7 @@ router.get('/page-views', authMiddleware, async (req, res) => {
 });
 
 /* 전체 조회수 */
-router.get('/views', authMiddleware, async (req, res) => {
+router.get('/view-counts', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
 
   const query = `
@@ -233,8 +233,66 @@ router.get('/views', authMiddleware, async (req, res) => {
     }));
     res.status(200).json(data);
   } catch (err) {
-    console.error("Page Times API ERROR:", err);
-    res.status(500).json({ error: "Failed to get page times data" });
+    console.error("View Counts API ERROR:", err);
+    res.status(500).json({ error: "Failed to get view counts data" });
+  }
+});
+
+/* 전체 클릭수 */
+router.get('/click-counts', authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+
+  const query = `
+    SELECT
+      date,
+      sum(total_clicks) AS totalClicks
+    FROM (
+      SELECT
+        date,
+        sum(total_clicks) AS total_clicks
+      FROM klicklab.daily_click_summary
+      WHERE date >= toDate('${localNow}') - INTERVAL 30 DAY
+        AND date <= toDate('${localNow}') - INTERVAL 1 DAY
+        AND sdk_key = '${sdk_key}'
+      GROUP BY date
+
+      UNION ALL
+
+      SELECT
+        toDate(date_time) AS date,
+        sum(total_clicks) AS total_clicks
+      FROM klicklab.hourly_click_summary
+      WHERE date_time >= toDateTime('${todayStart}')
+        AND date_time <= toDateTime('${oneHourFloor}')
+        AND sdk_key = '${sdk_key}'
+      GROUP BY toDate(date_time)
+
+      UNION ALL
+
+      SELECT
+        toDate(date_time) AS date,
+        sum(total_clicks) AS total_clicks
+      FROM klicklab.minutes_click_summary
+      WHERE date_time >= toDateTime('${NearestHourFloor}')
+        AND date_time < toDateTime('${tenMinutesFloor}')
+        AND sdk_key = '${sdk_key}'
+      GROUP BY toDate(date_time)
+    )
+    GROUP BY date
+    ORDER BY date ASC
+  `;
+
+  try {
+    const dataRes = await clickhouse.query({query, format: 'JSONEachRow'});
+    let data = await dataRes.json();
+    data = data.map(item => ({
+      ...item,
+      totalClicks: Number(item.totalClicks),
+    }));
+    res.status(200).json(data);
+  } catch (err) {
+    console.error("Click Counts API ERROR:", err);
+    res.status(500).json({ error: "Failed to get click counts data" });
   }
 });
 

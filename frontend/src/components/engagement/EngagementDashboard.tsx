@@ -4,9 +4,10 @@ import React, { useState, useEffect } from 'react';
 // import { Clock, BarChart3, TrendingUp } from 'lucide-react';
 // import { mockDashboardData } from '../../data/mockData';
 import { useSegmentFilter } from '../../context/SegmentFilterContext';
+import { getPageLabel } from '../../utils/getPageLabel';
 import HorizontalBarChart from '../HorizontalBarChart';
 import HorizontalLineChart from '../HorizontalLineChart';
-import { getPageLabel } from '../../utils/getPageLabel';
+import ChartWrapper from '../ChartWrapper';
 
 // 타입 정의
 interface FilterOptions {
@@ -21,7 +22,7 @@ interface PageTimeData {
   visitCount: number;
 }
 
-interface PageViewData {
+interface PageViewCountsData {
   page: string;
   totalViews: number;
 }
@@ -33,26 +34,15 @@ interface BounceRatesData {
   bounce_rate: number;
 }
 
-interface ViewData {
+interface ViewCountsData {
   date: string;
   totalViews: number;
 }
 
-const testdata = [
-  { date: '6월 20일', value: 11000 },
-  { date: '6월 22일', value: 9000 },
-  { date: '6월 24일', value: 14000 },
-  { date: '6월 26일', value: 15000 },
-  { date: '6월 28일', value: 10000 },
-  { date: '7월 1일', value: 12000 },
-  { date: '7월 3일', value: 8000 },
-  { date: '7월 5일', value: 7000 },
-  { date: '7월 7일', value: 13000 },
-  { date: '7월 9일', value: 14000 },
-  { date: '7월 11일', value: 10000 },
-  { date: '7월 13일', value: 16000 },
-  { date: '7월 15일', value: 12000 },
-];
+interface ClickCountsData {
+  date: string;
+  totalClicks: number;
+}
 
 export const EngagementDashboard: React.FC = () => {
   const { filter: globalFilter } = useSegmentFilter();
@@ -63,11 +53,14 @@ export const EngagementDashboard: React.FC = () => {
   });
 
   const [pageTimes, setPageTimes] = useState<PageTimeData[]>([]);
-  const [pageViews, setPageViews] = useState<PageViewData[]>([]);
+  const [pageViewCounts, setPageViewCounts] = useState<PageViewCountsData[]>([]);
   const [bounceRates, setBounceRates] = useState<BounceRatesData[]>([]);
-  const [Views, setViews] = useState<ViewData[]>([]);
+  const [viewCounts, setViewCounts] = useState<ViewCountsData[]>([]);
+  const [clickCounts, setClickCounts] = useState<ViewCountsData[]>([]);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedMetric, setSelectedMetric] = useState<'viewCounts' | 'clickCounts'>('viewCounts');
 
   const fetchData = async () => {
     try {
@@ -91,29 +84,33 @@ export const EngagementDashboard: React.FC = () => {
       // const params = new URLSearchParams(filters as any).toString();
       // const res = await fetch(`/api/engagement/page-times?${params}${globalFilterQuery}`, {headers: { Authorization: `Bearer ${token}` }});
 
-      const [resPageTimes, resPageViews, resBounceRates, resViews] = await Promise.all([
+      const [resPageTimes, resPageViewCounts, resBounceRates, resViewCounts, resClickCounts] = await Promise.all([
         fetch(`/api/engagement/page-times`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`/api/engagement/page-views`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch('/api/engagement/bounce-rate', { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('/api/engagement/views', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch('/api/engagement/view-counts', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch('/api/engagement/click-counts', { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
       if (!resPageTimes.ok) throw new Error('Page Times 데이터를 불러오지 못했습니다.');
-      if (!resPageViews.ok) throw new Error('Page Views 데이터를 불러오지 못했습니다.');
+      if (!resPageViewCounts.ok) throw new Error('Page viewCounts 데이터를 불러오지 못했습니다.');
       if (!resBounceRates.ok) throw new Error('Bounce 데이터를 불러오지 못했습니다.');
-      if (!resViews.ok) throw new Error('Bounce 데이터를 불러오지 못했습니다.');
+      if (!resViewCounts.ok) throw new Error('Bounce 데이터를 불러오지 못했습니다.');
+      if (!resClickCounts.ok) throw new Error('Bounce 데이터를 불러오지 못했습니다.');
 
-      const [dataPageTimes, dataPageViews, dataBounceRates, dataViews] = await Promise.all([
+      const [dataPageTimes, dataPageViewCounts, dataBounceRates, dataViewCounts, dataClickCounts] = await Promise.all([
         resPageTimes.json(),
-        resPageViews.json(),
+        resPageViewCounts.json(),
         resBounceRates.json(),
-        resViews.json()
+        resViewCounts.json(),
+        resClickCounts.json()
       ]);
 
       setPageTimes(dataPageTimes);
-      setPageViews(dataPageViews);
+      setPageViewCounts(dataPageViewCounts);
       setBounceRates(dataBounceRates);
-      setViews(dataViews);
+      setViewCounts(dataViewCounts);
+      setClickCounts(dataClickCounts);
     } catch (err: any) {
       console.error(err);
       setError(err.message || '알 수 없는 오류');
@@ -212,7 +209,7 @@ export const EngagementDashboard: React.FC = () => {
             <h2 className="text-lg font-semibold text-gray-900">페이지 별 조회수</h2>
           </div>
           <HorizontalBarChart
-            data={pageViews.map((d) => ({
+            data={pageViewCounts.map((d) => ({
               label: getPageLabel(d.page),
               value: d.totalViews,
               raw: d
@@ -258,21 +255,44 @@ export const EngagementDashboard: React.FC = () => {
         </div>
 
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 col-span-2">
-          <div className="flex items-center gap-2 mb-4">
+          {/* <div className="flex items-center gap-2 mb-4">
             <h2 className="text-lg font-semibold text-gray-900">조회수</h2>
           </div>
           <HorizontalLineChart
-            data={Views.map((d) => ({
+            data={viewCounts.map((d) => ({
               date: d.date,
               value: d.totalViews
             }))}
             tooltipRenderer={(item) => (
               <div className="text-sm">
                 <div className="text-gray-500">{item.date}</div>
-                <div className="font-semibold text-blue-600">{item.value.toLocaleString()}건</div>
+                <div className="font-bold text-gray-900">{item.value.toLocaleString()}건</div>
               </div>
             )}
-          />
+          /> */}
+          <ChartWrapper
+            metrics={[
+              { key: 'viewCounts', label: '조회수', value: `${viewCounts.reduce((acc, d) => acc + d.totalViews, 0).toLocaleString()}` },
+              { key: 'clickCounts', label: '클릭수', value: `${clickCounts.reduce((acc, d) => acc + d.totalClicks, 0).toLocaleString() || '-'}` },
+            ]}
+            selectedKey={selectedMetric}
+            onSelect={(key) => setSelectedMetric(key as 'viewCounts' | 'clickCounts')}
+          >
+            <HorizontalLineChart
+              data={(selectedMetric === 'viewCounts' ? viewCounts : clickCounts).map((d) => ({
+                date: d.date,
+                value: selectedMetric === 'viewCounts' ? d.totalViews : d.totalClicks,
+              }))}
+              tooltipRenderer={(item) => (
+                <div className="text-sm">
+                  <div className="text-gray-500">{item.date}</div>
+                  <div className="font-bold text-gray-900">
+                    {item.value.toLocaleString()}건
+                  </div>
+                </div>
+              )}
+            />
+          </ChartWrapper>
         </div>
       </div>
     </div>
