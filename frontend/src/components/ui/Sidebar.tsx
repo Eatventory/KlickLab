@@ -113,7 +113,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   >
                     <div
                       className={clsx(
-                        "text-sm",
+                        "text-md",
                         isActive ? "font-bold text-primary-700" : "font-medium text-gray-700"
                       )}
                     >

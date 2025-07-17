@@ -72,7 +72,7 @@ const HorizontalLineChart: React.FC<HorizontalLineChartProps> = ({
             dot={{ stroke: '#3b82f6', strokeWidth: 2, fill: '#fff' }}
             activeDot={{ r: 5 }}
             isAnimationActive={true}
-            animationDuration={500}
+            animationDuration={600}
           />
         </LineChart>
       </ResponsiveContainer>

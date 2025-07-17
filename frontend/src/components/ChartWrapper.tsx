@@ -28,7 +28,10 @@ const ChartWrapper: React.FC<ChartWrapperProps> = ({
           <div
             key={key}
             onClick={() => onSelect(key)}
-            className="cursor-pointer"
+            className={clsx(
+              "cursor-pointer p-4",
+              key === selectedKey ? 'border-t-4 border-t-blue-600 hover:border-t-blue-700 hover:bg-blue-50' : 'hover:bg-gray-100 hover:border-t-4 hover:border-t-gray-100'
+            )}
           >
             <div
               className={clsx(
