@@ -13,6 +13,7 @@ import { TrafficDashboard } from '../traffic/TrafficDashboard';
 import { EngagementDashboard } from '../engagement/EngagementDashboard';
 import { ReportDashboard } from '../report/ReportDashboard';
 import { SettingsDashboard } from '../settings/SettingsDashboard';
+import { ConversionDashboard } from '../conversion/ConversionDashboard';
 
 export const Dashboard: React.FC = () => {
   // activeTab, setActiveTab 제거
@@ -45,6 +46,7 @@ export const Dashboard: React.FC = () => {
     engagement: '참여도 분석',
     reports: '리포트',
     settings: '설정',
+    conversion: '전환율',
   };
   const tabDescriptions: Record<string, string> = {
     overview: '전체 개요 및 주요 지표',
@@ -53,6 +55,7 @@ export const Dashboard: React.FC = () => {
     engagement: '체류시간 및 참여도 분석',
     reports: '상세 리포트 및 데이터 내보내기',
     settings: '시스템 설정 및 계정 관리',
+    conversion: '전환율 및 퍼널 분석',
   };
 
   return (
@@ -60,19 +63,22 @@ export const Dashboard: React.FC = () => {
       {/* 상단 헤더바 */}
       <HeaderBar />
       <div className='flex'>
-        {/* 사이드바 */}
-        <Sidebar
+      {/* 사이드바 */}
+      <Sidebar
           activeTab={tabPath}
-          onTabChange={handleTabChange}
-          isCollapsed={isSidebarCollapsed}
-          onToggleCollapse={toggleSidebar}
-        />
+        onTabChange={handleTabChange}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={toggleSidebar}
+      />
 
-        {/* 레벨2 헤더 */}
-        <div className={clsx(
-          'fixed top-16 w-full z-40 bg-white border-b',
-          isSidebarCollapsed ? 'ml-16' : 'ml-64'
-        )}>
+      {/* 메인 콘텐츠 */}
+        <div
+          className={clsx(
+            "flex-1 flex flex-col mt-16 min-w-0 transition-all duration-300",
+            isSidebarCollapsed ? "ml-16" : "ml-64"
+          )}
+        >
+          {/* 레벨2 헤더 */}
           <div
             className={clsx(
               "fixed top-16 z-20 transition-all duration-300 bg-white border-b",
@@ -114,26 +120,22 @@ export const Dashboard: React.FC = () => {
             </header>
             <GlobalFilterBar />
           </div>
-        </div>
 
-        {/* 메인 콘텐츠 영역: 탭별 라우팅 */}
-        <main className={clsx(
-          'flex-1 p-6 transition-all',
-          isSidebarCollapsed ? 'ml-16' : 'ml-64',
-          'overflow-y-auto h-[calc(100vh-12rem)] mt-48',
-        )}>
-          <Routes>
-            {/* <Route path="overview" element={<OverviewDashboard ref={overviewRef} onLastUpdated={handleOverviewUpdate} />} /> */}
-            <Route path="overview" element={<OverviewDashboard />} />
-            <Route path="users" element={<UserDashboard />} />
-            <Route path="traffic" element={<TrafficDashboard />} />
-            <Route path="engagement" element={<EngagementDashboard />} />
-            <Route path="reports" element={<ReportDashboard />} />
-            <Route path="settings" element={<SettingsDashboard />} />
-            <Route path="" element={<Navigate to="overview" replace />} />
-            <Route path="*" element={<Navigate to="overview" replace />} />
-          </Routes>
-        </main>
+          {/* 메인 콘텐츠 영역: 탭별 라우팅 */}
+          <main className="flex-1 p-6 mt-32 transition-all overflow-y-auto h-[calc(100vh-12rem)]">
+            <Routes>
+              <Route path="overview" element={<OverviewDashboard ref={overviewRef} onLastUpdated={handleOverviewUpdate} />} />
+              <Route path="users" element={<UserDashboard />} />
+              <Route path="traffic" element={<TrafficDashboard />} />
+              <Route path="engagement" element={<EngagementDashboard />} />
+              <Route path="reports" element={<ReportDashboard />} />
+              <Route path="settings" element={<SettingsDashboard />} />
+              <Route path="conversion" element={<ConversionDashboard />} />
+              <Route path="" element={<Navigate to="/dashboard/overview" replace />} />
+              <Route path="*" element={<Navigate to="/dashboard/overview" replace />} />
+            </Routes>
+          </main>
+        </div>
       </div>
     </div>
   );
