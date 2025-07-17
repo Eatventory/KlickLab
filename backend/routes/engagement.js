@@ -31,6 +31,7 @@ const PAGE_TYPE_CLAUSE = {
   checkout: "page_path LIKE '/checkout%'",
 };
 
+/* 페이지 체류시간 TOP 10 */
 router.get('/page-times', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   const { period = '1day', pageType = 'all', sessionLength = 'all' } = req.query;
@@ -62,8 +63,9 @@ router.get('/page-times', authMiddleware, async (req, res) => {
       ${sessionLengthCondition}
       AND sdk_key = '${sdk_key}'
     GROUP BY page_path
-    ORDER BY visitCount DESC
-    LIMIT 100
+    HAVING averageTime > 0
+    ORDER BY averageTime DESC
+    LIMIT 10
   `;
 
   try {
@@ -76,7 +78,8 @@ router.get('/page-times', authMiddleware, async (req, res) => {
   }
 });
 
-router.get("/bounce-top", authMiddleware, async (req, res) => {
+/* 이탈률 */
+router.get("/bounce-rate", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   try {
     const query = `
@@ -127,6 +130,53 @@ router.get("/bounce-top", authMiddleware, async (req, res) => {
   } catch (err) {
     console.error("Bounce Top API ERROR:", err);
     res.status(500).json({ error: "Failed to get bounce top data" });
+  }
+});
+
+/* 페이지 조회수 */
+router.get('/page-views', authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+
+  const query = `
+    SELECT
+      page_path AS page,
+      sum(page_views) AS totalViews
+    FROM (
+      SELECT
+        page_path,
+        page_views
+      FROM hourly_page_stats
+      WHERE date_time >= toDateTime('${todayStart}')
+        AND date_time <= toDateTime('${oneHourFloor}')
+        AND sdk_key = '${sdk_key}'
+
+      UNION ALL
+
+      SELECT
+        page_path,
+        page_views
+      FROM minutes_page_stats
+      WHERE date_time >= toDateTime('${NearestHourFloor}')
+        AND date_time < toDateTime('${tenMinutesFloor}')
+        AND sdk_key = '${sdk_key}'
+    )
+    GROUP BY page
+    HAVING totalViews > 0
+    ORDER BY totalViews DESC
+    LIMIT 10
+  `;
+
+  try {
+    const dataRes = await clickhouse.query({query, format: 'JSONEachRow'});
+    let data = await dataRes.json();
+    data = data.map(item => ({
+      ...item,
+      totalViews: Number(item.totalViews),
+    }));
+    res.status(200).json(data);
+  } catch (err) {
+    console.error("Page Times API ERROR:", err);
+    res.status(500).json({ error: "Failed to get page times data" });
   }
 });
 

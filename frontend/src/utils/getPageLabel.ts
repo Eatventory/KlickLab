@@ -12,10 +12,13 @@ export function getPageLabel(path: string): string {
     if (path === '/cart') return '장바구니';
     if (path === '/checkout/success') return '결제완료';
     if (path === '/checkout') return '결제';
-    if (path === '/login') return '로그인';
-    if (path === '/register') return '회원가입';
+    if (path === '/login' || path === '/signin') return '로그인';
+    if (path === '/register' || path === '/signup') return '회원가입';
     if (path === '/orders') return '주문내역';
     if (path === '/wishlist') return '위시리스트';
     if (path === '/mypage') return '마이페이지';
+    if (path === '/profile') return '프로필';
+    if (path === '/settings') return '설정';
+    if (path === '/faq') return 'FAQ';
     return path; // fallback
 }

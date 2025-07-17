@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { ExitPageChart } from './ExitPageChart';
-import { PageTimeChart } from './PageTimeChart';
-import { BounceInsightsCard } from './BounceInsightsCard';
+// import { ExitPageChart } from './ExitPageChart';
+// import { PageTimeChart } from './PageTimeChart';
 // import { Clock, BarChart3, TrendingUp } from 'lucide-react';
-import { mockDashboardData } from '../../data/mockData';
+// import { mockDashboardData } from '../../data/mockData';
 import { useSegmentFilter } from '../../context/SegmentFilterContext';
+import { BounceInsightsCard } from './BounceInsightsCard';
 import HorizontalBarChart from '../HorizontalBarChart';
+import { getPageLabel } from '../../utils/getPageLabel';
 
 // 타입 정의
 interface FilterOptions {
@@ -20,6 +21,11 @@ interface PageTimeData {
   visitCount: number;
 }
 
+interface PageViewData {
+  page: string;
+  totalViews: number;
+}
+
 export const EngagementDashboard: React.FC = () => {
   const { filter: globalFilter } = useSegmentFilter();
   const [filters, setFilters] = useState<FilterOptions>({
@@ -29,6 +35,7 @@ export const EngagementDashboard: React.FC = () => {
   });
 
   const [pageTimes, setPageTimes] = useState<PageTimeData[]>([]);
+  const [pageViews, setPageViews] = useState<PageViewData[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,10 +60,23 @@ export const EngagementDashboard: React.FC = () => {
       const globalFilterQuery = globalFilterString ? `&${globalFilterString}` : '';
       
       const params = new URLSearchParams(filters as any).toString();
-      const res = await fetch(`/api/engagement/page-times?${params}${globalFilterQuery}`, {headers: { Authorization: `Bearer ${token}` }});
-      if (!res.ok) throw new Error('페이지 체류시간 데이터를 불러오지 못했습니다.');
-      const data = await res.json();
-      setPageTimes(data);
+      // const res = await fetch(`/api/engagement/page-times?${params}${globalFilterQuery}`, {headers: { Authorization: `Bearer ${token}` }});
+
+      const [resPageTimes, resPageViews] = await Promise.all([
+        fetch(`/api/engagement/page-times`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/engagement/page-views`, { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+
+      if (!resPageTimes.ok) throw new Error('Page Times 데이터를 불러오지 못했습니다.');
+      if (!resPageViews.ok) throw new Error('Page Views 데이터를 불러오지 못했습니다.');
+
+      const [dataPageTimes, dataPageViews] = await Promise.all([
+        resPageTimes.json(),
+        resPageViews.json(),
+      ]);
+
+      setPageTimes(dataPageTimes);
+      setPageViews(dataPageViews);
     } catch (err: any) {
       console.error(err);
       setError(err.message || '알 수 없는 오류');
@@ -67,6 +87,8 @@ export const EngagementDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchData();
+    const interval = setInterval(fetchData, 60000); // 1분마다 갱신
+    return () => clearInterval(interval);
   }, [filters, JSON.stringify(globalFilter.conditions)]);
 
   const handleFilterChange = (key: keyof FilterOptions, value: string) => {
@@ -123,19 +145,11 @@ export const EngagementDashboard: React.FC = () => {
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-[repeat(auto-fit,minmax(320px,1fr))]">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">이탈 페이지 분석</h2>
+            <h2 className="text-lg font-semibold text-gray-900">페이지 체류시간</h2>
           </div>
-          <ExitPageChart data={mockDashboardData.exitPages} />
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">페이지별 체류시간</h2>
-          </div>
-          {/* <PageTimeChart data={pageTimes} /> */}
           <HorizontalBarChart
             data={pageTimes.map((d) => ({
-              label: d.page,
+              label: getPageLabel(d.page),
               value: d.averageTime,
               raw: d,
             }))}
@@ -143,15 +157,39 @@ export const EngagementDashboard: React.FC = () => {
               <>
                 <div className="text-xs text-gray-500 mb-1">최근 7일간</div>
                 <div className="text-xs font-semibold text-gray-600 mb-1">
-                  {item.label}
+                  {item.raw.page}
                 </div>
                 <div className="text-sm font-bold text-gray-900">
                   평균 체류시간 {item.value < 1
                     ? `${Math.round(item.value * 60)}초`
                     : `${item.value.toFixed(1)}분`}
                 </div>
-                <div className="text-sm text-gray-600">
+                {/* <div className="text-sm text-gray-600">
                   방문 수 {item.raw.visitCount.toLocaleString()}회
+                </div> */}
+              </>
+            )}
+          />
+        </div>
+
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">페이지 조회수</h2>
+          </div>
+          <HorizontalBarChart
+            data={pageViews.map((d) => ({
+              label: getPageLabel(d.page),
+              value: d.totalViews,
+              raw: d
+            }))}
+            tooltipRenderer={(item) => (
+              <>
+                <div className="text-xs text-gray-500 mb-1">최근 1일간</div>
+                <div className="text-xs font-semibold text-gray-600 mb-1">
+                  {item.raw.page}
+                </div>
+                <div className="text-sm font-bold text-gray-900">
+                  조회수 {item.value.toLocaleString()}회
                 </div>
               </>
             )}
@@ -160,7 +198,7 @@ export const EngagementDashboard: React.FC = () => {
 
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
           <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">이탈률 TOP 10</h2>
+            <h2 className="text-lg font-semibold text-gray-900">이탈률</h2>
           </div>
           <BounceInsightsCard />
         </div>

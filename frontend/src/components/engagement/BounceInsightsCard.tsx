@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 // import { AlertTriangle } from 'lucide-react';
 import HorizontalBarChart from '../HorizontalBarChart';
+import { getPageLabel } from '../../utils/getPageLabel';
 
 interface BounceData {
   page_path: string;
@@ -26,7 +27,7 @@ export const BounceInsightsCard: React.FC<BounceInsightsCardProps> = ({ refreshK
       const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
       try {
         if (!token) throw new Error("No token");
-        const response = await fetch('/api/engagement/bounce-top', { headers: { Authorization: `Bearer ${token}` } });
+        const response = await fetch('/api/engagement/bounce-rate', { headers: { Authorization: `Bearer ${token}` } });
         const result: BounceSummaryData = await response.json();
         setData(result.data || []);
       } catch (error) {
@@ -47,44 +48,20 @@ export const BounceInsightsCard: React.FC<BounceInsightsCardProps> = ({ refreshK
     );
   }
 
-  // if (data.length === 0) {
-  //   return (
-  //     <div className="text-center text-gray-500">
-  //       <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-  //       <p>이탈률 데이터가 없습니다</p>
-  //     </div>
-  //   );
-  // }
-
   const top10 = data.slice(0, 10);
-
-  const getPageDisplayName = (page: string) => {
-    const pageNames: { [key: string]: string } = {
-      '/signup': '회원가입',
-      '/checkout': '결제',
-      '/pricing': '요금제',
-      '/product-detail': '상품상세',
-      '/cart': '장바구니',
-      '/login': '로그인',
-      '/profile': '프로필',
-      '/settings': '설정',
-      '/faq': 'FAQ'
-    };
-    return pageNames[page] || page;
-  };
 
   return (
     <div className="flex flex-col justify-between h-[calc(100%-3rem)]">
       <HorizontalBarChart
         data={top10.map((item) => ({
-          label: getPageDisplayName(item.page_path),
+          label: getPageLabel(item.page_path),
           value: item.bounce_rate,
           raw: item,
         }))}
         tooltipRenderer={(item, start, end) => (
           <>
             <div className="text-sm text-gray-500 mb-1">{start}~{end}</div>
-            <div className="text-sm font-semibold uppercase text-gray-600 mb-1">
+            <div className="text-sm font-semibold text-gray-600 mb-1">
               {item.raw.page_path}
             </div>
             <div className="text-md font-bold text-gray-900">
