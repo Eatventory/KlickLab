@@ -1,8 +1,10 @@
 import React, { useState, useRef } from 'react';
+import HeaderBar from '../ui/Headerbar';
 import { Sidebar } from '../ui/Sidebar';
 import { GlobalFilterBar } from '../ui/GlobalFilterBar';
 import { RefreshCw } from 'lucide-react';
 import { Routes, Route, useNavigate, useLocation, Navigate, Outlet } from 'react-router-dom';
+import clsx from 'clsx';
 
 // 새로운 탭별 대시보드 컴포넌트들
 import { OverviewDashboard } from '../overview/OverviewDashboard';
@@ -57,32 +59,40 @@ export const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
+      {/* 상단 헤더바 */}
+      <HeaderBar />
+      <div className='flex'>
       {/* 사이드바 */}
       <Sidebar
-        activeTab={tabPath}
+          activeTab={tabPath}
         onTabChange={handleTabChange}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={toggleSidebar}
       />
 
       {/* 메인 콘텐츠 */}
-      <div className="flex-1 flex flex-col">
+        <div
+          className={clsx(
+            "flex-1 flex flex-col mt-16 min-w-0 transition-all duration-300",
+            isSidebarCollapsed ? "ml-16" : "ml-64"
+          )}
+        >
         {/* 헤더 */}
         <header className="bg-white shadow-sm border-b border-gray-200">
           <div className="px-6 py-4">
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-xl font-bold text-gray-900">
-                  {tabTitles[tabPath] || '대시보드'}
+                    {tabTitles[tabPath] || '대시보드'}
                 </h1>
                 <p className="text-sm text-gray-600 mt-1">
-                  {tabDescriptions[tabPath] || '전체 개요 및 주요 지표'}
+                    {tabDescriptions[tabPath] || '전체 개요 및 주요 지표'}
                 </p>
               </div>
               <div className="flex items-center gap-2">
                 {/* 새로고침 버튼 */}
-                {tabPath === 'overview' && (
+                  {tabPath === 'overview' && (
                   <button
                     onClick={() => overviewRef.current?.fetchStats?.()}
                     className="p-2 rounded-full hover:bg-gray-100 transition-colors"
@@ -94,7 +104,7 @@ export const Dashboard: React.FC = () => {
                 <div className="text-right">
                   <p className="text-sm text-gray-600">마지막 업데이트</p>
                   <p className="text-sm font-medium text-gray-900">
-                    {tabPath === 'overview' && overviewLastUpdated
+                      {tabPath === 'overview' && overviewLastUpdated
                       ? overviewLastUpdated.toLocaleString('ko-KR')
                       : new Date().toLocaleString('ko-KR')}
                   </p>
@@ -107,20 +117,21 @@ export const Dashboard: React.FC = () => {
         {/* 전역 필터 바 */}
         <GlobalFilterBar />
 
-        {/* 메인 콘텐츠 영역: 탭별 라우팅 */}
+          {/* 메인 콘텐츠 영역: 탭별 라우팅 */}
         <main className="flex-1 p-6">
-          <Routes>
-            <Route path="overview" element={<OverviewDashboard ref={overviewRef} onLastUpdated={handleOverviewUpdate} />} />
-            <Route path="users" element={<UserDashboard />} />
-            <Route path="traffic" element={<TrafficDashboard />} />
-            <Route path="engagement" element={<EngagementDashboard />} />
-            <Route path="reports" element={<ReportDashboard />} />
-            <Route path="settings" element={<SettingsDashboard />} />
-            <Route path="conversion" element={<ConversionDashboard />} />
-            <Route path="" element={<Navigate to="/dashboard/overview" replace />} />
-            <Route path="*" element={<Navigate to="/dashboard/overview" replace />} />
-          </Routes>
+            <Routes>
+              <Route path="overview" element={<OverviewDashboard ref={overviewRef} onLastUpdated={handleOverviewUpdate} />} />
+              <Route path="users" element={<UserDashboard />} />
+              <Route path="traffic" element={<TrafficDashboard />} />
+              <Route path="engagement" element={<EngagementDashboard />} />
+              <Route path="reports" element={<ReportDashboard />} />
+              <Route path="settings" element={<SettingsDashboard />} />
+              <Route path="conversion" element={<ConversionDashboard />} />
+              <Route path="" element={<Navigate to="/dashboard/overview" replace />} />
+              <Route path="*" element={<Navigate to="/dashboard/overview" replace />} />
+            </Routes>
         </main>
+        </div>
       </div>
     </div>
   );
