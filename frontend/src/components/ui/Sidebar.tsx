@@ -10,7 +10,6 @@ import {
   ChevronRight
 } from 'lucide-react';
 import clsx from 'clsx';
-import logo from '../../assets/klicklab.svg';
 
 interface SidebarProps {
   activeTab: string;
@@ -66,23 +65,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   
   return (
-    <div className={clsx(
-      'bg-white border-r border-gray-200 transition-all duration-300 flex flex-col',
-      isCollapsed ? 'w-16' : 'w-64'
-    )}>
+    <div
+      className={clsx(
+        'fixed top-[64px] h-[calc(100vh-64px)] z-30 bg-white border-r border-gray-200 transition-all duration-300 flex flex-col',
+        isCollapsed ? 'w-16' : 'w-64'
+      )}
+    >
       {/* 헤더 */}
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-between">
-          {!isCollapsed && (
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors duration-200">
-                <img src={logo} className="w-6 h-6" />
-              </div>
-              <div>
-                <span className="font-bold text-lg text-blue-600">Klick</span><span className="font-bold text-lg text-gray-900">Lab</span>
-              </div>
-            </div>
-          )}
           <button
             onClick={onToggleCollapse}
             className="p-1 rounded-md hover:bg-gray-100 transition-colors"
