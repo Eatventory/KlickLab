@@ -10,7 +10,7 @@ export function getPageLabel(path: string): string {
     if (path.startsWith('/products/')) {
         const match = path.match(/^\/products\/(.+)$/);
         if (match) return `상품상세 ${match[1]}`;
-        else return '상품상세 1';
+        else return '상품상세';
     }
     if (path === '/products') return '상품목록';
     if (path === '/cart') return '장바구니';
