@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Settings, Code, Globe, Users, Bell, IdCard } from 'lucide-react';
 import Toast from "../ui/Toast";
 import { ConversionEventMapping } from './ConversionEventMapping';
+import { EventRuleManager } from './EventRuleManager';
 import SegmentFilterManager from './SegmentFilterManager';
 import { SegmentFilterBuilder } from '../ui/SegmentFilterBuilder';
 
@@ -69,6 +70,9 @@ export const SettingsDashboard: React.FC = () => {
           <SegmentFilterManager />
         </div>
       </div>
+
+      {/* 이벤트 생성 규칙 관리 */}
+      <EventRuleManager />
 
       {/* SDK 설치 가이드 */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
