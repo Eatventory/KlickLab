@@ -76,5 +76,58 @@ router.get('/page-times', authMiddleware, async (req, res) => {
   }
 });
 
+router.get("/bounce-top", authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+  try {
+    const query = `
+      SELECT
+        page_path,
+        sum(page_views) AS total_views,
+        sum(page_exits) AS total_exits,
+        round(total_exits / total_views * 100, 1) AS bounce_rate
+      FROM (
+        SELECT
+          page_path,
+          page_views,
+          page_exits
+        FROM daily_page_stats
+        WHERE date BETWEEN toDate('${localNow}') - 7 AND toDate('${localNow}') - 1
+          AND sdk_key = '${sdk_key}'
+
+        UNION ALL
+
+        SELECT
+          page_path,
+          page_views,
+          page_exits
+        FROM hourly_page_stats
+        WHERE date_time >= toDateTime('${todayStart}')
+          AND date_time <= toDateTime('${oneHourFloor}')
+          AND sdk_key = '${sdk_key}'
+
+        UNION ALL
+
+        SELECT
+          page_path,
+          page_views,
+          page_exits
+        FROM minutes_page_stats
+        WHERE date_time >= toDateTime('${NearestHourFloor}')
+          AND date_time < toDateTime('${tenMinutesFloor}')
+          AND sdk_key = '${sdk_key}'
+      )
+      GROUP BY page_path
+      HAVING total_views > 100 AND bounce_rate > 0
+      ORDER BY bounce_rate DESC
+      LIMIT 10;
+    `;
+    const result = await clickhouse.query({ query, format: "JSONEachRow" });
+    const data = await result.json();
+    res.status(200).json({ data: data });
+  } catch (err) {
+    console.error("Bounce Top API ERROR:", err);
+    res.status(500).json({ error: "Failed to get bounce top data" });
+  }
+});
 
 module.exports = router;

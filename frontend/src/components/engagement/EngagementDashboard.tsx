@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ExitPageChart } from './ExitPageChart';
 import { PageTimeChart } from './PageTimeChart';
-import { DropoffInsightsCard } from './DropoffInsightsCard';
+import { BounceInsightsCard } from './BounceInsightsCard';
 import { Clock, BarChart3, TrendingUp } from 'lucide-react';
 import { mockDashboardData } from '../../data/mockData';
 import { useSegmentFilter } from '../../context/SegmentFilterContext';
@@ -138,7 +138,7 @@ export const EngagementDashboard: React.FC = () => {
         </div>
 
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
-          <DropoffInsightsCard />
+          <BounceInsightsCard />
         </div>
       </div>
     </div>
