@@ -19,14 +19,19 @@ interface BounceInsightsCardProps {
 
 export const BounceInsightsCard: React.FC<BounceInsightsCardProps> = ({ refreshKey, loading }) => {
   const [data, setData] = useState<BounceData[]>([]);
-  const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+  const [hoveredItem, setHoveredItem] = useState<BounceData | null>(null);
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    setTooltipPosition({ x: e.clientX + 12, y: e.clientY + 12 });
+  };
 
   useEffect(() => {
     const fetchBounceData = async () => {
       const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
       try {
         if (!token) throw new Error("No token");
-        const response = await fetch('/api/engagement/bounce-top', {headers: { Authorization: `Bearer ${token}` }});
+        const response = await fetch('/api/engagement/bounce-top', { headers: { Authorization: `Bearer ${token}` } });
         const result: BounceSummaryData = await response.json();
         setData(result.data || []);
       } catch (error) {
@@ -68,88 +73,75 @@ export const BounceInsightsCard: React.FC<BounceInsightsCardProps> = ({ refreshK
       '/cart': '장바구니',
       '/login': '로그인',
       '/profile': '프로필',
-      '/settings': '설정'
+      '/settings': '설정',
+      '/faq': 'FAQ'
     };
     return pageNames[page] || page;
   };
 
   return (
-    <div className="space-y-2">
-      {/* 헤더 */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div>
-            <h3 className="text-lg font-bold text-gray-900">이탈률 TOP 10</h3>
-          </div>
-        </div>
-      </div>
-      
-      <div className="space-y-2">
-        {top10.map((item, index) => {
+    <div className="flex flex-col justify-between h-[calc(100%-3rem)]">
+      <div>
+        {top10.map((item) => {
           const percentage = maxbounceRate > 0 ? (item.bounce_rate / maxbounceRate) * 100 : 0;
-          const isTop = index === 0;
-          
+          const now = new Date();
+          const endDate = now.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
+          const startDate = new Date(now.setDate(now.getDate() - 7)).toLocaleDateString('ko-KR', {
+            year: 'numeric', month: 'long', day: 'numeric'
+          });
+
           return (
-            <div 
-              key={item.page_path} 
-              className="relative group"
-              onMouseEnter={() => setHoveredItem(item.page_path)}
+            <div
+              key={item.page_path}
+              className="relative group px-1 py-1.5"
+              onMouseEnter={() => setHoveredItem(item)}
               onMouseLeave={() => setHoveredItem(null)}
+              onMouseMove={handleMouseMove}
             >
-              <div className="flex items-center gap-3 p-2 rounded-lg bg-gradient-to-r from-white to-gray-50 border border-gray-100 hover:border-red-200 hover:shadow-md transition-all duration-300 cursor-pointer">
-                <div className={`flex items-center justify-center w-6 h-6 text-xs font-bold rounded-full transition-all duration-300 ${
-                  isTop 
-                    ? 'bg-gradient-to-br from-red-400 to-red-500 text-white shadow-sm' 
-                    : 'bg-gradient-to-br from-orange-100 to-orange-200 text-orange-700'
-                }`}>
-                  {index + 1}
-                </div>
-                
-                <div className="flex-1 min-w-0 px-2">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-semibold text-gray-900 truncate group-hover:text-red-600 transition-colors duration-200">
-                      {getPageDisplayName(item.page_path)}
-                    </span>
-                    <span className={`text-sm font-bold text-black ml-2`}>
-                      {item.bounce_rate}%
-                    </span>
+              <div className="flex items-center gap-2">
+                {/* 페이지명 + 그래프 */}
+                <div className="flex-1 overflow-hidden hover:bg-gray-100 p-1">
+                  <div className="flex justify-between items-center text-md text-gray-800">
+                    <span className="truncate">{getPageDisplayName(item.page_path)}</span>
+                    <span className="ml-2 font-semibold">{item.bounce_rate.toFixed(1)}%</span>
                   </div>
-                  
-                  <div className="relative w-3/4 bg-gray-100 rounded-full h-2 overflow-hidden">
+                  <div className="relative w-full h-1.5 bg-gray-200 mt-1">
                     <div
-                      className={`h-2 rounded-full transition-all duration-500 ease-out ${
-                        index === 0 
-                          ? 'bg-red-600' 
-                          : index === 1
-                          ? 'bg-red-500'
-                          : index === 2
-                          ? 'bg-red-400'
-                          : index === 3
-                          ? 'bg-red-300'
-                          : 'bg-red-200'
-                      }`}
-                      style={{ 
-                        width: `${percentage}%`,
-                        boxShadow: '0 1px 4px rgba(239, 68, 68, 0.12)'
-                      }}
+                      className="absolute top-0 left-0 h-1.5 bg-blue-500"
+                      style={{ width: `${percentage}%` }}
                     />
                   </div>
                 </div>
               </div>
-              {hoveredItem === item.page_path && (
-                <div className="absolute top-full left-0 mt-2 px-3 py-2 bg-white text-gray-800 text-xs rounded-lg shadow-lg z-10 whitespace-nowrap border border-gray-200 backdrop-blur-sm">
-                  <div className="font-semibold text-gray-900">{getPageDisplayName(item.page_path)}</div>
-                  <div className="font-bold text-red-500">{item.bounce_rate}% 이탈률</div>
-                  <div className="text-gray-500 text-xs">{item.page_path}</div>
+
+              {/* 툴팁 */}
+              {hoveredItem?.page_path === item.page_path && (
+                <div
+                  className="fixed z-50 bg-white border border-gray-200 rounded-md shadow-lg text-md text-gray-800 px-3 py-2 whitespace-nowrap"
+                  style={{
+                    top: tooltipPosition.y,
+                    left: tooltipPosition.x,
+                    pointerEvents: 'none',
+                  }}
+                >
+                  <div className="text-sm text-gray-500 mb-1">{startDate}~{endDate}</div>
+                  <div className="text-sm font-semibold uppercase text-gray-600 mb-1">
+                    {hoveredItem.page_path}
+                  </div>
+                  <div className="text-md font-bold text-gray-900">
+                    이탈률 {hoveredItem.bounce_rate.toLocaleString()}%
+                  </div>
                 </div>
               )}
             </div>
           );
         })}
       </div>
+
+      {/* 평균 이탈률 */}
       <div className="pt-2">
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-gray-600 font-medium">평균 이탈률</span>
+        <div className="flex justify-between text-md text-gray-600">
+          <span>평균 이탈률</span>
           <span className="font-bold text-gray-900">
             {(top10.reduce((sum, item) => sum + item.bounce_rate, 0) / top10.length).toFixed(1)}%
           </span>
@@ -157,4 +149,4 @@ export const BounceInsightsCard: React.FC<BounceInsightsCardProps> = ({ refreshK
       </div>
     </div>
   );
-}; 
+};

@@ -123,7 +123,6 @@ export const EngagementDashboard: React.FC = () => {
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-[repeat(auto-fit,minmax(320px,1fr))]">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center gap-2 mb-4">
-            <BarChart3 className="w-5 h-5 text-gray-600" />
             <h2 className="text-lg font-semibold text-gray-900">이탈 페이지 분석</h2>
           </div>
           <ExitPageChart data={mockDashboardData.exitPages} />
@@ -131,13 +130,15 @@ export const EngagementDashboard: React.FC = () => {
 
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center gap-2 mb-4">
-            <Clock className="w-5 h-5 text-gray-600" />
             <h2 className="text-lg font-semibold text-gray-900">페이지별 체류시간</h2>
           </div>
           <PageTimeChart data={pageTimes} />
         </div>
 
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">이탈률 TOP 10</h2>
+          </div>
           <BounceInsightsCard />
         </div>
       </div>

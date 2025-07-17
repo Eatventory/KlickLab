@@ -61,7 +61,7 @@ export default function HeaderBar() {
   };
 
   return (
-    <div className="fixed top-0 left-0 w-full h-16 bg-white border-b flex items-center flex justify-between px-6 gap-4 z-40">
+    <div className="fixed top-0 left-0 w-full h-16 bg-white border-b flex items-center justify-between px-6 gap-4 z-40">
       {/* 타이틀 */}
       <div className="flex items-center gap-2">
         <div className="p-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors duration-200">
