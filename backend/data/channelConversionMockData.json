@@ -1,0 +1,26 @@
+[
+  {
+    "channel": "instagram",
+    "totalSessions": 100,
+    "convertedSessions": 88,
+    "conversionRate": 88.0
+  },
+  {
+    "channel": "kakao",
+    "totalSessions": 100,
+    "convertedSessions": 50,
+    "conversionRate": 50.0
+  },
+  {
+    "channel": "naver",
+    "totalSessions": 100,
+    "convertedSessions": 46,
+    "conversionRate": 46.0
+  },
+  {
+    "channel": "google",
+    "totalSessions": 100,
+    "convertedSessions": 32,
+    "conversionRate": 32.0
+  }
+] 
