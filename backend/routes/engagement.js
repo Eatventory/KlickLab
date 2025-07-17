@@ -180,4 +180,62 @@ router.get('/page-views', authMiddleware, async (req, res) => {
   }
 });
 
+/* 전체 조회수 */
+router.get('/views', authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+
+  const query = `
+    SELECT
+      date,
+      sum(views) AS totalViews
+    FROM (
+      SELECT
+        date,
+        sum(page_views) AS views
+      FROM daily_page_stats
+      WHERE date >= toDate('${localNow}') - INTERVAL 30 DAYS
+        AND date <= toDate('${localNow}') - INTERVAL 1 DAYS
+        AND sdk_key = '${sdk_key}'
+      GROUP BY date
+
+      UNION ALL
+
+      SELECT
+        toDate(date_time) AS date,
+        sum(page_views) AS views
+      FROM hourly_page_stats
+      WHERE date_time >= toDateTime('${todayStart}')
+        AND date_time <= toDateTime('${oneHourFloor}')
+        AND sdk_key = '${sdk_key}'
+      GROUP BY toDate(date_time)
+
+      UNION ALL
+
+      SELECT
+        toDate(date_time) AS date,
+        sum(page_views) AS views
+      FROM minutes_page_stats
+      WHERE date_time >= toDateTime('${NearestHourFloor}')
+        AND date_time < toDateTime('${tenMinutesFloor}')
+        AND sdk_key = '${sdk_key}'
+      GROUP BY toDate(date_time)
+    )
+    GROUP BY date
+    ORDER BY date ASC
+  `;
+
+  try {
+    const dataRes = await clickhouse.query({query, format: 'JSONEachRow'});
+    let data = await dataRes.json();
+    data = data.map(item => ({
+      ...item,
+      totalViews: Number(item.totalViews),
+    }));
+    res.status(200).json(data);
+  } catch (err) {
+    console.error("Page Times API ERROR:", err);
+    res.status(500).json({ error: "Failed to get page times data" });
+  }
+});
+
 module.exports = router;

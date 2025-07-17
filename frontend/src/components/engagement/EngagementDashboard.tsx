@@ -33,6 +33,11 @@ interface BounceRatesData {
   bounce_rate: number;
 }
 
+interface ViewData {
+  date: string;
+  totalViews: number;
+}
+
 const testdata = [
   { date: '6월 20일', value: 11000 },
   { date: '6월 22일', value: 9000 },
@@ -60,6 +65,7 @@ export const EngagementDashboard: React.FC = () => {
   const [pageTimes, setPageTimes] = useState<PageTimeData[]>([]);
   const [pageViews, setPageViews] = useState<PageViewData[]>([]);
   const [bounceRates, setBounceRates] = useState<BounceRatesData[]>([]);
+  const [Views, setViews] = useState<ViewData[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -85,25 +91,29 @@ export const EngagementDashboard: React.FC = () => {
       // const params = new URLSearchParams(filters as any).toString();
       // const res = await fetch(`/api/engagement/page-times?${params}${globalFilterQuery}`, {headers: { Authorization: `Bearer ${token}` }});
 
-      const [resPageTimes, resPageViews, resBounceRates] = await Promise.all([
+      const [resPageTimes, resPageViews, resBounceRates, resViews] = await Promise.all([
         fetch(`/api/engagement/page-times`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`/api/engagement/page-views`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch('/api/engagement/bounce-rate', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch('/api/engagement/views', { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
       if (!resPageTimes.ok) throw new Error('Page Times 데이터를 불러오지 못했습니다.');
       if (!resPageViews.ok) throw new Error('Page Views 데이터를 불러오지 못했습니다.');
       if (!resBounceRates.ok) throw new Error('Bounce 데이터를 불러오지 못했습니다.');
+      if (!resViews.ok) throw new Error('Bounce 데이터를 불러오지 못했습니다.');
 
-      const [dataPageTimes, dataPageViews, dataBounceRates] = await Promise.all([
+      const [dataPageTimes, dataPageViews, dataBounceRates, dataViews] = await Promise.all([
         resPageTimes.json(),
         resPageViews.json(),
         resBounceRates.json(),
+        resViews.json()
       ]);
 
       setPageTimes(dataPageTimes);
       setPageViews(dataPageViews);
       setBounceRates(dataBounceRates);
+      setViews(dataViews);
     } catch (err: any) {
       console.error(err);
       setError(err.message || '알 수 없는 오류');
@@ -199,7 +209,7 @@ export const EngagementDashboard: React.FC = () => {
 
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">페이지 조회수</h2>
+            <h2 className="text-lg font-semibold text-gray-900">페이지 별 조회수</h2>
           </div>
           <HorizontalBarChart
             data={pageViews.map((d) => ({
@@ -249,10 +259,19 @@ export const EngagementDashboard: React.FC = () => {
 
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 col-span-2">
           <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">이탈률</h2>
+            <h2 className="text-lg font-semibold text-gray-900">조회수</h2>
           </div>
           <HorizontalLineChart
-            data={testdata}
+            data={Views.map((d) => ({
+              date: d.date,
+              value: d.totalViews
+            }))}
+            tooltipRenderer={(item) => (
+              <div className="text-sm">
+                <div className="text-gray-500">{item.date}</div>
+                <div className="font-semibold text-blue-600">{item.value.toLocaleString()}건</div>
+              </div>
+            )}
           />
         </div>
       </div>
