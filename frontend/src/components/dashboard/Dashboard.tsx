@@ -78,47 +78,54 @@ export const Dashboard: React.FC = () => {
             isSidebarCollapsed ? "ml-16" : "ml-64"
           )}
         >
-        {/* 헤더 */}
-        <header className="bg-white shadow-sm border-b border-gray-200">
-          <div className="px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">
-                    {tabTitles[tabPath] || '대시보드'}
-                </h1>
-                <p className="text-sm text-gray-600 mt-1">
-                    {tabDescriptions[tabPath] || '전체 개요 및 주요 지표'}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                {/* 새로고침 버튼 */}
-                  {tabPath === 'overview' && (
-                  <button
-                    onClick={() => overviewRef.current?.fetchStats?.()}
-                    className="p-2 rounded-full hover:bg-gray-100 transition-colors"
-                    title="새로고침"
-                  >
-                    <RefreshCw className="w-5 h-5 text-gray-500" />
-                  </button>
-                )}
-                <div className="text-right">
-                  <p className="text-sm text-gray-600">마지막 업데이트</p>
-                  <p className="text-sm font-medium text-gray-900">
-                      {tabPath === 'overview' && overviewLastUpdated
-                      ? overviewLastUpdated.toLocaleString('ko-KR')
-                      : new Date().toLocaleString('ko-KR')}
-                  </p>
+          {/* 레벨2 헤더 */}
+          <div
+            className={clsx(
+              "fixed top-16 z-20 transition-all duration-300 bg-white border-b",
+              isSidebarCollapsed ? "left-16 w-[calc(100%-4rem)]" : "left-64 w-[calc(100%-16rem)]"
+            )}
+          >
+            <header className="bg-white shadow-sm border-b border-gray-200">
+              <div className="px-6 py-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h1 className="text-xl font-bold text-gray-900">
+                      {tabTitles[tabPath] || '대시보드'}
+                    </h1>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {tabDescriptions[tabPath] || '전체 개요 및 주요 지표'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {/* 새로고침 버튼 */}
+                    {tabPath === 'overview' && (
+                      <button
+                        onClick={() => overviewRef.current?.fetchStats?.()}
+                        className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                        title="새로고침"
+                      >
+                        <RefreshCw className="w-5 h-5 text-gray-500" />
+                      </button>
+                    )}
+                    <div className="text-right">
+                      <p className="text-sm text-gray-600">마지막 업데이트</p>
+                      <p className="text-sm font-medium text-gray-900">
+                        {tabPath === 'overview' && overviewLastUpdated
+                          ? overviewLastUpdated.toLocaleString('ko-KR')
+                          : new Date().toLocaleString('ko-KR')}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
-        </header>
+            </header>
 
-        {/* 전역 필터 바 */}
-        <GlobalFilterBar />
+            {/* 전역 필터 바 */}
+            <GlobalFilterBar />
+          </div>
 
           {/* 메인 콘텐츠 영역: 탭별 라우팅 */}
-        <main className="flex-1 p-6">
+          <main className="flex-1 p-6 mt-32">
             <Routes>
               <Route path="overview" element={<OverviewDashboard ref={overviewRef} onLastUpdated={handleOverviewUpdate} />} />
               <Route path="users" element={<UserDashboard />} />
