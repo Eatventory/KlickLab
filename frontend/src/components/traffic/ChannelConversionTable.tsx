@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart3, Trophy } from 'lucide-react';
 import { Tooltip } from 'react-tooltip';
-import { useConversionEvent } from '../../context/ConversionEventContext';
+import mockData from '../../../../backend/data/channelConversionMockData.json';
 
 interface ChannelData {
   channel: string;
@@ -23,50 +23,52 @@ interface ChannelConversionTableProps {
 }
 
 export const ChannelConversionTable: React.FC<ChannelConversionTableProps> = ({ className }) => {
-  const { currentEvent } = useConversionEvent();
   const [data, setData] = useState<ChannelData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'conversionRate' | 'totalSessions' | 'convertedSessions'>('conversionRate');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  const fetchChannelConversionData = async () => {
-    if (!currentEvent) return;
+  // const fetchChannelConversionData = async () => {
+  //   if (!currentEvent) return;
     
-    try {
-      setLoading(true);
-      setError(null);
+  //   try {
+  //     setLoading(true);
+  //     setError(null);
       
-      const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
-      if (!token) throw new Error("No token");
+  //     const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+  //     if (!token) throw new Error("No token");
       
-      const response = await fetch(`/api/overview/conversion-by-channel?to=/checkout/success&event=${currentEvent}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+  //     const response = await fetch(`/api/overview/conversion-by-channel?to=/checkout/success&event=${currentEvent}`, {
+  //       headers: { Authorization: `Bearer ${token}` }
+  //     });
       
-      if (!response.ok) {
-        throw new Error('채널별 전환율 데이터를 불러올 수 없습니다.');
-      }
+  //     if (!response.ok) {
+  //       throw new Error('채널별 전환율 데이터를 불러올 수 없습니다.');
+  //     }
       
-      const result: ChannelConversionResponse = await response.json();
+  //     const result: ChannelConversionResponse = await response.json();
       
-      if (!result.success) {
-        throw new Error('데이터 처리 중 오류가 발생했습니다.');
-      }
+  //     if (!result.success) {
+  //       throw new Error('데이터 처리 중 오류가 발생했습니다.');
+  //     }
       
-      setData(result.data || []);
-    } catch (err) {
-      console.error('Channel Conversion API Error:', err);
-      setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.');
-      setData([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  //     setData(result.data || []);
+  //   } catch (err) {
+  //     console.error('Channel Conversion API Error:', err);
+  //     setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.');
+  //     // 목업 데이터로 대체
+  //     setData(mockData as ChannelData[]);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
   useEffect(() => {
-    fetchChannelConversionData();
-  }, [currentEvent]);
+    setData(mockData as ChannelData[]);
+    setLoading(false);
+    setError(null);
+  }, []);
 
   const handleSort = (field: 'conversionRate' | 'totalSessions' | 'convertedSessions') => {
     if (sortBy === field) {
@@ -159,7 +161,7 @@ export const ChannelConversionTable: React.FC<ChannelConversionTableProps> = ({ 
                       {channel.channel}
                     </span>
                   </div>
-                  <Tooltip id={`channel-tooltip-${index}`} place="top" effect="solid">
+                  <Tooltip id={`channel-tooltip-${index}`} place="top">
                     <div><b>캠페인명:</b> {channel.campaign !== 'direct_traffic' ? channel.campaign : '직접 방문'}</div>
                     <div><b>총 세션:</b> {formatNumber(channel.totalSessions)}</div>
                     <div><b>전환 세션:</b> {formatNumber(channel.convertedSessions)}</div>

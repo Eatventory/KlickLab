@@ -58,6 +58,15 @@ const mockDashboardData = {
   ]
 };
 
+// 유입 채널 분포 목업 데이터
+const mockChannelPieData = [
+  { source: 'naver', visitors: 280 },
+  { source: 'google', visitors: 420 },
+  { source: 'instagram', visitors: 130 },
+  { source: 'kakao', visitors: 70 },
+  { source: '(없음)', visitors: 100 }
+];
+
 // 시간대별 유입 분포 데이터 보정 (KST 변환)
 // function fillHourlyTrafficKST(raw: { hour: string, visitors: number }[]) {
 //   // UTC hour(문자열) → KST hour(문자열)
@@ -241,7 +250,7 @@ export const TrafficDashboard: React.FC = () => {
           <ResponsiveContainer width="100%" height={240}>
             <PieChart>
               <Pie
-                data={entryPageData}
+                data={mockChannelPieData}
                 dataKey="visitors"
                 nameKey="source"
                 cx="50%"
@@ -249,7 +258,7 @@ export const TrafficDashboard: React.FC = () => {
                 outerRadius={80}
                 label={({ source }) => source || '/'}
               >
-                {entryPageData.map((source, idx) => (
+                {mockChannelPieData.map((source, idx) => (
                   <Cell key={`cell-${idx}`} fill={["#3b82f6", "#10b981", "#f59e42", "#ef4444", "#8b5cf6", "#6366f1", "#fbbf24", "#f472b6", "#34d399", "#a3e635"][idx % 10]} />
                 ))}
               </Pie>
