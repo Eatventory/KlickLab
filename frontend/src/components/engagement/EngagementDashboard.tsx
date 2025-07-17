@@ -75,10 +75,8 @@ export const EngagementDashboard: React.FC = () => {
     }));
   };
 
-  return (
-    <div className="space-y-8">
-      {/* 필터 */}
-      {/* <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+  const engagementFilter = (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Clock className="w-5 h-5 text-gray-600" />
           <h2 className="text-lg font-semibold text-gray-900">참여도 분석 필터</h2>
@@ -115,7 +113,12 @@ export const EngagementDashboard: React.FC = () => {
             <option value="long">긴 세션 (5분 이상)</option>
           </select>
         </div>
-      </div> */}
+      </div>
+  );
+
+  return (
+    <div className="space-y-8">
+      {/* {engagementFilter} */}
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-[repeat(auto-fit,minmax(320px,1fr))]">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
