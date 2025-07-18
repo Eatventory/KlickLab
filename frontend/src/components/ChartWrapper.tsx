@@ -23,7 +23,7 @@ const ChartWrapper: React.FC<ChartWrapperProps> = ({
   return (
     <div>
       {/* 상단 지표 탭 */}
-      <div className="flex items-end gap-6 mb-4">
+      <div className="flex items-end mb-4">
         {metrics.map(({ key, label, value }) => (
           <div
             key={key}
