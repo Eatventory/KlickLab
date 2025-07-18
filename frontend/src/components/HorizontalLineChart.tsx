@@ -23,6 +23,7 @@ interface HorizontalLineChartProps {
     name?: string;
     color?: string;
   }[];
+  height?: number;
   showLegend?: boolean;
   tooltipRenderer?: (item: any) => React.ReactNode;
   legendTooltipRenderer?: (item: any, key: string) => React.ReactNode;
@@ -36,6 +37,7 @@ const HorizontalLineChart: React.FC<HorizontalLineChartProps> = ({
   areas,
   tooltipRenderer,
   legendTooltipRenderer,
+  height = 200,
   showLegend = false,
 }) => {
   const [hoveredItem, setHoveredItem] = useState<any | null>(null);
@@ -51,11 +53,12 @@ const HorizontalLineChart: React.FC<HorizontalLineChartProps> = ({
   }
 
   return (
-    <div className="relative flex h-48 w-full">
+    <div className="relative flex w-full" style={{ height: height }}>
       <div className="flex-1 h-full">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart
             data={data}
+            height={height}
             onMouseMove={(e: any) => {
               if (e?.activePayload?.[0]) {
                 setHoveredItem(e.activePayload[0].payload);
@@ -84,7 +87,8 @@ const HorizontalLineChart: React.FC<HorizontalLineChartProps> = ({
                 stroke="none"
                 fill={area.color || defaultColors[idx % defaultColors.length]}
                 fillOpacity={0.2}
-                isAnimationActive={false}
+                isAnimationActive={true}
+                animationDuration={600}
               />
             ))}
             {lines.map((line, idx) => (

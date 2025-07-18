@@ -206,6 +206,7 @@ export const EngagementDashboard: React.FC = () => {
               { key: 'avgEventPerUser', label: '사용자당 평균 이벤트 수' },
             ]}
             autoSelectBy="eventCount"
+            title="이벤트 이름"
           >
             {(selectedKeys, chartData, lineDefs) => (
               <HorizontalLineChart
@@ -229,6 +230,7 @@ export const EngagementDashboard: React.FC = () => {
                   { key: 'sum_selected_events', name: '합계', color: "#2596be", dash: "3 3" },
                 ]}
                 areas={[ { key: 'sum_selected_events', name: '합계', color: "#2596be" }]}
+                height={400}
                 tooltipRenderer={(item) => {
                   const keys = [...selectedKeys, 'sum_selected_events'];
                   const sortedKeys = keys
