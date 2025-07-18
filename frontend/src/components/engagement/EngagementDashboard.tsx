@@ -3,8 +3,8 @@ import { addDays } from 'date-fns';
 import dayjs from 'dayjs';
 import HorizontalBarChart from '../HorizontalBarChart';
 import HorizontalLineChart from '../HorizontalLineChart';
-import ChartWrapper from '../ChartWrapper';
-import Collapse from '../Collapse';
+import ChartWrapper from '../ui/ChartWrapper';
+import Collapse from '../ui/Collapse';
 import DateRangeSelector from '../ui/DateRangeSelector';
 
 interface PageTimeData {
