@@ -71,7 +71,7 @@ export const EngagementDashboard: React.FC = () => {
   const [selectedMetric2, setSelectedMetric2] = useState<'avgSessionSecs' | 'sessionsPerUsers'>('avgSessionSecs');
 
   const [dateRange, setDateRange] = useState([
-    { startDate: addDays(new Date(), -29), endDate: new Date(), key: 'selection' }
+    { startDate: addDays(new Date(), -6), endDate: new Date(), key: 'selection' }
   ]);
   const [tempRange, setTempRange] = useState(dateRange);
   const [showPicker, setShowPicker] = useState(false);
@@ -89,13 +89,13 @@ export const EngagementDashboard: React.FC = () => {
       const query = `startDate=${startStr}&endDate=${endStr}`;
 
       const [resOverview, resPageTimes, resPageViewCounts, resBounceRates, resViewCounts, resClickCounts, resUOTime] = await Promise.all([
-        fetch('/api/engagement/overview', { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`/api/engagement/page-times?limit=5`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`/api/engagement/page-views?limit=5`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('/api/engagement/bounce-rate?limit=5', { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('/api/engagement/view-counts', { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('/api/engagement/click-counts', { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('/api/engagement/users-over-time', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/engagement/overview?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/engagement/page-times?${query}&limit=5`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/engagement/page-views?${query}&limit=5`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/engagement/bounce-rate?${query}&limit=5`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/engagement/view-counts?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/engagement/click-counts?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/engagement/users-over-time?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
       if (!resOverview.ok) throw new Error('Engagement Overview 데이터를 불러오지 못했습니다.');
