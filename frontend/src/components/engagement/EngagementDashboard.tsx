@@ -1,72 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { addDays } from 'date-fns';
+import dayjs from 'dayjs';
 import HorizontalBarChart from '../HorizontalBarChart';
 import HorizontalLineChart from '../HorizontalLineChart';
 import ChartWrapper from '../ChartWrapper';
 import Collapse from '../Collapse';
-
-import { DateRangePicker, createStaticRanges, defaultStaticRanges } from 'react-date-range';
-import { addDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths } from 'date-fns';
-import { ko } from 'date-fns/locale';
-import dayjs from 'dayjs';
-import 'react-date-range/dist/styles.css';
-import 'react-date-range/dist/theme/default.css';
-
-const customStaticRanges = createStaticRanges([
-  {
-    label: '오늘',
-    range: () => {
-      const today = new Date();
-      return { startDate: today, endDate: today };
-    },
-  },
-  {
-    label: '어제',
-    range: () => {
-      const yesterday = addDays(new Date(), -1);
-      return { startDate: yesterday, endDate: yesterday };
-    },
-  },
-  {
-    label: '이번 주',
-    range: () => {
-      const today = new Date();
-      return {
-        startDate: startOfWeek(today, { weekStartsOn: 0 }), // 일요일 시작
-        endDate: endOfWeek(today, { weekStartsOn: 0 }),
-      };
-    },
-  },
-  {
-    label: '지난 주',
-    range: () => {
-      const lastWeek = subWeeks(new Date(), 1);
-      return {
-        startDate: startOfWeek(lastWeek, { weekStartsOn: 0 }),
-        endDate: endOfWeek(lastWeek, { weekStartsOn: 0 }),
-      };
-    },
-  },
-  {
-    label: '이번 달',
-    range: () => {
-      const today = new Date();
-      return {
-        startDate: startOfMonth(today),
-        endDate: endOfMonth(today),
-      };
-    },
-  },
-  {
-    label: '지난 달',
-    range: () => {
-      const lastMonth = subMonths(new Date(), 1);
-      return {
-        startDate: startOfMonth(lastMonth),
-        endDate: endOfMonth(lastMonth),
-      };
-    },
-  },
-]);
+import DateRangeSelector from '../ui/DateRangeSelector';
 
 interface PageTimeData {
   page: string;
@@ -148,7 +87,7 @@ export const EngagementDashboard: React.FC = () => {
       const startStr = dayjs(start).format('YYYY-MM-DD');
       const endStr = dayjs(end).format('YYYY-MM-DD');
       const query = `startDate=${startStr}&endDate=${endStr}`;
-      console.log(query);
+
       const [resOverview, resPageTimes, resPageViewCounts, resBounceRates, resViewCounts, resClickCounts, resUOTime] = await Promise.all([
         fetch('/api/engagement/overview', { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`/api/engagement/page-times?limit=5`, { headers: { Authorization: `Bearer ${token}` } }),
@@ -429,78 +368,15 @@ export const EngagementDashboard: React.FC = () => {
   return (
     <>
       <div className="w-full flex justify-end border-b-2 border-dashed">
-        <div className='right-0'>
-          <button
-            className="m-2 mr-6 px-2 py-1 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded"
-            onClick={() => {
-              if (showPicker) {
-                setTempRange(dateRange);
-                setShowPicker(false);
-              } else {
-                setShowPicker(true);
-              }
-            }}
-          >
-            {dayjs(dateRange[0].startDate).format('YYYY-MM-DD')} ~ {dayjs(dateRange[0].endDate).format('YYYY-MM-DD')}
-          </button>
-          {showPicker && (
-            <>
-              {/* 오버레이: 모든 클릭 차단 */}
-              <div
-                className="fixed inset-0 z-40"
-                style={{ pointerEvents: 'auto' }}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setTempRange(dateRange);
-                  setShowPicker(false);
-                }}
-              />
-              {/* 팝업 */}
-              <div
-                ref={pickerRef}
-                className="absolute right-6 z-50 mt-2 border border-gray-200 rounded-xl shadow-lg bg-white p-4"
-              >
-                <DateRangePicker
-                  onChange={(item) => setTempRange([item.selection])}
-                  ranges={tempRange}
-                  showSelectionPreview
-                  moveRangeOnFirstSelection={false}
-                  months={1}
-                  direction="horizontal"
-                  rangeColors={['#2563eb']}
-                  staticRanges={customStaticRanges}
-                  inputRanges={[]}
-                  locale={ko}
-                />
-                <div className="flex justify-end gap-2 mt-2">
-                  <button
-                    className="px-3 py-1 bg-gray-200 rounded"
-                    onClick={() => {
-                      setTempRange(dateRange);
-                      setShowPicker(false);
-                    }}
-                  >
-                    취소
-                  </button>
-                  <button
-                    className="px-3 py-1 bg-blue-600 text-white rounded"
-                    onClick={() => {
-                      setDateRange(tempRange);
-                      setShowPicker(false);
-                      const { startDate, endDate } = tempRange[0];
-                      if (startDate && endDate) {
-                        fetchData(startDate, endDate);
-                      }
-                    }}
-                  >
-                    적용
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
+        <DateRangeSelector
+          dateRange={dateRange}
+          tempRange={tempRange}
+          showPicker={showPicker}
+          setDateRange={setDateRange}
+          setTempRange={setTempRange}
+          setShowPicker={setShowPicker}
+          onApply={(start, end) => fetchData(start, end)}
+        />
       </div>
 
       <Collapse title="참여도 개요" isShown={true}>
