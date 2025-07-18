@@ -141,6 +141,40 @@ export const EngagementDashboard: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
+  const getRangeLabel = () => {
+    const { startDate, endDate } = dateRange[0];
+    const start = dayjs(startDate);
+    const end = dayjs(endDate);
+    const today = dayjs();
+  
+    const diffDays = end.diff(start, 'day');
+  
+    const isToday = start.isSame(today, 'day') && end.isSame(today, 'day');
+    const isYesterday = start.isSame(today.subtract(1, 'day'), 'day') && end.isSame(start, 'day');
+  
+    const startOfThisWeek = today.startOf('week');
+    const endOfThisWeek = today.endOf('week');
+  
+    const startOfLastWeek = today.subtract(1, 'week').startOf('week');
+    const endOfLastWeek = today.subtract(1, 'week').endOf('week');
+  
+    const startOfThisMonth = today.startOf('month');
+    const endOfThisMonth = today.endOf('month');
+  
+    const startOfLastMonth = today.subtract(1, 'month').startOf('month');
+    const endOfLastMonth = today.subtract(1, 'month').endOf('month');
+  
+    if (isToday) return '오늘';
+    if (isYesterday) return '어제';
+    if (start.isSame(startOfThisWeek, 'day') && end.isSame(endOfThisWeek, 'day')) return '이번 주';
+    if (start.isSame(startOfLastWeek, 'day') && end.isSame(endOfLastWeek, 'day')) return '지난 주';
+    if (start.isSame(startOfThisMonth, 'day') && end.isSame(endOfThisMonth, 'day')) return '이번 달';
+    if (start.isSame(startOfLastMonth, 'day') && end.isSame(endOfLastMonth, 'day')) return '지난 달';
+    if (diffDays >= 1) return `최근 ${diffDays + 1}일간`;
+  
+    return `${start.format('YYYY.MM.DD')} ~ ${end.format('YYYY.MM.DD')}`;
+  };
+
   const engagementOverview = (
     <div id="engagementOverview" className="space-y-8">
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-[repeat(auto-fit,minmax(320px,1fr))]">
@@ -198,7 +232,7 @@ export const EngagementDashboard: React.FC = () => {
             }))}
             tooltipRenderer={(item) => (
               <>
-                <div className="text-xs text-gray-500 mb-1">최근 7일간</div>
+                <div className="text-xs text-gray-500 mb-1">{getRangeLabel()}</div>
                 <div className="text-xs font-semibold uppercase text-gray-600 mb-1">
                   {item.label}
                 </div>
@@ -226,7 +260,7 @@ export const EngagementDashboard: React.FC = () => {
             }))}
             tooltipRenderer={(item) => (
               <>
-                <div className="text-xs text-gray-500 mb-1">최근 7일간</div>
+                <div className="text-xs text-gray-500 mb-1">{getRangeLabel()}</div>
                 <div className="text-xs font-semibold uppercase text-gray-600 mb-1">
                   {item.label}
                 </div>
@@ -252,7 +286,7 @@ export const EngagementDashboard: React.FC = () => {
             }))}
             tooltipRenderer={(item) => (
               <>
-                <div className="text-sm text-gray-500 mb-1">최근 7일간</div>
+                <div className="text-sm text-gray-500 mb-1">{getRangeLabel()}</div>
                 <div className="text-sm font-semibold uppercase text-gray-600 mb-1">
                   {item.label}
                 </div>
