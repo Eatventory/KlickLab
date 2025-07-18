@@ -5,53 +5,16 @@ import dayjs from 'dayjs';
 import Collapse from '../ui/Collapse';
 import DateRangeSelector from '../ui/DateRangeSelector';
 import EngagementOverview from './EngagementOverview';
-
-interface PageTimeData {
-  page: string;
-  averageTime: number;
-  visitCount: number;
-}
-
-interface PageViewCountsData {
-  page: string;
-  totalViews: number;
-}
-
-interface BounceRatesData {
-  page_path: string;
-  total_views: string;
-  total_exits: string;
-  bounce_rate: number;
-}
-
-interface ViewCountsData {
-  date: string;
-  totalViews: number;
-}
-
-interface ClickCountsData {
-  date: string;
-  totalClicks: number;
-}
-
-interface AvgSessionSecsData {
-  date: string;
-  avgSessionSeconds: number;
-}
-
-interface SessionsPerUsersData {
-  date: string;
-  totalVisitors: number;
-  totalClicks: number;
-  sessionsPerUser: number;
-}
-
-interface UsersOverTimeData {
-  date: string;
-  dailyUsers: number;
-  weeklyUsers: number;
-  monthlyUsers: number;
-}
+import type {
+  PageTimeData,
+  PageViewCountsData,
+  BounceRatesData,
+  ViewCountsData,
+  ClickCountsData,
+  AvgSessionSecsData,
+  SessionsPerUsersData,
+  UsersOverTimeData,
+} from '../../data/engagementTypes';
 
 export const EngagementDashboard: React.FC = () => {
   const [pageTimes, setPageTimes] = useState<PageTimeData[]>([]);
