@@ -39,6 +39,22 @@ const customStaticRanges = createStaticRanges([
         endDate: endOfMonth(lastMonth),
       };
   }},
+  {
+    label: '지난 7일',
+    range: () => {
+      const end = new Date();
+      const start = addDays(end, -6);
+      return { startDate: start, endDate: end };
+    },
+  },
+  {
+    label: '지난 30일',
+    range: () => {
+      const end = new Date();
+      const start = addDays(end, -29);
+      return { startDate: start, endDate: end };
+    },
+  },
 ]);
 
 interface DateRangeSelectorProps {
