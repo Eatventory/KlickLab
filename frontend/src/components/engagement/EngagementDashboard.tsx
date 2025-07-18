@@ -3,8 +3,8 @@ import React, { useState, useEffect } from 'react';
 // import { PageTimeChart } from './PageTimeChart';
 // import { Clock, BarChart3, TrendingUp } from 'lucide-react';
 // import { mockDashboardData } from '../../data/mockData';
+// import { getPageLabel } from '../../utils/getPageLabel';
 import { useSegmentFilter } from '../../context/SegmentFilterContext';
-import { getPageLabel } from '../../utils/getPageLabel';
 import HorizontalBarChart from '../HorizontalBarChart';
 import HorizontalLineChart from '../HorizontalLineChart';
 import ChartWrapper from '../ChartWrapper';
@@ -56,6 +56,13 @@ interface SessionsPerUsersData {
   sessionsPerUser: number;
 }
 
+interface UsersOverTimeData {
+  date: string;
+  dailyUsers: number;
+  weeklyUsers: number;
+  monthlyUsers: number;
+}
+
 export const EngagementDashboard: React.FC = () => {
   const { filter: globalFilter } = useSegmentFilter();
   const [filters, setFilters] = useState<FilterOptions>({
@@ -71,8 +78,10 @@ export const EngagementDashboard: React.FC = () => {
   const [clickCounts, setClickCounts] = useState<ClickCountsData[]>([]);
   const [avgSessionSecs, setAvgSessionSecs] = useState<AvgSessionSecsData[]>([]);
   const [sessionsPerUsers, setSessionsPerUsers] = useState<SessionsPerUsersData[]>([]);
+  const [usersOverTime, setUsersOverTime] = useState<UsersOverTimeData[]>([]);
 
   const [loading, setLoading] = useState(false);
+  const [isFirstLoad, setIsFirstLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedMetric, setSelectedMetric] = useState<'viewCounts' | 'clickCounts'>('viewCounts');
   const [selectedMetric2, setSelectedMetric2] = useState<'avgSessionSecs' | 'sessionsPerUsers'>('avgSessionSecs');
@@ -81,7 +90,7 @@ export const EngagementDashboard: React.FC = () => {
     try {
       const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
       if (!token) throw new Error("No token");
-      setLoading(true);
+      if (isFirstLoad) setLoading(true);
       setError(null);
       
       // const globalFilterParams = new URLSearchParams();
@@ -99,13 +108,14 @@ export const EngagementDashboard: React.FC = () => {
       // const params = new URLSearchParams(filters as any).toString();
       // const res = await fetch(`/api/engagement/page-times?${params}${globalFilterQuery}`, {headers: { Authorization: `Bearer ${token}` }});
 
-      const [resOverview, resPageTimes, resPageViewCounts, resBounceRates, resViewCounts, resClickCounts] = await Promise.all([
+      const [resOverview, resPageTimes, resPageViewCounts, resBounceRates, resViewCounts, resClickCounts, resUOTime] = await Promise.all([
         fetch('/api/engagement/overview', { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`/api/engagement/page-times-simple`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`/api/engagement/page-views`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('/api/engagement/bounce-rate', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/engagement/page-times?limit=5`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/engagement/page-views?limit=5`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch('/api/engagement/bounce-rate?limit=5', { headers: { Authorization: `Bearer ${token}` } }),
         fetch('/api/engagement/view-counts', { headers: { Authorization: `Bearer ${token}` } }),
         fetch('/api/engagement/click-counts', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch('/api/engagement/users-over-time', { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
       if (!resOverview.ok) throw new Error('Engagement Overview 데이터를 불러오지 못했습니다.');
@@ -114,14 +124,16 @@ export const EngagementDashboard: React.FC = () => {
       if (!resBounceRates.ok) throw new Error('Bounce 데이터를 불러오지 못했습니다.');
       if (!resViewCounts.ok) throw new Error('View Counts 데이터를 불러오지 못했습니다.');
       if (!resClickCounts.ok) throw new Error('Click Counts 데이터를 불러오지 못했습니다.');
+      if (!resUOTime.ok) throw new Error('Users Over Time 데이터를 불러오지 못했습니다.');
 
-      const [dataOverview, dataPageTimes, dataPageViewCounts, dataBounceRates, dataViewCounts, dataClickCounts] = await Promise.all([
+      const [dataOverview, dataPageTimes, dataPageViewCounts, dataBounceRates, dataViewCounts, dataClickCounts, dataUOTime] = await Promise.all([
         resOverview.json(),
         resPageTimes.json(),
         resPageViewCounts.json(),
         resBounceRates.json(),
         resViewCounts.json(),
-        resClickCounts.json()
+        resClickCounts.json(),
+        resUOTime.json()
       ]);
 
       setAvgSessionSecs(dataOverview.data.avgSessionSeconds);
@@ -131,11 +143,13 @@ export const EngagementDashboard: React.FC = () => {
       setBounceRates(dataBounceRates);
       setViewCounts(dataViewCounts);
       setClickCounts(dataClickCounts);
+      setUsersOverTime(dataUOTime);
     } catch (err: any) {
       console.error(err);
       setError(err.message || '알 수 없는 오류');
     } finally {
       setLoading(false);
+      setIsFirstLoad(false);
     }
   };
 
@@ -217,13 +231,21 @@ export const EngagementDashboard: React.FC = () => {
             <HorizontalLineChart
               data={(selectedMetric2 === 'avgSessionSecs' ? avgSessionSecs : sessionsPerUsers).map((d) => ({
                 date: d.date,
-                value: selectedMetric2 === 'avgSessionSecs' ? d.avgSessionSeconds : d.sessionsPerUser,
+                [selectedMetric2]: selectedMetric2 === 'avgSessionSecs' ? d.avgSessionSeconds : d.sessionsPerUser,
               }))}
+              lines={[
+                {
+                  key: selectedMetric2,
+                  name: selectedMetric2 === 'avgSessionSecs' ? '평균 세션 시간' : '세션/유저',
+                }
+              ]}
               tooltipRenderer={(item) => (
                 <div className="text-sm">
                   <div className="text-gray-500">{item.date}</div>
                   <div className="font-bold text-gray-900">
-                    {selectedMetric2 === 'avgSessionSecs' ? `${item.value.toFixed(1)}초` : item.value.toFixed(1)}
+                    {selectedMetric2 === 'avgSessionSecs'
+                      ? `${item[selectedMetric2].toFixed(1)}초`
+                      : item[selectedMetric2].toFixed(1)}
                   </div>
                 </div>
               )}
@@ -237,15 +259,15 @@ export const EngagementDashboard: React.FC = () => {
           </div>
           <HorizontalBarChart
             data={pageTimes.map((d) => ({
-              label: getPageLabel(d.page),
+              label: d.page,
               value: d.averageTime,
               raw: d,
             }))}
             tooltipRenderer={(item) => (
               <>
                 <div className="text-xs text-gray-500 mb-1">최근 7일간</div>
-                <div className="text-xs font-semibold text-gray-600 mb-1">
-                  {item.raw.page}
+                <div className="text-xs font-semibold uppercase text-gray-600 mb-1">
+                  {item.label}
                 </div>
                 <div className="text-sm font-bold text-gray-900">
                   평균 체류시간 {item.value < 1
@@ -254,7 +276,7 @@ export const EngagementDashboard: React.FC = () => {
                 </div>
               </>
             )}
-            isLoading={loading}
+            isLoading={isFirstLoad}
             valueFormatter={(val) => `${val.toFixed(1)}분`}
           />
         </div>
@@ -265,22 +287,22 @@ export const EngagementDashboard: React.FC = () => {
           </div>
           <HorizontalBarChart
             data={pageViewCounts.map((d) => ({
-              label: getPageLabel(d.page),
+              label: d.page,
               value: d.totalViews,
               raw: d
             }))}
             tooltipRenderer={(item) => (
               <>
                 <div className="text-xs text-gray-500 mb-1">최근 7일간</div>
-                <div className="text-xs font-semibold text-gray-600 mb-1">
-                  {item.raw.page}
+                <div className="text-xs font-semibold uppercase text-gray-600 mb-1">
+                  {item.label}
                 </div>
                 <div className="text-sm font-bold text-gray-900">
                   조회수 {item.value.toLocaleString()}회
                 </div>
               </>
             )}
-            isLoading={loading}
+            isLoading={isFirstLoad}
             valueFormatter={(val) => val.toLocaleString() + '회'}
           />
         </div>
@@ -291,22 +313,22 @@ export const EngagementDashboard: React.FC = () => {
           </div>
           <HorizontalBarChart
             data={bounceRates.map((item) => ({
-              label: getPageLabel(item.page_path),
+              label: item.page_path,
               value: item.bounce_rate,
               raw: item,
             }))}
             tooltipRenderer={(item) => (
               <>
                 <div className="text-sm text-gray-500 mb-1">최근 7일간</div>
-                <div className="text-sm font-semibold text-gray-600 mb-1">
-                  {item.raw.page_path}
+                <div className="text-sm font-semibold uppercase text-gray-600 mb-1">
+                  {item.label}
                 </div>
                 <div className="text-md font-bold text-gray-900">
                   이탈률 {item.value.toLocaleString()}%
                 </div>
               </>
             )}
-            isLoading={loading}
+            isLoading={isFirstLoad}
           />
         </div>
 
@@ -320,21 +342,102 @@ export const EngagementDashboard: React.FC = () => {
             onSelect={(key) => setSelectedMetric(key as 'viewCounts' | 'clickCounts')}
           >
             <HorizontalLineChart
-              data={(selectedMetric === 'viewCounts' ? viewCounts : clickCounts).map((d) => ({
-                date: d.date,
-                value: selectedMetric === 'viewCounts' ? d.totalViews : d.totalClicks,
-              }))}
+              data={(() => {
+                const isView = selectedMetric === 'viewCounts';
+                const arr = isView ? viewCounts : clickCounts;
+                return arr.map((d) => ({
+                  date: d.date,
+                  [selectedMetric]: isView ? d.totalViews : d.totalClicks,
+                }));
+              })()}
+              lines={[
+                {
+                  key: selectedMetric,
+                  name: selectedMetric === 'viewCounts' ? '조회수' : '클릭수',
+                }
+              ]}
               tooltipRenderer={(item) => (
                 <div className="text-sm">
                   <div className="text-gray-500">{item.date}</div>
                   <div className="font-bold text-gray-900">
-                    {item.value.toLocaleString()}건
+                    {item[selectedMetric].toLocaleString()}건
                   </div>
                 </div>
               )}
             />
           </ChartWrapper>
         </div>
+
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 col-span-2">
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">시간 경과에 따른 사용자 활동</h2>
+          </div>
+          <HorizontalLineChart
+            data={usersOverTime.map((d) => ({
+              date: d.date,
+              dailyUsers: d.dailyUsers,
+              weeklyUsers: d.weeklyUsers,
+              monthlyUsers: d.monthlyUsers,
+            }))}
+            lines={[
+              { key: 'monthlyUsers', name: '30일' },
+              { key: 'weeklyUsers', name: '7일' },
+              { key: 'dailyUsers', name: '1일' },
+            ]}
+            showLegend={true}
+            tooltipRenderer={(item) => (
+              <div className="text-sm space-y-1 min-w-[120px]">
+                <div className="text-gray-500">{item.date}</div>
+                <div className="flex items-center">
+                  <span className="w-2 h-0.5 bg-[#3b82f6]" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#3b82f6] border border-white mr-1" />
+                  <span className="text-xs text-gray-700">30일</span>
+                  <span className="ml-auto font-bold text-right text-gray-900">
+                    {item.monthlyUsers.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex items-center">
+                  <span className="w-2 h-0.5 bg-[#22c55e]" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#22c55e] border border-white mr-1" />
+                  <span className="text-xs text-gray-700">7일</span>
+                  <span className="ml-auto font-bold text-right text-gray-900">
+                    {item.weeklyUsers.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex items-center">
+                  <span className="w-2 h-0.5 bg-[#f97316]" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#f97316] border border-white mr-1" />
+                  <span className="text-xs text-gray-700">1일</span>
+                  <span className="ml-auto font-bold text-right text-gray-900">
+                    {item.dailyUsers.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            )}
+            legendTooltipRenderer={(item, key) => (
+              <div>
+                <div className="text-gray-500 text-xs">{item.date}</div>
+                <div className="text-xs text-gray-700">{key === "monthlyUsers" ? "30일" : key === "weeklyUsers" ? "7일" : "1일"}</div>
+                <div className="font-bold text-gray-900">
+                  {typeof item[key] === 'number' ? item[key].toLocaleString() : '-'}
+                </div>
+              </div>
+            )}
+          />
+        </div>
+
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">TBD</h2>
+          </div>
+        </div>
+
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">TBD</h2>
+          </div>
+        </div>
+
       </div>
     </div>
   );

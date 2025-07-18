@@ -82,18 +82,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
     >
       {/* 탭 메뉴 */}
       <nav className="flex-1 p-2 mt-4">
-        <ul className="space-y-1">
+        <ul className="relative space-y-1">
+          {/* 하이라이트 백그라운드 */}
+          <div
+            className="absolute left-0 w-full h-[44px] bg-primary-50 border border-primary-200 rounded-lg z-0 transition-all duration-300"
+            style={{
+              transform: `translateY(${tabs.findIndex(t => t.id === activeTab) * 48}px)`
+            }}
+          />
           {tabs.map((tab) => {
             const IconComponent = tab.icon;
             const isActive = activeTab === tab.id;
             return (
-              <li key={tab.id}>
+              <li key={tab.id} className="relative z-10">
                 <button
                   onClick={() => onTabChange(tab.id)}
                   className={clsx(
                     'relative w-full flex items-center px-3 py-3 rounded-lg transition-colors duration-200 text-left',
                     isActive
-                      ? 'bg-primary-50 text-primary-700 border border-primary-200'
+                      ? 'text-primary-700 font-semibold'
                       : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
                   )}
                 >
@@ -119,7 +126,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     >
                       {tab.label}
                     </div>
-                    {/* <div className="text-xs text-gray-500">{tab.description}</div> */}
                   </div>
                 </button>
               </li>
