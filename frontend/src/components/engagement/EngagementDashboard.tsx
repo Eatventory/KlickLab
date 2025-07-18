@@ -1,20 +1,11 @@
-import React, { useState, useEffect } from 'react';
-// import { ExitPageChart } from './ExitPageChart';
-// import { PageTimeChart } from './PageTimeChart';
-// import { Clock, BarChart3, TrendingUp } from 'lucide-react';
-// import { mockDashboardData } from '../../data/mockData';
-// import { getPageLabel } from '../../utils/getPageLabel';
-import { useSegmentFilter } from '../../context/SegmentFilterContext';
+import React, { useState, useEffect, useRef } from 'react';
+import { addDays } from 'date-fns';
+import dayjs from 'dayjs';
 import HorizontalBarChart from '../HorizontalBarChart';
 import HorizontalLineChart from '../HorizontalLineChart';
-import ChartWrapper from '../ChartWrapper';
-
-// 타입 정의
-interface FilterOptions {
-  period: '1hour' | '1day' | '1week' | '1month';
-  pageType: 'all' | 'landing' | 'product' | 'checkout';
-  sessionLength: 'all' | 'short' | 'medium' | 'long';
-}
+import ChartWrapper from '../ui/ChartWrapper';
+import Collapse from '../ui/Collapse';
+import DateRangeSelector from '../ui/DateRangeSelector';
 
 interface PageTimeData {
   page: string;
@@ -64,13 +55,6 @@ interface UsersOverTimeData {
 }
 
 export const EngagementDashboard: React.FC = () => {
-  const { filter: globalFilter } = useSegmentFilter();
-  const [filters, setFilters] = useState<FilterOptions>({
-    period: '1day',
-    pageType: 'all',
-    sessionLength: 'all'
-  });
-
   const [pageTimes, setPageTimes] = useState<PageTimeData[]>([]);
   const [pageViewCounts, setPageViewCounts] = useState<PageViewCountsData[]>([]);
   const [bounceRates, setBounceRates] = useState<BounceRatesData[]>([]);
@@ -86,36 +70,31 @@ export const EngagementDashboard: React.FC = () => {
   const [selectedMetric, setSelectedMetric] = useState<'viewCounts' | 'clickCounts'>('viewCounts');
   const [selectedMetric2, setSelectedMetric2] = useState<'avgSessionSecs' | 'sessionsPerUsers'>('avgSessionSecs');
 
-  const fetchData = async () => {
+  const [dateRange, setDateRange] = useState([
+    { startDate: addDays(new Date(), -6), endDate: new Date(), key: 'selection' }
+  ]);
+  const [tempRange, setTempRange] = useState(dateRange);
+  const [showPicker, setShowPicker] = useState(false);
+
+  const fetchData = async (start: Date, end: Date) => {
     try {
       const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
       if (!token) throw new Error("No token");
       if (isFirstLoad) setLoading(true);
       setError(null);
-      
-      // const globalFilterParams = new URLSearchParams();
-      // if (globalFilter.conditions) {
-      //   Object.entries(globalFilter.conditions).forEach(([key, value]) => {
-      //     if (value !== undefined && value !== null && value !== '') {
-      //       globalFilterParams.append(key, String(value));
-      //     }
-      //   });
-      // }
-      
-      // const globalFilterString = globalFilterParams.toString();
-      // const globalFilterQuery = globalFilterString ? `&${globalFilterString}` : '';
-      
-      // const params = new URLSearchParams(filters as any).toString();
-      // const res = await fetch(`/api/engagement/page-times?${params}${globalFilterQuery}`, {headers: { Authorization: `Bearer ${token}` }});
+
+      const startStr = dayjs(start).format('YYYY-MM-DD');
+      const endStr = dayjs(end).format('YYYY-MM-DD');
+      const query = `startDate=${startStr}&endDate=${endStr}`;
 
       const [resOverview, resPageTimes, resPageViewCounts, resBounceRates, resViewCounts, resClickCounts, resUOTime] = await Promise.all([
-        fetch('/api/engagement/overview', { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`/api/engagement/page-times?limit=5`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`/api/engagement/page-views?limit=5`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('/api/engagement/bounce-rate?limit=5', { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('/api/engagement/view-counts', { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('/api/engagement/click-counts', { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('/api/engagement/users-over-time', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/engagement/overview?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/engagement/page-times?${query}&limit=5`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/engagement/page-views?${query}&limit=5`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/engagement/bounce-rate?${query}&limit=5`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/engagement/view-counts?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/engagement/click-counts?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/engagement/users-over-time?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
       if (!resOverview.ok) throw new Error('Engagement Overview 데이터를 불러오지 못했습니다.');
@@ -154,62 +133,16 @@ export const EngagementDashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchData();
+    const { startDate, endDate } = dateRange[0];
+    if (startDate && endDate) {
+      fetchData(startDate, endDate);
+    }
     const interval = setInterval(fetchData, 60000); // 1분마다 갱신
     return () => clearInterval(interval);
-  }, [filters, JSON.stringify(globalFilter.conditions)]);
+  }, []);
 
-  const handleFilterChange = (key: keyof FilterOptions, value: string) => {
-    setFilters(prev => ({
-      ...prev,
-      [key]: value
-    }));
-  };
-
-  const engagementFilter = (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">참여도 분석 필터</h2>
-        </div>
-        <div className="flex gap-4">
-          <select 
-            value={filters.period}
-            onChange={(e) => handleFilterChange('period', e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md text-sm"
-          >
-            <option value="1hour">최근 1시간</option>
-            <option value="1day">최근 1일</option>
-            <option value="1week">최근 1주</option>
-            <option value="1month">최근 1개월</option>
-          </select>
-          <select 
-            value={filters.pageType}
-            onChange={(e) => handleFilterChange('pageType', e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md text-sm"
-          >
-            <option value="all">전체 페이지</option>
-            <option value="landing">랜딩 페이지</option>
-            <option value="product">상품 페이지</option>
-            <option value="checkout">결제 페이지</option>
-          </select>
-          <select 
-            value={filters.sessionLength}
-            onChange={(e) => handleFilterChange('sessionLength', e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md text-sm"
-          >
-            <option value="all">전체 세션</option>
-            <option value="short">짧은 세션 (1분 미만)</option>
-            <option value="medium">보통 세션 (1-5분)</option>
-            <option value="long">긴 세션 (5분 이상)</option>
-          </select>
-        </div>
-      </div>
-  );
-
-  return (
-    <div className="space-y-8">
-      {/* {engagementFilter} */}
-
+  const engagementOverview = (
+    <div id="engagementOverview" className="space-y-8">
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-[repeat(auto-fit,minmax(320px,1fr))]">
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 pt-0 col-span-2">
           <ChartWrapper
@@ -350,12 +283,7 @@ export const EngagementDashboard: React.FC = () => {
                   [selectedMetric]: isView ? d.totalViews : d.totalClicks,
                 }));
               })()}
-              lines={[
-                {
-                  key: selectedMetric,
-                  name: selectedMetric === 'viewCounts' ? '조회수' : '클릭수',
-                }
-              ]}
+              lines={[{ key: selectedMetric, name: selectedMetric === 'viewCounts' ? '조회수' : '클릭수' }]}
               tooltipRenderer={(item) => (
                 <div className="text-sm">
                   <div className="text-gray-500">{item.date}</div>
@@ -426,19 +354,37 @@ export const EngagementDashboard: React.FC = () => {
           />
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+        {/* <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
           <div className="flex items-center gap-2 mb-4">
             <h2 className="text-lg font-semibold text-gray-900">TBD</h2>
           </div>
-        </div>
-
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">TBD</h2>
-          </div>
-        </div>
+        </div> */}
 
       </div>
     </div>
+  );
+
+  return (
+    <>
+      <div className="w-full flex justify-end border-b-2 border-dashed">
+        <DateRangeSelector
+          dateRange={dateRange}
+          tempRange={tempRange}
+          showPicker={showPicker}
+          setDateRange={setDateRange}
+          setTempRange={setTempRange}
+          setShowPicker={setShowPicker}
+          onApply={(start, end) => fetchData(start, end)}
+        />
+      </div>
+
+      <Collapse title="참여도 개요" isShown={true}>
+        {engagementOverview}
+      </Collapse>
+
+      <Collapse title="TBD">
+        <span>TBD</span>
+      </Collapse>
+    </>
   );
 }; 
