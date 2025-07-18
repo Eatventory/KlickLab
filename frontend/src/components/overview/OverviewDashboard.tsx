@@ -4,7 +4,6 @@ import { Summary } from './Summary';
 import { TopClicks } from './TopClicks';
 import { ClickTrend } from './ClickTrend';
 import { UserPathSankeyChart } from '../user/UserPathSankeyChart';
-import { DropoffInsightsCard } from '../engagement/DropoffInsightsCard';
 import { getPageLabel } from '../../utils/getPageLabel';
 import { AverageSessionDurationCard } from './AverageSessionDurationCard';
 import { ConversionSummaryCard } from './ConversionSummaryCard';
@@ -171,7 +170,6 @@ export const OverviewDashboard = forwardRef<any, { onLastUpdated?: (d: Date) => 
           <TopClicks refreshKey={refreshKey} />
         </div>
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
-          <DropoffInsightsCard refreshKey={refreshKey} />
         </div>
       </div>
       {/* 전환 경로 Top 3 카드 단독 행 */}
