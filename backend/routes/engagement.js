@@ -360,4 +360,44 @@ router.get('/users-over-time', authMiddleware, async (req, res) => {
   }
 });
 
+/* 시간 경과에 따른 이벤트 이름별 이벤트 수 */
+router.get('/event-counts', authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+  const { startDate, endDate } = req.query;
+  if (!startDate || !endDate) return res.status(400).json({ error: 'Missing startDate or endDate' });
+
+  // TODO: events가 아닌 다른 테이블 사용해야 함!!
+  const query = `
+    SELECT 
+      toDate(timestamp) AS date,
+      event_name,
+      count(*) AS event_count,
+      uniqExact(client_id) AS user_count,
+      round(count() / uniqExact(client_id), 2) AS avg_event_per_user
+    FROM events
+    WHERE timestamp BETWEEN '${startDate}T00:00:00' AND '${endDate}T23:59:59'
+      AND sdk_key = '${sdk_key}' 
+    GROUP BY date, event_name
+    ORDER BY date ASC, event_count DESC
+    LIMIT 100
+    SETTINGS max_threads = 8
+  `;
+
+  try {
+    const dataRes = await clickhouse.query({query, format: 'JSONEachRow'});
+    let data = await dataRes.json();
+    data = data.map(item => ({
+      date: item.date,
+      eventName: item.event_name,
+      eventCount: Number(item.event_count),
+      userCount: Number(item.user_count),
+      avgEventPerUser: Number(item.avg_event_per_user),
+    }));
+    res.status(200).json(data);
+  } catch (err) {
+    console.error("Event Counts API ERROR:", err);
+    res.status(500).json({ error: "Failed to get event counts data" });
+  }
+});
+
 module.exports = router;

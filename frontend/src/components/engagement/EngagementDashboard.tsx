@@ -14,7 +14,17 @@ import type {
   AvgSessionSecsData,
   SessionsPerUsersData,
   UsersOverTimeData,
+  EventCountsData,
 } from '../../data/engagementTypes';
+
+// 분리 전 임시 import
+import HorizontalLineChart from '../HorizontalLineChart';
+import ChartTableWrapper from '../ui/ChartTableWrapper';
+
+const engagementTaps: string[] = ["참여도 개요", "이벤트 보고서", "페이지 및 화면 보고서", "방문 페이지 보고서"];
+
+// 임시 목데이터
+import { eventCounts } from '../../data/eventCountsMock';
 
 export const EngagementDashboard: React.FC = () => {
   const [pageTimes, setPageTimes] = useState<PageTimeData[]>([]);
@@ -25,6 +35,7 @@ export const EngagementDashboard: React.FC = () => {
   const [avgSessionSecs, setAvgSessionSecs] = useState<AvgSessionSecsData[]>([]);
   const [sessionsPerUsers, setSessionsPerUsers] = useState<SessionsPerUsersData[]>([]);
   const [usersOverTime, setUsersOverTime] = useState<UsersOverTimeData[]>([]);
+  // const [eventCounts, setEventCounts] = useState<EventCountsData[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
@@ -32,10 +43,10 @@ export const EngagementDashboard: React.FC = () => {
   const [selectedMetric, setSelectedMetric] = useState<'viewCounts' | 'clickCounts'>('viewCounts');
   const [selectedMetric2, setSelectedMetric2] = useState<'avgSessionSecs' | 'sessionsPerUsers'>('avgSessionSecs');
 
-  const [openCollapse, setOpenCollapse] = useState<string | null>('참여도 개요');
+  const [openCollapse, setOpenCollapse] = useState<string | null>(engagementTaps[0]);
 
   const [dateRange, setDateRange] = useState([
-    { startDate: addDays(new Date(), -6), endDate: new Date(), key: 'selection' }
+    { startDate: addDays(new Date(), -29), endDate: new Date(), key: 'selection' }
   ]);
   const [tempRange, setTempRange] = useState(dateRange);
   const [showPicker, setShowPicker] = useState(false);
@@ -51,7 +62,7 @@ export const EngagementDashboard: React.FC = () => {
       const endStr = dayjs(end).format('YYYY-MM-DD');
       const query = `startDate=${startStr}&endDate=${endStr}`;
 
-      const [resOverview, resPageTimes, resPageViewCounts, resBounceRates, resViewCounts, resClickCounts, resUOTime] = await Promise.all([
+      const [resOverview, resPageTimes, resPageViewCounts, resBounceRates, resViewCounts, resClickCounts, resUOTime, resEventCounts] = await Promise.all([
         fetch(`/api/engagement/overview?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`/api/engagement/page-times?${query}&limit=5`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`/api/engagement/page-views?${query}&limit=5`, { headers: { Authorization: `Bearer ${token}` } }),
@@ -59,6 +70,7 @@ export const EngagementDashboard: React.FC = () => {
         fetch(`/api/engagement/view-counts?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`/api/engagement/click-counts?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`/api/engagement/users-over-time?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/engagement/event-counts?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
       if (!resOverview.ok) throw new Error('Engagement Overview 데이터를 불러오지 못했습니다.');
@@ -68,15 +80,17 @@ export const EngagementDashboard: React.FC = () => {
       if (!resViewCounts.ok) throw new Error('View Counts 데이터를 불러오지 못했습니다.');
       if (!resClickCounts.ok) throw new Error('Click Counts 데이터를 불러오지 못했습니다.');
       if (!resUOTime.ok) throw new Error('Users Over Time 데이터를 불러오지 못했습니다.');
+      if (!resEventCounts.ok) throw new Error('Event Counts 데이터를 불러오지 못했습니다.');
 
-      const [dataOverview, dataPageTimes, dataPageViewCounts, dataBounceRates, dataViewCounts, dataClickCounts, dataUOTime] = await Promise.all([
+      const [dataOverview, dataPageTimes, dataPageViewCounts, dataBounceRates, dataViewCounts, dataClickCounts, dataUOTime, dataEventCounts] = await Promise.all([
         resOverview.json(),
         resPageTimes.json(),
         resPageViewCounts.json(),
         resBounceRates.json(),
         resViewCounts.json(),
         resClickCounts.json(),
-        resUOTime.json()
+        resUOTime.json(),
+        resEventCounts.json(),
       ]);
 
       setAvgSessionSecs(dataOverview.data.avgSessionSeconds);
@@ -87,6 +101,7 @@ export const EngagementDashboard: React.FC = () => {
       setViewCounts(dataViewCounts);
       setClickCounts(dataClickCounts);
       setUsersOverTime(dataUOTime);
+      // setEventCounts(dataEventCounts);
     } catch (err: any) {
       console.error(err);
       setError(err.message || '알 수 없는 오류');
@@ -129,9 +144,9 @@ export const EngagementDashboard: React.FC = () => {
       </div>
 
       <Collapse
-        title="참여도 개요"
-        isOpen={openCollapse === '참여도 개요'}
-        onToggle={() => setOpenCollapse(prev => prev === '참여도 개요' ? null : '참여도 개요')}
+        title={engagementTaps[0]}
+        isOpen={openCollapse === engagementTaps[0]}
+        onToggle={() => setOpenCollapse(prev => prev === engagementTaps[0] ? null : engagementTaps[0])}
       >
         <EngagementOverview
           avgSessionSecs={avgSessionSecs}
@@ -152,10 +167,105 @@ export const EngagementDashboard: React.FC = () => {
       </Collapse>
 
       <Collapse
-        title="TBD"
-        isOpen={openCollapse === 'TBD'}
+        title={engagementTaps[1]}
+        isOpen={openCollapse === engagementTaps[1]}
         onToggle={() =>
-          setOpenCollapse((prev) => (prev === 'TBD' ? null : 'TBD'))
+          setOpenCollapse((prev) => (prev === engagementTaps[1] ? null : engagementTaps[1]))
+        }
+      >
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">시간 경과에 따른 이벤트 이름별 활성 사용자당 이벤트 수</h2>
+          </div>
+          <ChartTableWrapper
+            data={(() => {
+              const map: Record<string, { eventCount: number; userCount: number }> = {};
+              eventCounts.forEach(({ eventName, eventCount, userCount }) => {
+                if (!map[eventName]) {
+                  map[eventName] = { eventCount: 0, userCount: 0 };
+                }
+                map[eventName].eventCount += eventCount;
+                map[eventName].userCount += userCount;
+              });
+              return Object.entries(map).map(([eventName, { eventCount, userCount }]) => {
+                const avg = userCount ? eventCount / userCount : 0;
+                return {
+                  key: eventName,
+                  label: eventName,
+                  values: {
+                    eventCount,
+                    userCount,
+                    avgEventPerUser: avg,
+                  },
+                };
+              });
+            })()}
+            valueKeys={[
+              { key: 'eventCount', label: '이벤트 수', showPercent: true },
+              { key: 'userCount', label: '총 사용자', showPercent: true },
+              { key: 'avgEventPerUser', label: '사용자당 평균 이벤트 수' },
+            ]}
+            autoSelectBy="eventCount"
+          >
+            {(selectedKeys, chartData, lineDefs) => (
+              <HorizontalLineChart
+                data={(() => {
+                  const uniqueDates = [...new Set(eventCounts.map(d => d.date))].sort();
+                  return uniqueDates.map(date => {
+                    const row: Record<string, any> = { date };
+                    let sum = 0;
+                    selectedKeys.forEach(event => {
+                      const match = eventCounts.find(d => d.date === date && d.eventName === event);
+                      const val = match?.eventCount || 0;
+                      row[event] = val;
+                      sum += val;
+                    });
+                    row['sum_selected_events'] = sum;
+                    return row;
+                  });
+                })()}
+                lines={[
+                  ...selectedKeys.map(k => ({ key: k, name: k })),
+                  { key: 'sum_selected_events', name: '합계', color: "#2596be", dash: "3 3" },
+                ]}
+                areas={[ { key: 'sum_selected_events', name: '합계', color: "#2596be" }]}
+                tooltipRenderer={(item) => {
+                  const keys = [...selectedKeys, 'sum_selected_events'];
+                  const sortedKeys = keys
+                    .filter((key) => item[key] !== undefined)
+                    .sort((a, b) => (item[b] ?? 0) - (item[a] ?? 0));
+                  return (
+                    <div className="text-sm">
+                      <div className="text-gray-500">{item.date}</div>
+                      {sortedKeys.map((key) => (
+                        <div key={key}>
+                          <strong>{key === 'sum_selected_events' ? '합계' : key}</strong>: {item[key].toLocaleString()}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                }}
+              />
+            )}
+          </ChartTableWrapper>
+        </div>
+      </Collapse>
+
+      <Collapse
+        title={engagementTaps[2]}
+        isOpen={openCollapse === engagementTaps[2]}
+        onToggle={() =>
+          setOpenCollapse((prev) => (prev === engagementTaps[2] ? null : engagementTaps[2]))
+        }
+      >
+        <span>TBD</span>
+      </Collapse>
+
+      <Collapse
+        title={engagementTaps[3]}
+        isOpen={openCollapse === engagementTaps[3]}
+        onToggle={() =>
+          setOpenCollapse((prev) => (prev === engagementTaps[3] ? null : engagementTaps[3]))
         }
       >
         <span>TBD</span>
