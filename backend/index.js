@@ -40,6 +40,10 @@ app.use("/api/traffic", trafficRoutes);
 const engagementRoutes = require("./routes/engagement");
 app.use("/api/engagement", engagementRoutes);
 
+/* acquisition 라우팅 */
+const acquisitionRoutes = require("./routes/acquisition");
+app.use("/api/acquisition", acquisitionRoutes);
+
 /* report 라우팅 */
 const reportRoutes = require("./routes/report");
 app.use("/api/report", reportRoutes);

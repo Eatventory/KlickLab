@@ -6,6 +6,7 @@ import {
   Clock, 
   Settings, 
   FileText,
+  Target,
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -34,6 +35,12 @@ const tabs = [
     label: '트래픽 분석',
     icon: TrendingUp,
     description: '방문자 추이'
+  },
+  {
+    id: 'acquisition',
+    label: '유입 분석',
+    icon: Target,
+    description: '유입 소스 분석'
   },
   {
     id: 'conversion',

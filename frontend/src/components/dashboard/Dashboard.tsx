@@ -14,6 +14,7 @@ import { EngagementDashboard } from '../engagement/EngagementDashboard';
 import { ReportDashboard } from '../report/ReportDashboard';
 import { SettingsDashboard } from '../settings/SettingsDashboard';
 import { ConversionDashboard } from '../conversion/ConversionDashboard';
+import { AcquisitionDashboard } from '../acquisition/AcquisitionDashboard';
 
 export const Dashboard: React.FC = () => {
   // activeTab, setActiveTab 제거
@@ -47,6 +48,7 @@ export const Dashboard: React.FC = () => {
     reports: '리포트',
     settings: '설정',
     conversion: '전환율',
+    acquisition: '유입 분석',
   };
   const tabDescriptions: Record<string, string> = {
     overview: '전체 개요 및 주요 지표',
@@ -56,6 +58,7 @@ export const Dashboard: React.FC = () => {
     reports: '상세 리포트 및 데이터 내보내기',
     settings: '시스템 설정 및 계정 관리',
     conversion: '전환율 및 퍼널 분석',
+    acquisition: '유입 소스별 분석 및 전환율',
   };
 
   return (
@@ -125,6 +128,7 @@ export const Dashboard: React.FC = () => {
               <Route path="reports" element={<ReportDashboard />} />
               <Route path="settings" element={<SettingsDashboard />} />
               <Route path="conversion" element={<ConversionDashboard />} />
+              <Route path="acquisition" element={<AcquisitionDashboard />} />
               <Route path="" element={<Navigate to="/dashboard/overview" replace />} />
               <Route path="*" element={<Navigate to="/dashboard/overview" replace />} />
             </Routes>
