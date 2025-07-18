@@ -346,36 +346,20 @@ router.get('/click-counts', authMiddleware, async (req, res) => {
 
   const query = `
     SELECT
-      date,
-      sum(total_clicks) AS totalClicks
+      toDate(date_time) AS date,
+      sum(clicks) AS totalClicks
     FROM (
-      SELECT
-        date,
-        sum(total_clicks) AS total_clicks
-      FROM daily_click_summary
+      SELECT cast(date AS DateTime) AS date_time, clicks FROM daily_metrics
       WHERE ${buildQueryWhereClause("daily", 30)}
         AND sdk_key = '${sdk_key}'
-      GROUP BY date
-
       UNION ALL
-
-      SELECT
-        toDate(date_time) AS date,
-        sum(total_clicks) AS total_clicks
-      FROM hourly_click_summary
+      SELECT date_time, clicks FROM hourly_metrics
       WHERE ${buildQueryWhereClause("hourly")}
         AND sdk_key = '${sdk_key}'
-      GROUP BY toDate(date_time)
-
       UNION ALL
-
-      SELECT
-        toDate(date_time) AS date,
-        sum(total_clicks) AS total_clicks
-      FROM minutes_click_summary
+      SELECT date_time, clicks FROM minutes_metrics
       WHERE ${buildQueryWhereClause("minutes")}
         AND sdk_key = '${sdk_key}'
-      GROUP BY toDate(date_time)
     )
     GROUP BY date
     ORDER BY date ASC
@@ -387,6 +371,41 @@ router.get('/click-counts', authMiddleware, async (req, res) => {
     data = data.map(item => ({
       ...item,
       totalClicks: Number(item.totalClicks),
+    }));
+    res.status(200).json(data);
+  } catch (err) {
+    console.error("Click Counts API ERROR:", err);
+    res.status(500).json({ error: "Failed to get click counts data" });
+  }
+});
+
+/* 시간 경과에 따른 사용자 활동 */
+router.get('/users-over-time', authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+
+  const query = `
+    SELECT
+      d1.date AS base_date,
+      any(d1.visitors) AS daily_users,
+      sumIf(d2.visitors, d2.date BETWEEN d1.date - INTERVAL 6 DAY AND d1.date) AS weekly_users,
+      sumIf(d2.visitors, d2.date BETWEEN d1.date - INTERVAL 29 DAY AND d1.date) AS monthly_users
+    FROM daily_metrics d1
+    LEFT JOIN daily_metrics d2
+      ON d1.sdk_key = d2.sdk_key
+    WHERE d1.sdk_key = '${sdk_key}'
+      AND d1.date BETWEEN toDate('${localNow}') - INTERVAL 30 DAY AND toDate('${localNow}') - INTERVAL 1 DAY
+    GROUP BY d1.date
+    ORDER BY base_date ASC;
+  `;
+
+  try {
+    const dataRes = await clickhouse.query({query, format: 'JSONEachRow'});
+    let data = await dataRes.json();
+    data = data.map(item => ({
+      date: item.base_date,
+      dailyUsers: Number(item.daily_users),
+      weeklyUsers: Number(item.weekly_users),
+      monthlyUsers: Number(item.monthly_users),
     }));
     res.status(200).json(data);
   } catch (err) {

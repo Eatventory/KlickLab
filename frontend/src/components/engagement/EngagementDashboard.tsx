@@ -56,6 +56,13 @@ interface SessionsPerUsersData {
   sessionsPerUser: number;
 }
 
+interface UsersOverTimeData {
+  date: string;
+  dailyUsers: number;
+  weeklyUsers: number;
+  monthlyUsers: number;
+}
+
 export const EngagementDashboard: React.FC = () => {
   const { filter: globalFilter } = useSegmentFilter();
   const [filters, setFilters] = useState<FilterOptions>({
@@ -71,6 +78,7 @@ export const EngagementDashboard: React.FC = () => {
   const [clickCounts, setClickCounts] = useState<ClickCountsData[]>([]);
   const [avgSessionSecs, setAvgSessionSecs] = useState<AvgSessionSecsData[]>([]);
   const [sessionsPerUsers, setSessionsPerUsers] = useState<SessionsPerUsersData[]>([]);
+  const [usersOverTime, setUsersOverTime] = useState<UsersOverTimeData[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
@@ -100,13 +108,14 @@ export const EngagementDashboard: React.FC = () => {
       // const params = new URLSearchParams(filters as any).toString();
       // const res = await fetch(`/api/engagement/page-times?${params}${globalFilterQuery}`, {headers: { Authorization: `Bearer ${token}` }});
 
-      const [resOverview, resPageTimes, resPageViewCounts, resBounceRates, resViewCounts, resClickCounts] = await Promise.all([
+      const [resOverview, resPageTimes, resPageViewCounts, resBounceRates, resViewCounts, resClickCounts, resUOTime] = await Promise.all([
         fetch('/api/engagement/overview', { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`/api/engagement/page-times?limit=5`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`/api/engagement/page-views?limit=5`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch('/api/engagement/bounce-rate?limit=5', { headers: { Authorization: `Bearer ${token}` } }),
         fetch('/api/engagement/view-counts', { headers: { Authorization: `Bearer ${token}` } }),
         fetch('/api/engagement/click-counts', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch('/api/engagement/users-over-time', { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
       if (!resOverview.ok) throw new Error('Engagement Overview 데이터를 불러오지 못했습니다.');
@@ -115,14 +124,16 @@ export const EngagementDashboard: React.FC = () => {
       if (!resBounceRates.ok) throw new Error('Bounce 데이터를 불러오지 못했습니다.');
       if (!resViewCounts.ok) throw new Error('View Counts 데이터를 불러오지 못했습니다.');
       if (!resClickCounts.ok) throw new Error('Click Counts 데이터를 불러오지 못했습니다.');
+      if (!resUOTime.ok) throw new Error('Users Over Time 데이터를 불러오지 못했습니다.');
 
-      const [dataOverview, dataPageTimes, dataPageViewCounts, dataBounceRates, dataViewCounts, dataClickCounts] = await Promise.all([
+      const [dataOverview, dataPageTimes, dataPageViewCounts, dataBounceRates, dataViewCounts, dataClickCounts, dataUOTime] = await Promise.all([
         resOverview.json(),
         resPageTimes.json(),
         resPageViewCounts.json(),
         resBounceRates.json(),
         resViewCounts.json(),
-        resClickCounts.json()
+        resClickCounts.json(),
+        resUOTime.json()
       ]);
 
       setAvgSessionSecs(dataOverview.data.avgSessionSeconds);
@@ -132,6 +143,7 @@ export const EngagementDashboard: React.FC = () => {
       setBounceRates(dataBounceRates);
       setViewCounts(dataViewCounts);
       setClickCounts(dataClickCounts);
+      setUsersOverTime(dataUOTime);
     } catch (err: any) {
       console.error(err);
       setError(err.message || '알 수 없는 오류');
@@ -312,12 +324,6 @@ export const EngagementDashboard: React.FC = () => {
           />
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">TBD</h2>
-          </div>
-        </div>
-
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 pt-0 col-span-2">
           <ChartWrapper
             metrics={[
@@ -342,6 +348,24 @@ export const EngagementDashboard: React.FC = () => {
               )}
             />
           </ChartWrapper>
+        </div>
+
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 col-span-2">
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">시간 경과에 따른 사용자 활동</h2>
+          </div>
+          <HorizontalLineChart
+            data={usersOverTime.map((d) => ({
+              date: d.date,
+              value: d.dailyUsers
+            }))}
+            tooltipRenderer={(item) => (
+              <div className="text-sm">
+                <div className="text-gray-500">{item.date}</div>
+                <div className="font-semibold text-blue-600">{item.value.toLocaleString()}건</div>
+              </div>
+            )}
+          />
         </div>
 
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
