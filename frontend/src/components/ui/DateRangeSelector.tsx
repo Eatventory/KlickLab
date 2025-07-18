@@ -4,6 +4,7 @@ import { addDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, su
 import { ko } from 'date-fns/locale';
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
+import { getRangeLabel } from '../../utils/getRangeLabel';
 
 const customStaticRanges = createStaticRanges([
   { label: '오늘', range: () => ({ startDate: new Date(), endDate: new Date() }) },
@@ -81,7 +82,7 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({
   return (
     <div className="relative">
       <button
-        className="m-2 mr-6 px-2 py-1 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded"
+        className="m-2 mr-6 px-2 py-1 hover:bg-gray-200 text-gray-600 hover:text-gray-800 rounded-md flex gap-2"
         onClick={() => {
           if (showPicker) {
             setTempRange(dateRange);
@@ -91,7 +92,10 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({
           }
         }}
       >
-        {dateRange[0].startDate.toISOString().slice(0, 10)} ~ {dateRange[0].endDate.toISOString().slice(0, 10)}
+        <span className="inline-flex items-center rounded-md bg-gray-200 px-2 py-1 text-xs font-medium text-gray-600">
+          {getRangeLabel(dateRange[0].startDate, dateRange[0].endDate)}
+        </span>
+        <span>{dateRange[0].startDate.toISOString().slice(0, 10)} ~ {dateRange[0].endDate.toISOString().slice(0, 10)}</span>
       </button>
 
       {showPicker && (
