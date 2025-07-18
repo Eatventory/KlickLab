@@ -12,28 +12,7 @@ export const UserDashboard: React.FC = () => {
   };
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      {/* 헤더 */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-            <Users className="w-5 h-5 text-blue-600" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">사용자 분석</h1>
-            <p className="text-gray-600">사용자 세그먼트 및 행동 패턴을 분석합니다</p>
-          </div>
-        </div>
-        
-        <button 
-          onClick={handleRefresh}
-          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-        >
-          <RefreshCw className="w-4 h-4" />
-          새로고침
-        </button>
-      </div>
-
+    <div className="bg-gray-50 min-h-screen">
       {/* 사용자 세그먼트 분석 요약 */}
       <div className="mb-6">
         <UserSegmentSummary refreshKey={refreshKey} />

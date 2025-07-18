@@ -15,24 +15,24 @@ interface MousePosition {
 
 // 지역 데이터 상수 - 컴포넌트 외부로 이동
 const REGION_DATA: RegionData[] = [
-  { id: 'KR-11', name: '서울특별시', users: 120000, percentage: 26.8, color: '#1e40af' },
-  { id: 'KR-41', name: '경기도', users: 95000, percentage: 21.2, color: '#2563eb' },
-  { id: 'KR-26', name: '부산광역시', users: 35000, percentage: 7.8, color: '#3b82f6' },
-  { id: 'KR-48', name: '경상남도', users: 32000, percentage: 7.1, color: '#60a5fa' },
-  { id: 'KR-28', name: '인천광역시', users: 28000, percentage: 6.2, color: '#93c5fd' },
-  { id: 'KR-47', name: '경상북도', users: 22000, percentage: 4.9, color: '#bfdbfe' },
-  { id: 'KR-44', name: '충청남도', users: 20000, percentage: 4.5, color: '#dbeafe' },
-  { id: 'KR-42', name: '강원특별자치도', users: 18000, percentage: 4.0, color: '#eff6ff' },
-  { id: 'KR-45', name: '전라북도', users: 16000, percentage: 3.6, color: '#eff6ff' },
-  { id: 'KR-46', name: '전라남도', users: 15000, percentage: 3.3, color: '#eff6ff' },
-  { id: 'KR-43', name: '충청북도', users: 14000, percentage: 3.1, color: '#eff6ff' },
-  { id: 'KR-27', name: '대구광역시', users: 12000, percentage: 2.7, color: '#eff6ff' },
-  { id: 'KR-29', name: '광주광역시', users: 10000, percentage: 2.2, color: '#eff6ff' },
-  { id: 'KR-30', name: '대전광역시', users: 8000, percentage: 1.8, color: '#eff6ff' },
-  { id: 'KR-31', name: '울산광역시', users: 7000, percentage: 1.6, color: '#eff6ff' },
-  { id: 'KR-50', name: '세종특별자치시', users: 5000, percentage: 1.1, color: '#eff6ff' },
-  { id: 'KR-49', name: '제주특별자치도', users: 3000, percentage: 0.7, color: '#eff6ff' }
-];
+    { id: 'KR-11', name: '서울특별시', users: 120000, percentage: 26.8, color: '#1e40af' },
+    { id: 'KR-41', name: '경기도', users: 95000, percentage: 21.2, color: '#2563eb' },
+    { id: 'KR-26', name: '부산광역시', users: 35000, percentage: 7.8, color: '#3b82f6' },
+    { id: 'KR-48', name: '경상남도', users: 32000, percentage: 7.1, color: '#60a5fa' },
+    { id: 'KR-28', name: '인천광역시', users: 28000, percentage: 6.2, color: '#93c5fd' },
+    { id: 'KR-47', name: '경상북도', users: 22000, percentage: 4.9, color: '#bfdbfe' },
+    { id: 'KR-44', name: '충청남도', users: 20000, percentage: 4.5, color: '#dbeafe' },
+    { id: 'KR-42', name: '강원특별자치도', users: 18000, percentage: 4.0, color: '#eff6ff' },
+    { id: 'KR-45', name: '전라북도', users: 16000, percentage: 3.6, color: '#eff6ff' },
+    { id: 'KR-46', name: '전라남도', users: 15000, percentage: 3.3, color: '#eff6ff' },
+    { id: 'KR-43', name: '충청북도', users: 14000, percentage: 3.1, color: '#eff6ff' },
+    { id: 'KR-27', name: '대구광역시', users: 12000, percentage: 2.7, color: '#eff6ff' },
+    { id: 'KR-29', name: '광주광역시', users: 10000, percentage: 2.2, color: '#eff6ff' },
+    { id: 'KR-30', name: '대전광역시', users: 8000, percentage: 1.8, color: '#eff6ff' },
+    { id: 'KR-31', name: '울산광역시', users: 7000, percentage: 1.6, color: '#eff6ff' },
+    { id: 'KR-50', name: '세종특별자치시', users: 5000, percentage: 1.1, color: '#eff6ff' },
+    { id: 'KR-49', name: '제주특별자치도', users: 3000, percentage: 0.7, color: '#eff6ff' }
+  ];
 
 // 색상 범례 상수
 const COLOR_LEGEND = [
@@ -316,21 +316,6 @@ export const RegionalActiveUsers: React.FC = () => {
                 </div>
               </div>
             )}
-          </div>
-
-          {/* 범례를 지도 위에 overlay */}
-          <div className="absolute bottom-4 left-4 right-4 flex justify-between items-center text-xs text-gray-500 bg-white/90 backdrop-blur-sm rounded-lg p-2">
-            <span>적음</span>
-            <div className="flex gap-1">
-              {COLOR_LEGEND.map(({ level, color }) => (
-                <div
-                  key={level}
-                  className="w-2 h-2 rounded-sm"
-                  style={{ backgroundColor: color }}
-                />
-              ))}
-            </div>
-            <span>많음</span>
           </div>
         </div>
 
