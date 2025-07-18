@@ -14,10 +14,24 @@ const Collapse: React.FC<CollapseProps> = ({ title, children, isShown = false })
 
   useEffect(() => {
     const el = contentRef.current;
-    if (el) {
-      el.style.maxHeight = isOpen ? `${el.scrollHeight}px` : "0px";
+    if (!el) return;
+  
+    if (isOpen) {
+      el.style.maxHeight = `${el.scrollHeight}px`;
+  
+      const handleTransitionEnd = () => {
+        if (isOpen) el.style.maxHeight = "none";
+      };
+  
+      el.addEventListener("transitionend", handleTransitionEnd);
+      return () => el.removeEventListener("transitionend", handleTransitionEnd);
+    } else {
+      el.style.maxHeight = `${el.scrollHeight}px`;
+      requestAnimationFrame(() => {
+        el.style.maxHeight = "0px";
+      });
     }
-  }, [isOpen]);
+  }, [isOpen, children]);
 
   return (
     <div className="w-full">
