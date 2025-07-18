@@ -114,7 +114,7 @@ export const Dashboard: React.FC = () => {
             </header>
 
             {/* 전역 필터 바 */}
-            <GlobalFilterBar />
+            {/* <GlobalFilterBar /> */}
           </div>
 
           {/* 메인 콘텐츠 영역: 탭별 라우팅 */}
