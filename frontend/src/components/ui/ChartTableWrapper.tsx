@@ -131,7 +131,7 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
 
       <div className='w-full border-t flex justify-between mt-6'>
         {/* 검색창 */}
-        <div className='m-2 w-1/2 flex'>
+        <div className='mx-1 py-1 w-1/2 flex hover:bg-gray-100 hover:rounded-sm'>
           <Search className='m-2 text-gray-500'/>
           <input
             type="text"
@@ -141,7 +141,7 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
               setSearchText(e.target.value);
               setCurrentPage(1);
             }}
-            className="text-sm placeholder-gray-500 w-full"
+            className="text-sm placeholder-gray-500 w-full bg-transparent"
           />
         </div>
 
