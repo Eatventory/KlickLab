@@ -116,20 +116,20 @@ export const RegionalActiveUsers: React.FC = () => {
   }, [hoveredRegion]);
 
   return (
-    <div className="bg-white rounded-lg border p-6">
-      <div className="flex items-center gap-2 mb-4">
+    <div className="bg-white rounded-lg border p-6 h-full flex flex-col">
+      <div className="flex items-center gap-2 mb-3">
         <h2 className="text-lg font-semibold text-gray-900">지역별 활성 사용자</h2>
       </div>
 
-      <div className="flex gap-2" style={{ width: '100%' }}>
+      <div className="flex gap-1 flex-1" style={{ width: '100%' }}>
         {/* 지도 영역 */}
-        <div className="bg-white rounded-lg p-4 flex-1 overflow-hidden">
+        <div className="bg-white rounded-lg p-0 flex-1 overflow-hidden">
           {/* 지도 SVG */}
-          <div className="relative w-full" style={{ aspectRatio: '3/4', maxWidth: '600px', maxHeight: '700px' }}>
+          <div className="relative w-full" style={{ aspectRatio: '3/4', maxWidth: '600px', maxHeight: '450px' }}>
             <svg
               width="100%"
               height="100%"
-              viewBox="0 120 560 700"
+              viewBox="0 150 560 640"
               preserveAspectRatio="xMidYMid meet"
               onMouseMove={handleMouseMove}
             >
@@ -320,11 +320,11 @@ export const RegionalActiveUsers: React.FC = () => {
         </div>
 
         {/* 상위 10개 지역 그래프 */}
-        <div className="bg-white rounded-lg flex-1">
-          <div className="p-3">
+        <div className="bg-white rounded-lg" style={{ flex: '0.67' }}>
+          <div className="p-2">
             <h3 className="text-sm font-medium text-gray-900">상위 10개 지역</h3>
           </div>
-          <div className="p-3 space-y-3">
+          <div className="px-2 pb-2 space-y-2">
             {topRegions.map((region, index) => (
               <div 
                 key={region.id}
