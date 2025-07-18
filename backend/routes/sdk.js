@@ -16,11 +16,11 @@ router.get("/rules", async (req, res) => {
         // 두 종류의 규칙을 병렬로 조회
         const [eventRulesResult, eventbuttonResult] = await Promise.all([
             clickhouse.query({
-                query: `SELECT * FROM ttttest.event_rules WHERE sdk_key = '${sdk_key}'`,
+                query: `SELECT * FROM klicklab.event_rules WHERE sdk_key = '${sdk_key}'`,
                 format: "JSONEachRow"
             }),
             clickhouse.query({
-                query: `SELECT * FROM ttttest.event_button WHERE sdk_key = '${sdk_key}'`,
+                query: `SELECT * FROM klicklab.event_button WHERE sdk_key = '${sdk_key}'`,
                 format: "JSONEachRow"
             })
         ]);

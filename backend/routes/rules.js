@@ -11,7 +11,7 @@ router.get("/", authMiddleware, async (req, res) => {
   try {
     const query = `
       SELECT *
-      FROM ttttest.event_rules
+      FROM klicklab.event_rules
       WHERE sdk_key = '${sdk_key}'
     `;
     const resultSet = await clickhouse.query({ query, format: "JSONEachRow" });
@@ -42,7 +42,7 @@ router.post("/", authMiddleware, async (req, res) => {
 
   try {
     await clickhouse.insert({
-      table: "ttttest.event_rules",
+      table: "klicklab.event_rules",
       values: [
         {
           rule_id,
@@ -71,7 +71,7 @@ router.delete("/:rule_id", authMiddleware, async (req, res) => {
   try {
     // ClickHouse는 DELETE가 비동기적으로 처리됩니다.
     const query = `
-      ALTER TABLE ttttest.event_rules
+      ALTER TABLE klicklab.event_rules
       DELETE WHERE rule_id = '${rule_id}' AND sdk_key = '${sdk_key}'
     `;
     await clickhouse.command({ query });

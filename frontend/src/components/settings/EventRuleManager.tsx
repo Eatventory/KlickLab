@@ -100,7 +100,7 @@ export const EventRuleManager: React.FC = () => {
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
       <h2 className="text-lg font-semibold text-gray-900 mb-4">이벤트 생성 규칙 관리</h2>
-      
+
       {/* 규칙 생성 폼 */}
       <form onSubmit={handleCreateRule} className="mb-6 p-4 border rounded-md">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -182,8 +182,11 @@ export const EventRuleManager: React.FC = () => {
               <tr key={rule.rule_id} className="border-b border-gray-100">
                 <td className="py-3 px-4 text-gray-700 font-medium">{rule.new_event_name}</td>
                 <td className="py-3 px-4 text-gray-600">
-                  {rule.source_event_name === 'page_view' &&
-                    `${rule.source_event_name} 이벤트의 ${rule.condition_parameter}가 '${rule.condition_value}'와(과) ${rule.condition_type === 'url_contains' ? '일치할' : '같을'} 때`}
+                  {rule.source_event_name === 'page_view' && (
+                    rule.condition_type === 'url_contains'
+                      ? `${rule.source_event_name} 이벤트의 ${rule.condition_parameter}에 '${rule.condition_value}'가 포함될 때`
+                      : `${rule.source_event_name} 이벤트의 ${rule.condition_parameter}가 '${rule.condition_value}'와 같을 때`
+                  )}
                   {rule.source_event_name === 'form_submit' &&
                     `폼 제출 이벤트의 Form ID가 '${rule.condition_value}'와(과) 같을 때`}
                 </td>
