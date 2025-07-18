@@ -4,52 +4,16 @@ import HorizontalLineChart from '../HorizontalLineChart';
 import ChartWrapper from '../ui/ChartWrapper';
 import { getRangeLabel } from '../../utils/getRangeLabel';
 
-interface PageTimeData {
-  page: string;
-  averageTime: number;
-  visitCount: number;
-}
-
-interface PageViewCountsData {
-  page: string;
-  totalViews: number;
-}
-
-interface BounceRatesData {
-  page_path: string;
-  total_views: string;
-  total_exits: string;
-  bounce_rate: number;
-}
-
-interface ViewCountsData {
-  date: string;
-  totalViews: number;
-}
-
-interface ClickCountsData {
-  date: string;
-  totalClicks: number;
-}
-
-interface AvgSessionSecsData {
-  date: string;
-  avgSessionSeconds: number;
-}
-
-interface SessionsPerUsersData {
-  date: string;
-  totalVisitors: number;
-  totalClicks: number;
-  sessionsPerUser: number;
-}
-
-interface UsersOverTimeData {
-  date: string;
-  dailyUsers: number;
-  weeklyUsers: number;
-  monthlyUsers: number;
-}
+import type {
+  PageTimeData,
+  PageViewCountsData,
+  BounceRatesData,
+  ViewCountsData,
+  ClickCountsData,
+  AvgSessionSecsData,
+  SessionsPerUsersData,
+  UsersOverTimeData,
+} from '../../data/engagementTypes';
 
 interface Props {
   avgSessionSecs: AvgSessionSecsData[];
@@ -210,6 +174,70 @@ const EngagementOverview: React.FC<Props> = ({
             />
           </ChartWrapper>
         </div>
+
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 col-span-2">
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">시간 경과에 따른 사용자 활동</h2>
+          </div>
+          <HorizontalLineChart
+            data={usersOverTime.map((d) => ({
+              date: d.date,
+              dailyUsers: d.dailyUsers,
+              weeklyUsers: d.weeklyUsers,
+              monthlyUsers: d.monthlyUsers,
+            }))}
+            lines={[
+              { key: 'monthlyUsers', name: '30일' },
+              { key: 'weeklyUsers', name: '7일' },
+              { key: 'dailyUsers', name: '1일' },
+            ]}
+            showLegend={true}
+            tooltipRenderer={(item) => (
+              <div className="text-sm space-y-1 min-w-[120px]">
+                <div className="text-gray-500">{item.date}</div>
+                <div className="flex items-center">
+                  <span className="w-2 h-0.5 bg-[#3b82f6]" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#3b82f6] border border-white mr-1" />
+                  <span className="text-xs text-gray-700">30일</span>
+                  <span className="ml-auto font-bold text-right text-gray-900">
+                    {item.monthlyUsers.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex items-center">
+                  <span className="w-2 h-0.5 bg-[#22c55e]" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#22c55e] border border-white mr-1" />
+                  <span className="text-xs text-gray-700">7일</span>
+                  <span className="ml-auto font-bold text-right text-gray-900">
+                    {item.weeklyUsers.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex items-center">
+                  <span className="w-2 h-0.5 bg-[#f97316]" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#f97316] border border-white mr-1" />
+                  <span className="text-xs text-gray-700">1일</span>
+                  <span className="ml-auto font-bold text-right text-gray-900">
+                    {item.dailyUsers.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            )}
+            legendTooltipRenderer={(item, key) => (
+              <div>
+                <div className="text-gray-500 text-xs">{item.date}</div>
+                <div className="text-xs text-gray-700">{key === "monthlyUsers" ? "30일" : key === "weeklyUsers" ? "7일" : "1일"}</div>
+                <div className="font-bold text-gray-900">
+                  {typeof item[key] === 'number' ? item[key].toLocaleString() : '-'}
+                </div>
+              </div>
+            )}
+          />
+        </div>
+
+        {/* <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">TBD</h2>
+          </div>
+        </div> */}
       </div>
     </div>
   );
