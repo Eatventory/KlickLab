@@ -5,6 +5,8 @@ import dayjs from 'dayjs';
 import Collapse from '../ui/Collapse';
 import DateRangeSelector from '../ui/DateRangeSelector';
 import EngagementOverview from './EngagementOverview';
+import EngagementEvents from './EngagementEvents';
+
 import type {
   PageTimeData,
   PageViewCountsData,
@@ -16,10 +18,6 @@ import type {
   UsersOverTimeData,
   EventCountsData,
 } from '../../data/engagementTypes';
-
-// 분리 전 임시 import
-import HorizontalLineChart from '../HorizontalLineChart';
-import ChartTableWrapper from '../ui/ChartTableWrapper';
 
 const engagementTaps: string[] = ["참여도 개요", "이벤트 보고서", "페이지 및 화면 보고서", "방문 페이지 보고서"];
 
@@ -170,84 +168,7 @@ export const EngagementDashboard: React.FC = () => {
           setOpenCollapse((prev) => (prev === engagementTaps[1] ? null : engagementTaps[1]))
         }
       >
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6" id="engagementEvents">
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">시간 경과에 따른 이벤트 이름별 활성 사용자당 이벤트 수</h2>
-          </div>
-          <ChartTableWrapper
-            data={(() => {
-              const map: Record<string, { eventCount: number; userCount: number }> = {};
-              eventCounts.forEach(({ eventName, eventCount, userCount }) => {
-                if (!map[eventName]) {
-                  map[eventName] = { eventCount: 0, userCount: 0 };
-                }
-                map[eventName].eventCount += eventCount;
-                map[eventName].userCount += userCount;
-              });
-              return Object.entries(map).map(([eventName, { eventCount, userCount }]) => {
-                const avg = userCount ? eventCount / userCount : 0;
-                return {
-                  key: eventName,
-                  label: eventName,
-                  values: {
-                    eventCount,
-                    userCount,
-                    avgEventPerUser: avg,
-                  },
-                };
-              });
-            })()}
-            valueKeys={[
-              { key: 'eventCount', label: '이벤트 수', showPercent: true },
-              { key: 'userCount', label: '총 사용자', showPercent: true },
-              { key: 'avgEventPerUser', label: '사용자당 평균 이벤트 수' },
-            ]}
-            autoSelectBy="eventCount"
-            title="이벤트 이름"
-          >
-            {(selectedKeys, chartData, lineDefs) => (
-              <HorizontalLineChart
-                data={(() => {
-                  const uniqueDates = [...new Set(eventCounts.map(d => d.date))].sort();
-                  return uniqueDates.map(date => {
-                    const row: Record<string, any> = { date };
-                    let sum = 0;
-                    selectedKeys.forEach(event => {
-                      const match = eventCounts.find(d => d.date === date && d.eventName === event);
-                      const val = match?.eventCount || 0;
-                      row[event] = val;
-                      sum += val;
-                    });
-                    row['sum_selected_events'] = sum;
-                    return row;
-                  });
-                })()}
-                lines={[
-                  ...selectedKeys.map(k => ({ key: k, name: k })),
-                  { key: 'sum_selected_events', name: '합계', color: "#2596be", dash: "3 3" },
-                ]}
-                areas={[ { key: 'sum_selected_events', name: '합계', color: "#2596be" }]}
-                height={400}
-                tooltipRenderer={(item) => {
-                  const keys = [...selectedKeys, 'sum_selected_events'];
-                  const sortedKeys = keys
-                    .filter((key) => item[key] !== undefined)
-                    .sort((a, b) => (item[b] ?? 0) - (item[a] ?? 0));
-                  return (
-                    <div className="text-sm">
-                      <div className="text-gray-500">{item.date}</div>
-                      {sortedKeys.map((key) => (
-                        <div key={key}>
-                          <strong>{key === 'sum_selected_events' ? '합계' : key}</strong>: {item[key].toLocaleString()}
-                        </div>
-                      ))}
-                    </div>
-                  );
-                }}
-              />
-            )}
-          </ChartTableWrapper>
-        </div>
+        <EngagementEvents eventCounts={eventCounts} />
       </Collapse>
 
       <Collapse
