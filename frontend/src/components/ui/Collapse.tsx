@@ -4,47 +4,34 @@ import { ChevronDown } from "lucide-react";
 interface CollapseProps {
   title: string;
   children: React.ReactNode;
-  isShown?: boolean;
+  isOpen: boolean;
+  onToggle: () => void;
 }
 
-const Collapse: React.FC<CollapseProps> = ({ title, children, isShown = false }) => {
-  const [isOpen, setIsOpen] = useState(isShown);
-  const [rotation, setRotation] = useState(0);
+const Collapse: React.FC<CollapseProps> = ({ title, children, isOpen, onToggle }) => {
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const el = contentRef.current;
     if (!el) return;
-  
+
     if (isOpen) {
       el.style.maxHeight = `${el.scrollHeight}px`;
-  
-      const handleTransitionEnd = () => {
-        if (isOpen) el.style.maxHeight = "none";
-      };
-  
-      el.addEventListener("transitionend", handleTransitionEnd);
-      return () => el.removeEventListener("transitionend", handleTransitionEnd);
+      const handleEnd = () => (el.style.maxHeight = 'none');
+      el.addEventListener('transitionend', handleEnd);
+      return () => el.removeEventListener('transitionend', handleEnd);
     } else {
       el.style.maxHeight = `${el.scrollHeight}px`;
-      requestAnimationFrame(() => {
-        el.style.maxHeight = "0px";
-      });
+      requestAnimationFrame(() => (el.style.maxHeight = '0px'));
     }
-  }, [isOpen, children]);
+  }, [isOpen]);
 
   return (
     <div className="w-full">
-      <button
-        onClick={() => {
-          setIsOpen(!isOpen);
-          setRotation((prev) => prev + 1);
-        }}
-        className="w-full px-4 py-2 text-left flex items-center gap-4"
-      >
+      <button onClick={onToggle} className="w-full px-4 py-2 text-left flex items-center gap-4">
         <ChevronDown
           className="w-5 h-5 transform transition-transform duration-300"
-          style={{ transform: `rotate(${rotation * 180}deg)` }}
+          style={{ transform: `rotate(${isOpen ? 180 : 0}deg)` }}
         />
         <span>{title}</span>
       </button>
@@ -52,7 +39,7 @@ const Collapse: React.FC<CollapseProps> = ({ title, children, isShown = false })
       <div
         ref={contentRef}
         className="overflow-hidden transition-all duration-300 ease-in-out border-b-2"
-        style={{ maxHeight: "0px" }}
+        style={{ maxHeight: '0px' }}
       >
         <div className="p-6">{children}</div>
       </div>

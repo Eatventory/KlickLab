@@ -72,6 +72,8 @@ export const EngagementDashboard: React.FC = () => {
   const [selectedMetric, setSelectedMetric] = useState<'viewCounts' | 'clickCounts'>('viewCounts');
   const [selectedMetric2, setSelectedMetric2] = useState<'avgSessionSecs' | 'sessionsPerUsers'>('avgSessionSecs');
 
+  const [openCollapse, setOpenCollapse] = useState<string | null>('참여도 개요');
+
   const [dateRange, setDateRange] = useState([
     { startDate: addDays(new Date(), -6), endDate: new Date(), key: 'selection' }
   ]);
@@ -139,7 +141,13 @@ export const EngagementDashboard: React.FC = () => {
     if (startDate && endDate) {
       fetchData(startDate, endDate);
     }
-    const interval = setInterval(fetchData, 60000); // 1분마다 갱신
+
+    const interval = setInterval(() => {
+      const { startDate, endDate } = dateRange[0];
+      if (startDate && endDate) {
+        fetchData(startDate, endDate);
+      }
+    }, 60000); // 1분마다 갱신
     return () => clearInterval(interval);
   }, []);
 
@@ -376,15 +384,30 @@ export const EngagementDashboard: React.FC = () => {
           setDateRange={setDateRange}
           setTempRange={setTempRange}
           setShowPicker={setShowPicker}
-          onApply={(start, end) => fetchData(start, end)}
+          onApply={(start, end) => {
+            setDateRange([{ startDate: start, endDate: end, key: 'selection' }]);
+            fetchData(start, end);
+          }}
         />
       </div>
 
-      <Collapse title="참여도 개요" isShown={true}>
+      <Collapse
+        title="참여도 개요"
+        isOpen={openCollapse === '참여도 개요'}
+        onToggle={() =>
+          setOpenCollapse((prev) => (prev === '참여도 개요' ? null : '참여도 개요'))
+        }
+      >
         {engagementOverview}
       </Collapse>
 
-      <Collapse title="TBD">
+      <Collapse
+        title="TBD"
+        isOpen={openCollapse === 'TBD'}
+        onToggle={() =>
+          setOpenCollapse((prev) => (prev === 'TBD' ? null : 'TBD'))
+        }
+      >
         <span>TBD</span>
       </Collapse>
     </>
