@@ -26,3 +26,24 @@ export function getPageLabel(path: string): string {
     if (path === '/faq') return 'FAQ';
     return path; // fallback
 }
+
+/**
+ * 지역별 사용자 수에 따른 색상 스타일을 리턴합니다.
+ * @param userCount 해당 지역의 사용자 수
+ * @param maxCount 최대 사용자 수 (정규화를 위한 기준값)
+ * @returns SVG path 스타일 객체
+ */
+export function getRegionStyle(userCount: number, maxCount: number) {
+  // 사용자 수를 0-1 사이의 비율로 정규화
+  const ratio = Math.min(userCount / maxCount, 1);
+  
+  // 파란색 농도 계산 (0.1부터 1까지)
+  const alpha = Math.max(0.1 + (ratio * 0.9), 0.1);
+  
+  return {
+    fill: `rgba(59, 130, 246, ${alpha})`, // blue-500 색상의 투명도 조절
+    stroke: '#e5e7eb', // gray-200
+    strokeWidth: 1,
+    cursor: 'pointer'
+  };
+}
