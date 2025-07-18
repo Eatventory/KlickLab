@@ -23,9 +23,6 @@ import ChartTableWrapper from '../ui/ChartTableWrapper';
 
 const engagementTaps: string[] = ["참여도 개요", "이벤트 보고서", "페이지 및 화면 보고서", "방문 페이지 보고서"];
 
-// 임시 목데이터
-import { eventCounts } from '../../data/eventCountsMock';
-
 export const EngagementDashboard: React.FC = () => {
   const [pageTimes, setPageTimes] = useState<PageTimeData[]>([]);
   const [pageViewCounts, setPageViewCounts] = useState<PageViewCountsData[]>([]);
@@ -35,7 +32,7 @@ export const EngagementDashboard: React.FC = () => {
   const [avgSessionSecs, setAvgSessionSecs] = useState<AvgSessionSecsData[]>([]);
   const [sessionsPerUsers, setSessionsPerUsers] = useState<SessionsPerUsersData[]>([]);
   const [usersOverTime, setUsersOverTime] = useState<UsersOverTimeData[]>([]);
-  // const [eventCounts, setEventCounts] = useState<EventCountsData[]>([]);
+  const [eventCounts, setEventCounts] = useState<EventCountsData[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
@@ -101,7 +98,7 @@ export const EngagementDashboard: React.FC = () => {
       setViewCounts(dataViewCounts);
       setClickCounts(dataClickCounts);
       setUsersOverTime(dataUOTime);
-      // setEventCounts(dataEventCounts);
+      setEventCounts(dataEventCounts);
     } catch (err: any) {
       console.error(err);
       setError(err.message || '알 수 없는 오류');
@@ -173,7 +170,7 @@ export const EngagementDashboard: React.FC = () => {
           setOpenCollapse((prev) => (prev === engagementTaps[1] ? null : engagementTaps[1]))
         }
       >
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6" id="engagementEvents">
           <div className="flex items-center gap-2 mb-4">
             <h2 className="text-lg font-semibold text-gray-900">시간 경과에 따른 이벤트 이름별 활성 사용자당 이벤트 수</h2>
           </div>
