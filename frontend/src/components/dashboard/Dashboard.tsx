@@ -118,8 +118,7 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* 메인 콘텐츠 영역: 탭별 라우팅 */}
-          {/* <main className="flex-1 overflow-y-auto mt-32 p-6"> */}
-          <main className={"flex-1 p-6 transition-all overflow-y-auto h-[calc(100vh-192px)] mt-[192px]"}>
+          <main className={"flex-1 transition-all overflow-y-auto h-[calc(100vh-148px)] mt-[148px]"}>
             <Routes>
               <Route path="overview" element={<OverviewDashboard ref={overviewRef} onLastUpdated={handleOverviewUpdate} />} />
               <Route path="users" element={<UserDashboard />} />
