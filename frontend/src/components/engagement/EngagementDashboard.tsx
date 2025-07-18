@@ -1,58 +1,25 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { addDays } from 'date-fns';
 import dayjs from 'dayjs';
-import HorizontalBarChart from '../HorizontalBarChart';
-import HorizontalLineChart from '../HorizontalLineChart';
-import ChartWrapper from '../ui/ChartWrapper';
+
 import Collapse from '../ui/Collapse';
 import DateRangeSelector from '../ui/DateRangeSelector';
+import EngagementOverview from './EngagementOverview';
+import EngagementEvents from './EngagementEvents';
 
-interface PageTimeData {
-  page: string;
-  averageTime: number;
-  visitCount: number;
-}
+import type {
+  PageTimeData,
+  PageViewCountsData,
+  BounceRatesData,
+  ViewCountsData,
+  ClickCountsData,
+  AvgSessionSecsData,
+  SessionsPerUsersData,
+  UsersOverTimeData,
+  EventCountsData,
+} from '../../data/engagementTypes';
 
-interface PageViewCountsData {
-  page: string;
-  totalViews: number;
-}
-
-interface BounceRatesData {
-  page_path: string;
-  total_views: string;
-  total_exits: string;
-  bounce_rate: number;
-}
-
-interface ViewCountsData {
-  date: string;
-  totalViews: number;
-}
-
-interface ClickCountsData {
-  date: string;
-  totalClicks: number;
-}
-
-interface AvgSessionSecsData {
-  date: string;
-  avgSessionSeconds: number;
-}
-
-interface SessionsPerUsersData {
-  date: string;
-  totalVisitors: number;
-  totalClicks: number;
-  sessionsPerUser: number;
-}
-
-interface UsersOverTimeData {
-  date: string;
-  dailyUsers: number;
-  weeklyUsers: number;
-  monthlyUsers: number;
-}
+const engagementTaps: string[] = ["참여도 개요", "이벤트 보고서", "페이지 및 화면 보고서", "방문 페이지 보고서"];
 
 export const EngagementDashboard: React.FC = () => {
   const [pageTimes, setPageTimes] = useState<PageTimeData[]>([]);
@@ -63,6 +30,7 @@ export const EngagementDashboard: React.FC = () => {
   const [avgSessionSecs, setAvgSessionSecs] = useState<AvgSessionSecsData[]>([]);
   const [sessionsPerUsers, setSessionsPerUsers] = useState<SessionsPerUsersData[]>([]);
   const [usersOverTime, setUsersOverTime] = useState<UsersOverTimeData[]>([]);
+  const [eventCounts, setEventCounts] = useState<EventCountsData[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
@@ -70,8 +38,10 @@ export const EngagementDashboard: React.FC = () => {
   const [selectedMetric, setSelectedMetric] = useState<'viewCounts' | 'clickCounts'>('viewCounts');
   const [selectedMetric2, setSelectedMetric2] = useState<'avgSessionSecs' | 'sessionsPerUsers'>('avgSessionSecs');
 
+  const [openCollapse, setOpenCollapse] = useState<string | null>(engagementTaps[0]);
+
   const [dateRange, setDateRange] = useState([
-    { startDate: addDays(new Date(), -6), endDate: new Date(), key: 'selection' }
+    { startDate: addDays(new Date(), -29), endDate: new Date(), key: 'selection' }
   ]);
   const [tempRange, setTempRange] = useState(dateRange);
   const [showPicker, setShowPicker] = useState(false);
@@ -87,7 +57,7 @@ export const EngagementDashboard: React.FC = () => {
       const endStr = dayjs(end).format('YYYY-MM-DD');
       const query = `startDate=${startStr}&endDate=${endStr}`;
 
-      const [resOverview, resPageTimes, resPageViewCounts, resBounceRates, resViewCounts, resClickCounts, resUOTime] = await Promise.all([
+      const [resOverview, resPageTimes, resPageViewCounts, resBounceRates, resViewCounts, resClickCounts, resUOTime, resEventCounts] = await Promise.all([
         fetch(`/api/engagement/overview?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`/api/engagement/page-times?${query}&limit=5`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`/api/engagement/page-views?${query}&limit=5`, { headers: { Authorization: `Bearer ${token}` } }),
@@ -95,6 +65,7 @@ export const EngagementDashboard: React.FC = () => {
         fetch(`/api/engagement/view-counts?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`/api/engagement/click-counts?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`/api/engagement/users-over-time?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/engagement/event-counts?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
       if (!resOverview.ok) throw new Error('Engagement Overview 데이터를 불러오지 못했습니다.');
@@ -104,15 +75,17 @@ export const EngagementDashboard: React.FC = () => {
       if (!resViewCounts.ok) throw new Error('View Counts 데이터를 불러오지 못했습니다.');
       if (!resClickCounts.ok) throw new Error('Click Counts 데이터를 불러오지 못했습니다.');
       if (!resUOTime.ok) throw new Error('Users Over Time 데이터를 불러오지 못했습니다.');
+      if (!resEventCounts.ok) throw new Error('Event Counts 데이터를 불러오지 못했습니다.');
 
-      const [dataOverview, dataPageTimes, dataPageViewCounts, dataBounceRates, dataViewCounts, dataClickCounts, dataUOTime] = await Promise.all([
+      const [dataOverview, dataPageTimes, dataPageViewCounts, dataBounceRates, dataViewCounts, dataClickCounts, dataUOTime, dataEventCounts] = await Promise.all([
         resOverview.json(),
         resPageTimes.json(),
         resPageViewCounts.json(),
         resBounceRates.json(),
         resViewCounts.json(),
         resClickCounts.json(),
-        resUOTime.json()
+        resUOTime.json(),
+        resEventCounts.json(),
       ]);
 
       setAvgSessionSecs(dataOverview.data.avgSessionSeconds);
@@ -123,6 +96,7 @@ export const EngagementDashboard: React.FC = () => {
       setViewCounts(dataViewCounts);
       setClickCounts(dataClickCounts);
       setUsersOverTime(dataUOTime);
+      setEventCounts(dataEventCounts);
     } catch (err: any) {
       console.error(err);
       setError(err.message || '알 수 없는 오류');
@@ -137,232 +111,15 @@ export const EngagementDashboard: React.FC = () => {
     if (startDate && endDate) {
       fetchData(startDate, endDate);
     }
-    const interval = setInterval(fetchData, 60000); // 1분마다 갱신
+
+    const interval = setInterval(() => {
+      const { startDate, endDate } = dateRange[0];
+      if (startDate && endDate) {
+        fetchData(startDate, endDate);
+      }
+    }, 60000); // 1분마다 갱신
     return () => clearInterval(interval);
   }, []);
-
-  const engagementOverview = (
-    <div id="engagementOverview" className="space-y-8">
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-[repeat(auto-fit,minmax(320px,1fr))]">
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 pt-0 col-span-2">
-          <ChartWrapper
-            metrics={[
-              { key: 'avgSessionSecs', label: '평균 온라인 세션 참여 시간',
-                value: avgSessionSecs.length
-                  ? `${(avgSessionSecs.reduce((acc, d) => acc + d.avgSessionSeconds, 0) / avgSessionSecs.length).toFixed(1)}초`
-                  : '-'
-              },
-              { key: 'sessionsPerUsers', label: '활성 사용자 당 세션 수',
-                value: sessionsPerUsers.length
-                  ? `${(sessionsPerUsers.reduce((acc, d) => acc + d.sessionsPerUser, 0) / sessionsPerUsers.length).toFixed(1)}`
-                  : '-' 
-              },
-            ]}
-            selectedKey={selectedMetric2}
-            onSelect={(key) => setSelectedMetric2(key as 'avgSessionSecs' | 'sessionsPerUsers')}
-          >
-            <HorizontalLineChart
-              data={(selectedMetric2 === 'avgSessionSecs' ? avgSessionSecs : sessionsPerUsers).map((d) => ({
-                date: d.date,
-                [selectedMetric2]: selectedMetric2 === 'avgSessionSecs' ? d.avgSessionSeconds : d.sessionsPerUser,
-              }))}
-              lines={[
-                {
-                  key: selectedMetric2,
-                  name: selectedMetric2 === 'avgSessionSecs' ? '평균 세션 시간' : '세션/유저',
-                }
-              ]}
-              tooltipRenderer={(item) => (
-                <div className="text-sm">
-                  <div className="text-gray-500">{item.date}</div>
-                  <div className="font-bold text-gray-900">
-                    {selectedMetric2 === 'avgSessionSecs'
-                      ? `${item[selectedMetric2].toFixed(1)}초`
-                      : item[selectedMetric2].toFixed(1)}
-                  </div>
-                </div>
-              )}
-            />
-          </ChartWrapper>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">페이지 평균 체류시간</h2>
-          </div>
-          <HorizontalBarChart
-            data={pageTimes.map((d) => ({
-              label: d.page,
-              value: d.averageTime,
-              raw: d,
-            }))}
-            tooltipRenderer={(item) => (
-              <>
-                <div className="text-xs text-gray-500 mb-1">최근 7일간</div>
-                <div className="text-xs font-semibold uppercase text-gray-600 mb-1">
-                  {item.label}
-                </div>
-                <div className="text-sm font-bold text-gray-900">
-                  평균 체류시간 {item.value < 1
-                    ? `${Math.round(item.value * 60)}초`
-                    : `${item.value.toFixed(1)}분`}
-                </div>
-              </>
-            )}
-            isLoading={isFirstLoad}
-            valueFormatter={(val) => `${val.toFixed(1)}분`}
-          />
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">페이지 별 조회수</h2>
-          </div>
-          <HorizontalBarChart
-            data={pageViewCounts.map((d) => ({
-              label: d.page,
-              value: d.totalViews,
-              raw: d
-            }))}
-            tooltipRenderer={(item) => (
-              <>
-                <div className="text-xs text-gray-500 mb-1">최근 7일간</div>
-                <div className="text-xs font-semibold uppercase text-gray-600 mb-1">
-                  {item.label}
-                </div>
-                <div className="text-sm font-bold text-gray-900">
-                  조회수 {item.value.toLocaleString()}회
-                </div>
-              </>
-            )}
-            isLoading={isFirstLoad}
-            valueFormatter={(val) => val.toLocaleString() + '회'}
-          />
-        </div>
-
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">이탈률</h2>
-          </div>
-          <HorizontalBarChart
-            data={bounceRates.map((item) => ({
-              label: item.page_path,
-              value: item.bounce_rate,
-              raw: item,
-            }))}
-            tooltipRenderer={(item) => (
-              <>
-                <div className="text-sm text-gray-500 mb-1">최근 7일간</div>
-                <div className="text-sm font-semibold uppercase text-gray-600 mb-1">
-                  {item.label}
-                </div>
-                <div className="text-md font-bold text-gray-900">
-                  이탈률 {item.value.toLocaleString()}%
-                </div>
-              </>
-            )}
-            isLoading={isFirstLoad}
-          />
-        </div>
-
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 pt-0 col-span-2">
-          <ChartWrapper
-            metrics={[
-              { key: 'viewCounts', label: '조회수', value: `${viewCounts.reduce((acc, d) => acc + d.totalViews, 0).toLocaleString()}` },
-              { key: 'clickCounts', label: '클릭수', value: `${clickCounts.reduce((acc, d) => acc + d.totalClicks, 0).toLocaleString() || '-'}` },
-            ]}
-            selectedKey={selectedMetric}
-            onSelect={(key) => setSelectedMetric(key as 'viewCounts' | 'clickCounts')}
-          >
-            <HorizontalLineChart
-              data={(() => {
-                const isView = selectedMetric === 'viewCounts';
-                const arr = isView ? viewCounts : clickCounts;
-                return arr.map((d) => ({
-                  date: d.date,
-                  [selectedMetric]: isView ? d.totalViews : d.totalClicks,
-                }));
-              })()}
-              lines={[{ key: selectedMetric, name: selectedMetric === 'viewCounts' ? '조회수' : '클릭수' }]}
-              tooltipRenderer={(item) => (
-                <div className="text-sm">
-                  <div className="text-gray-500">{item.date}</div>
-                  <div className="font-bold text-gray-900">
-                    {item[selectedMetric].toLocaleString()}건
-                  </div>
-                </div>
-              )}
-            />
-          </ChartWrapper>
-        </div>
-
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 col-span-2">
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">시간 경과에 따른 사용자 활동</h2>
-          </div>
-          <HorizontalLineChart
-            data={usersOverTime.map((d) => ({
-              date: d.date,
-              dailyUsers: d.dailyUsers,
-              weeklyUsers: d.weeklyUsers,
-              monthlyUsers: d.monthlyUsers,
-            }))}
-            lines={[
-              { key: 'monthlyUsers', name: '30일' },
-              { key: 'weeklyUsers', name: '7일' },
-              { key: 'dailyUsers', name: '1일' },
-            ]}
-            showLegend={true}
-            tooltipRenderer={(item) => (
-              <div className="text-sm space-y-1 min-w-[120px]">
-                <div className="text-gray-500">{item.date}</div>
-                <div className="flex items-center">
-                  <span className="w-2 h-0.5 bg-[#3b82f6]" />
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#3b82f6] border border-white mr-1" />
-                  <span className="text-xs text-gray-700">30일</span>
-                  <span className="ml-auto font-bold text-right text-gray-900">
-                    {item.monthlyUsers.toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex items-center">
-                  <span className="w-2 h-0.5 bg-[#22c55e]" />
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#22c55e] border border-white mr-1" />
-                  <span className="text-xs text-gray-700">7일</span>
-                  <span className="ml-auto font-bold text-right text-gray-900">
-                    {item.weeklyUsers.toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex items-center">
-                  <span className="w-2 h-0.5 bg-[#f97316]" />
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#f97316] border border-white mr-1" />
-                  <span className="text-xs text-gray-700">1일</span>
-                  <span className="ml-auto font-bold text-right text-gray-900">
-                    {item.dailyUsers.toLocaleString()}
-                  </span>
-                </div>
-              </div>
-            )}
-            legendTooltipRenderer={(item, key) => (
-              <div>
-                <div className="text-gray-500 text-xs">{item.date}</div>
-                <div className="text-xs text-gray-700">{key === "monthlyUsers" ? "30일" : key === "weeklyUsers" ? "7일" : "1일"}</div>
-                <div className="font-bold text-gray-900">
-                  {typeof item[key] === 'number' ? item[key].toLocaleString() : '-'}
-                </div>
-              </div>
-            )}
-          />
-        </div>
-
-        {/* <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">TBD</h2>
-          </div>
-        </div> */}
-
-      </div>
-    </div>
-  );
 
   return (
     <>
@@ -374,15 +131,63 @@ export const EngagementDashboard: React.FC = () => {
           setDateRange={setDateRange}
           setTempRange={setTempRange}
           setShowPicker={setShowPicker}
-          onApply={(start, end) => fetchData(start, end)}
+          onApply={(start, end) => {
+            setDateRange([{ startDate: start, endDate: end, key: 'selection' }]);
+            fetchData(start, end);
+          }}
         />
       </div>
 
-      <Collapse title="참여도 개요" isShown={true}>
-        {engagementOverview}
+      <Collapse
+        title={engagementTaps[0]}
+        isOpen={openCollapse === engagementTaps[0]}
+        onToggle={() => setOpenCollapse(prev => prev === engagementTaps[0] ? null : engagementTaps[0])}
+      >
+        <EngagementOverview
+          avgSessionSecs={avgSessionSecs}
+          sessionsPerUsers={sessionsPerUsers}
+          pageTimes={pageTimes}
+          pageViewCounts={pageViewCounts}
+          bounceRates={bounceRates}
+          viewCounts={viewCounts}
+          clickCounts={clickCounts}
+          usersOverTime={usersOverTime}
+          selectedMetric={selectedMetric}
+          selectedMetric2={selectedMetric2}
+          setSelectedMetric={setSelectedMetric}
+          setSelectedMetric2={setSelectedMetric2}
+          isFirstLoad={isFirstLoad}
+          dateRange={dateRange}
+      />
       </Collapse>
 
-      <Collapse title="TBD">
+      <Collapse
+        title={engagementTaps[1]}
+        isOpen={openCollapse === engagementTaps[1]}
+        onToggle={() =>
+          setOpenCollapse((prev) => (prev === engagementTaps[1] ? null : engagementTaps[1]))
+        }
+      >
+        <EngagementEvents eventCounts={eventCounts} />
+      </Collapse>
+
+      <Collapse
+        title={engagementTaps[2]}
+        isOpen={openCollapse === engagementTaps[2]}
+        onToggle={() =>
+          setOpenCollapse((prev) => (prev === engagementTaps[2] ? null : engagementTaps[2]))
+        }
+      >
+        <span>TBD</span>
+      </Collapse>
+
+      <Collapse
+        title={engagementTaps[3]}
+        isOpen={openCollapse === engagementTaps[3]}
+        onToggle={() =>
+          setOpenCollapse((prev) => (prev === engagementTaps[3] ? null : engagementTaps[3]))
+        }
+      >
         <span>TBD</span>
       </Collapse>
     </>
