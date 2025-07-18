@@ -28,7 +28,7 @@ export const getRangeLabel = (startDate: Date, endDate: Date): string => {
   if (start.isSame(startOfLastWeek, 'day') && end.isSame(endOfLastWeek, 'day')) return '지난 주';
   if (start.isSame(startOfThisMonth, 'day') && end.isSame(endOfThisMonth, 'day')) return '이번 달';
   if (start.isSame(startOfLastMonth, 'day') && end.isSame(endOfLastMonth, 'day')) return '지난 달';
-  if (diffDays >= 1) return `최근 ${diffDays + 1}일간`;
+  if (diffDays >= 1) return `지난 ${diffDays + 1}일간`;
 
   return `${start.format('YYYY.MM.DD')} ~ ${end.format('YYYY.MM.DD')}`;
 };

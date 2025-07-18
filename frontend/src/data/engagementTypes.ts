@@ -44,3 +44,11 @@ export interface UsersOverTimeData {
   weeklyUsers: number;
   monthlyUsers: number;
 }
+
+export interface EventCountsData {
+  date: string;
+  eventName: string;
+  eventCount: number;
+  userCount: number;
+  avgEventPerUser: number;
+}
