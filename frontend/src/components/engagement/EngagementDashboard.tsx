@@ -75,7 +75,6 @@ export const EngagementDashboard: React.FC = () => {
   ]);
   const [tempRange, setTempRange] = useState(dateRange);
   const [showPicker, setShowPicker] = useState(false);
-  const pickerRef = useRef<HTMLDivElement>(null);
 
   const fetchData = async (start: Date, end: Date) => {
     try {
