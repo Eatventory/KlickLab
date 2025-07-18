@@ -73,6 +73,7 @@ export const EngagementDashboard: React.FC = () => {
   const [sessionsPerUsers, setSessionsPerUsers] = useState<SessionsPerUsersData[]>([]);
 
   const [loading, setLoading] = useState(false);
+  const [isFirstLoad, setIsFirstLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedMetric, setSelectedMetric] = useState<'viewCounts' | 'clickCounts'>('viewCounts');
   const [selectedMetric2, setSelectedMetric2] = useState<'avgSessionSecs' | 'sessionsPerUsers'>('avgSessionSecs');
@@ -81,7 +82,7 @@ export const EngagementDashboard: React.FC = () => {
     try {
       const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
       if (!token) throw new Error("No token");
-      setLoading(true);
+      if (isFirstLoad) setLoading(true);
       setError(null);
       
       // const globalFilterParams = new URLSearchParams();
@@ -101,9 +102,9 @@ export const EngagementDashboard: React.FC = () => {
 
       const [resOverview, resPageTimes, resPageViewCounts, resBounceRates, resViewCounts, resClickCounts] = await Promise.all([
         fetch('/api/engagement/overview', { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`/api/engagement/page-times-simple`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`/api/engagement/page-views`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('/api/engagement/bounce-rate', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/engagement/page-times?limit=5`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/engagement/page-views?limit=5`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch('/api/engagement/bounce-rate?limit=5', { headers: { Authorization: `Bearer ${token}` } }),
         fetch('/api/engagement/view-counts', { headers: { Authorization: `Bearer ${token}` } }),
         fetch('/api/engagement/click-counts', { headers: { Authorization: `Bearer ${token}` } }),
       ]);
@@ -136,6 +137,7 @@ export const EngagementDashboard: React.FC = () => {
       setError(err.message || '알 수 없는 오류');
     } finally {
       setLoading(false);
+      setIsFirstLoad(false);
     }
   };
 
@@ -254,7 +256,7 @@ export const EngagementDashboard: React.FC = () => {
                 </div>
               </>
             )}
-            isLoading={loading}
+            isLoading={isFirstLoad}
             valueFormatter={(val) => `${val.toFixed(1)}분`}
           />
         </div>
@@ -280,7 +282,7 @@ export const EngagementDashboard: React.FC = () => {
                 </div>
               </>
             )}
-            isLoading={loading}
+            isLoading={isFirstLoad}
             valueFormatter={(val) => val.toLocaleString() + '회'}
           />
         </div>
@@ -306,8 +308,14 @@ export const EngagementDashboard: React.FC = () => {
                 </div>
               </>
             )}
-            isLoading={loading}
+            isLoading={isFirstLoad}
           />
+        </div>
+
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">TBD</h2>
+          </div>
         </div>
 
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 pt-0 col-span-2">
@@ -335,6 +343,19 @@ export const EngagementDashboard: React.FC = () => {
             />
           </ChartWrapper>
         </div>
+
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">TBD</h2>
+          </div>
+        </div>
+
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">TBD</h2>
+          </div>
+        </div>
+
       </div>
     </div>
   );
