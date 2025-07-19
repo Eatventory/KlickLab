@@ -219,6 +219,7 @@ router.get('/page-stats', authMiddleware, async (req, res) => {
     });
     const data = await dataRes.json();
     res.status(200).json(data.map(item => ({
+      date: item.date,
       pagePath: item.page_path,
       pageViews: Number(item.page_views),
       activeUsers: Number(item.active_users),

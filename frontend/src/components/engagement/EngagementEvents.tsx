@@ -58,7 +58,7 @@ const EngagementEvents: React.FC<EngagementEventsProps> = ({ eventCounts }) => {
           setSortKey(KEY);
         }}
       >
-        {(selectedKeys, chartData, lineDefs) => (
+        {(selectedKeys) => (
           <HorizontalLineChart
             data={(() => {
               const uniqueDates = [...new Set(eventCounts.map(d => d.date))].sort();
@@ -67,14 +67,13 @@ const EngagementEvents: React.FC<EngagementEventsProps> = ({ eventCounts }) => {
                 let sum = 0;
                 selectedKeys.forEach(event => {
                   const match = eventCounts.find(d => d.date === date && d.eventName === event);
-                  const val =
-                    sortKey === keys[0]
-                      ? match?.eventCount || 0
-                      : sortKey === keys[1]
-                      ? match?.userCount || 0
-                      : sortKey === keys[2]
-                      ? match?.avgEventPerUser || 0
-                      : 0;
+                  const val = match
+                    ? {
+                        [keys[0]]: match.eventCount,
+                        [keys[1]]: match.userCount,
+                        [keys[2]]: match.avgEventPerUser ?? 0,
+                      }[sortKey] ?? 0
+                    : 0;
                   row[event] = val;
                   sum += val;
                 });

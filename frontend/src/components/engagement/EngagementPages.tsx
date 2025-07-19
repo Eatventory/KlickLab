@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import HorizontalLineChart from '../HorizontalLineChart';
 import ChartTableWrapper from '../ui/ChartTableWrapper';
 import type { PageStatsData } from '../../data/engagementTypes';
@@ -7,12 +7,25 @@ interface EngagementPagesProps {
   pageStats: PageStatsData[];
 }
 
+const keys = ['pageViews', 'activeUsers', 'pageviewsPerUser', 'avgEngagementTimeSec', 'totalEvents'];
+const labels = ['조회수', '활성 사용자', '사용자당 조회수', '평균 참여 시간', '이벤트 수'];
+const valueKeys = [
+  { key: keys[0], label: labels[0], showPercent: true },
+  { key: keys[1], label: labels[1], showPercent: true },
+  { key: keys[2], label: labels[2], showPercent: true },
+  { key: keys[3], label: labels[3] },
+  { key: keys[4], label: labels[4], showPercent: true },
+];
+const getKeyIndex = (k: string) => keys.indexOf(k) >= 0 ? keys.indexOf(k) : 0;
+
 const EngagementPages: React.FC<EngagementPagesProps> = ({ pageStats }) => {
+  const [sortKey, setSortKey] = useState<string>(keys[0]);
+
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6" id="engagementPages">
       <div className="flex items-center gap-2 mb-4">
         <h2 className="text-lg font-semibold text-gray-900">
-          시간 경과에 따른 페이지 경로 조회수
+          시간 경과에 따른 페이지 경로별 {labels[getKeyIndex(sortKey)]}
         </h2>
       </div>
 
@@ -47,17 +60,12 @@ const EngagementPages: React.FC<EngagementPagesProps> = ({ pageStats }) => {
             };
           });
         })()}
-        valueKeys={[
-          { key: 'pageViews', label: '조회수', showPercent: true },
-          { key: 'activeUsers', label: '활성 사용자', showPercent: true },
-          { key: 'pageviewsPerUser', label: '사용자당 조회수' },
-          { key: 'avgEngagementTimeSec', label: '평균 참여 시간(초)' },
-          { key: 'totalEvents', label: '이벤트 수' },
-        ]}
-        autoSelectBy="pageViews"
+        valueKeys={valueKeys}
+        autoSelectBy={keys[0]}
         title="페이지 경로"
+        onSortChange={(KEY) => { setSortKey(KEY); }}
       >
-        {(selectedKeys, chartData, lineDefs) => (
+        {(selectedKeys) => (
           <HorizontalLineChart
             data={(() => {
               const uniqueDates = [...new Set(pageStats.map(d => d.date))].sort();
@@ -66,7 +74,15 @@ const EngagementPages: React.FC<EngagementPagesProps> = ({ pageStats }) => {
                 let sum = 0;
                 selectedKeys.forEach(path => {
                   const match = pageStats.find(d => d.date === date && d.pagePath === path);
-                  const val = match?.pageViews || 0;
+                  const val = match
+                    ? {
+                        [keys[0]]: match.pageViews,
+                        [keys[1]]: match.activeUsers,
+                        [keys[2]]: match.pageViews,
+                        [keys[3]]: match.avgEngagementTimeSec,
+                        [keys[4]]: match.totalEvents ?? 0,
+                      }[sortKey] ?? 0
+                    : 0;
                   row[path] = val;
                   sum += val;
                 });

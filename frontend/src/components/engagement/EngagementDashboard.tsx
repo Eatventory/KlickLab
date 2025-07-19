@@ -9,7 +9,7 @@ import EngagementEvents from './EngagementEvents';
 import EngagementPages from './EngagementPages';
 
 // import { eventCounts } from '../../data/eventCountsMock';
-// import { pageStats } from '../../data/pageStatsMock';
+import { pageStats } from '../../data/pageStatsMock';
 
 import type {
   PageTimeData,
@@ -36,7 +36,7 @@ export const EngagementDashboard: React.FC = () => {
   const [sessionsPerUsers, setSessionsPerUsers] = useState<SessionsPerUsersData[]>([]);
   const [usersOverTime, setUsersOverTime] = useState<UsersOverTimeData[]>([]);
   const [eventCounts, setEventCounts] = useState<EventCountsData[]>([]);
-  const [pageStats, setPageStats] = useState<PageStatsData[]>([]);
+  // const [pageStats, setPageStats] = useState<PageStatsData[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
@@ -106,7 +106,7 @@ export const EngagementDashboard: React.FC = () => {
       setClickCounts(dataClickCounts);
       setUsersOverTime(dataUOTime);
       setEventCounts(dataEventCounts);
-      setPageStats(dataPageStats);
+      // setPageStats(dataPageStats);
     } catch (err: any) {
       console.error(err);
       setError(err.message || '알 수 없는 오류');

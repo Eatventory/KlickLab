@@ -54,6 +54,7 @@ export interface EventCountsData {
 }
 
 export interface PageStatsData {
+  date: string;
   pagePath: string;
   pageViews: number;
   activeUsers: number;

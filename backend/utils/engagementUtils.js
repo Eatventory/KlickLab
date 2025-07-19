@@ -328,6 +328,7 @@ function getPageViewsQuery(startDate, endDate, sdk_key, limit = 10) {
 function getPageStatsQuery(startDate, endDate, sdk_key) {
   return `
     SELECT
+      dpa.summary_date AS date,
       dpa.page_path,
       sumMerge(dpa.pageview_count_state) AS page_views,
       uniqMerge(dpa.unique_users_state) AS active_users,
@@ -339,8 +340,8 @@ function getPageStatsQuery(startDate, endDate, sdk_key) {
       ON dpa.summary_date = dea.summary_date AND dpa.sdk_key = dea.sdk_key
     WHERE dpa.sdk_key = '${sdk_key}'
       AND dpa.summary_date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
-    GROUP BY dpa.page_path
-    ORDER BY page_views DESC
+    GROUP BY dpa.summary_date, dpa.page_path
+    ORDER BY date DESC, page_views DESC
   `;
 }
 
