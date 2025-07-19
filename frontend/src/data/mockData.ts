@@ -746,9 +746,53 @@ export type {
   DashboardData
 };
 
-// ===== Sankey(사키) 다이어그램용 mock 경로 데이터 =====
+// ===== Sankey(사키) 다이어그램용 mock 경로 데이터 - 1,000명 사용자 집계 데이터 =====
 export const mockSankeyPaths = [
-  ["session_start", "page_view", "add_to_cart", "purchase"],
-  ["session_start", "page_view", "scroll", "leave"],
-  ["session_start", "page_view", "view_promotion", "view_item_list", "select_item"]
+  // 1. 즉시 이탈 (가장 많은 사용자) - 45%
+  ...Array(450).fill(["session_start", "page_view", "leave"]),
+  
+  // 2. 상품 상세 후 이탈 - 20%
+  ...Array(200).fill(["session_start", "page_view", "view_item", "leave"]),
+  
+  // 3. 검색 후 이탈 - 15%
+  ...Array(150).fill(["session_start", "page_view", "search", "leave"]),
+  
+  // 4. 카테고리 브라우징 후 이탈 - 10%
+  ...Array(100).fill(["session_start", "page_view", "category_browse", "leave"]),
+  
+  // 5. 장바구니 추가 후 이탈 - 5%
+  ...Array(50).fill(["session_start", "page_view", "view_item", "add_to_cart", "leave"]),
+  
+  // 6. 체크아웃 중 이탈 - 3%
+  ...Array(30).fill(["session_start", "page_view", "view_item", "add_to_cart", "checkout", "leave"]),
+  
+  // 7. 구매 완료 (간단한 경로) - 2%
+  ...Array(20).fill(["session_start", "page_view", "view_item", "add_to_cart", "checkout", "payment", "order_confirmation"]),
+  
+  // 8. 검색 기반 구매 - 1.5%
+  ...Array(15).fill(["session_start", "page_view", "search", "filter_results", "view_item", "add_to_cart", "checkout", "payment", "order_confirmation"]),
+  
+  // 9. 카테고리 브라우징 후 구매 - 1%
+  ...Array(10).fill(["session_start", "page_view", "category_browse", "view_item", "add_to_cart", "checkout", "payment", "order_confirmation"]),
+  
+  // 10. 위시리스트 후 재방문 구매 - 0.8%
+  ...Array(8).fill(["session_start", "page_view", "view_item", "add_to_wishlist", "return_visit", "view_item", "add_to_cart", "checkout", "payment", "order_confirmation"]),
+  
+  // 11. 이탈 후 재방문 구매 - 0.5%
+  ...Array(5).fill(["session_start", "page_view", "view_item", "add_to_cart", "leave", "return_visit", "view_item", "add_to_cart", "checkout", "payment", "order_confirmation"]),
+  
+  // 12. 이메일 마케팅으로 구매 - 0.4%
+  ...Array(4).fill(["session_start", "email_click", "page_view", "view_item", "add_to_cart", "checkout", "payment", "order_confirmation"]),
+  
+  // 13. 광고 클릭으로 구매 - 0.3%
+  ...Array(3).fill(["session_start", "ad_click", "landing_page", "view_item", "add_to_cart", "checkout", "payment", "order_confirmation"]),
+  
+  // 14. 소셜 공유로 구매 - 0.2%
+  ...Array(2).fill(["session_start", "page_view", "view_item", "social_share", "friend_visit", "view_item", "add_to_cart", "checkout", "payment", "order_confirmation"]),
+  
+  // 15. 복잡한 구매 경로 (리뷰, 추천 등) - 0.1%
+  ...Array(1).fill(["session_start", "page_view", "view_item", "add_to_cart", "checkout", "payment", "order_confirmation", "email_signup", "welcome_email", "product_review", "referral_share"]),
+  
+  // 16. 모바일 앱으로 구매 - 0.1%
+  ...Array(1).fill(["session_start", "app_open", "view_item", "add_to_cart", "checkout", "payment", "order_confirmation"])
 ]; 

@@ -7,7 +7,12 @@ const PORT = 4000;
 const clickhouse = require("./src/config/clickhouse");
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:8080', 'http://127.0.0.1:8080'],
+  credentials: true
+}));
+
+//app.use(cors());
 // app.use(cors({
 //   origin: '*',
 //   methods: ['POST'],
@@ -51,6 +56,18 @@ app.use("/api/settings", settingsRoutes);
 /* funnel 라우팅 */
 const funnelRouter = require("./routes/funnel");
 app.use("/api/funnel", funnelRouter);
+
+/* rules 라우팅 */
+const rulesRouter = require("./routes/rules");
+app.use("/api/rules", rulesRouter);
+
+/* sdk 라우팅 */
+const sdkRouter = require("./routes/sdk");
+app.use("/api/sdk", sdkRouter);
+
+/* button event 라우팅*/
+const ButtonEventRouter = require("./routes/buttonConfigs");
+app.use("/api/buttonConfigs", ButtonEventRouter);
 
 /* ▼ 메트릭 연결 */
 const metricsPort = 9091; // 메트릭 전용 포트

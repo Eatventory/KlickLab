@@ -72,7 +72,7 @@ function App() {
       const data = await res.json();
       if (data?.accessToken) {
         const isAuto = isUsingLocalStorage();
-        setToken(data.accessToken, 15 * 60 * 1000, isAuto);
+        setToken(data.accessToken, 150 * 60 * 1000, isAuto);
         setAuthState('loggedIn');
       } else {
         setAuthState('loggedOut');
@@ -104,7 +104,7 @@ function App() {
 
         if (data?.accessToken) {
           const isAuto = !!localStorage.getItem("klicklab_expiresAt");
-          setToken(data.accessToken, 15 * 60 * 1000, isAuto);
+          setToken(data.accessToken, 150 * 60 * 1000, isAuto);
           setAuthState("loggedIn");
           return;
         }
@@ -128,7 +128,7 @@ function App() {
   }, [setAuthState]);
   
   if (authState === 'checking') {
-    return <div>로딩 중...</div>;
+    return;
   }
 
   return (
