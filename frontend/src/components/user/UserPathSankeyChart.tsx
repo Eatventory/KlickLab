@@ -1,25 +1,26 @@
 import React, { useRef, useEffect, useState } from "react";
 import * as d3 from "d3";
 import { sankey as d3Sankey, sankeyLinkHorizontal } from "d3-sankey";
+import { mockSankeyPaths } from "../../data/mockData";
 // TreeSankey import 제거
 
 const TOP_N = 7;
 
-function getTopNodesWithEtc(nodes, N, depth) {
+function getTopNodesWithEtc(nodes: any[], N: number, depth: number) {
   if (nodes.length <= N) return nodes;
   const top = nodes.slice(0, N);
   const etc = {
     id: `etc-${depth}`,
     name: `외 ${nodes.length - N}개`,
     isEtc: true,
-    count: nodes.slice(N).reduce((sum, n) => sum + n.count, 0),
+    count: nodes.slice(N).reduce((sum: number, n: any) => sum + n.count, 0),
     children: nodes.slice(N),
     depth,
   };
   return [...top, etc];
 }
 
-function createGASankeyDataWithEtc(paths, selectedPath, expandedGroups) {
+function createGASankeyDataWithEtc(paths: string[][], selectedPath: string[], expandedGroups: Record<string, boolean>) {
   // 1. 경로 필터링 (드릴다운)
   const filtered = paths.filter(path => {
     for (let i = 0; i < selectedPath.length; i++) {
@@ -118,13 +119,27 @@ function getAncestorLinkIds(node: any, nodeMap: Map<string, any>, linkMap: Map<s
 
 interface UserPathSankeyChartProps {
   data: { paths: string[][] };
+  type?: 'event' | 'url'; // 타입 추가
 }
-const UserPathSankeyChart = ({ data }: UserPathSankeyChartProps) => {
+const UserPathSankeyChart = ({ data, type = 'event' }: UserPathSankeyChartProps) => {
   const svgRef = useRef();
+  // 디버깅을 위한 임시 로그
+  console.log('=== UserPathSankeyChart Debug ===');
+  console.log('1. Input data:', data);
+  console.log('2. mockSankeyPaths length:', mockSankeyPaths.length);
+  console.log('3. mockSankeyPaths first 3:', mockSankeyPaths.slice(0, 3));
   
   // data가 없거나, paths가 없거나, paths가 2차원 배열이 아니면 mockSankeyPaths 강제 사용
-  let rawPaths = (data && Array.isArray(data.paths) && Array.isArray(data.paths[0])) ? data.paths : [];
-  let filteredPaths = rawPaths.filter(path => path[0] === "session_start");
+  let rawPaths = (data && Array.isArray(data.paths) && Array.isArray(data.paths[0])) ? data.paths : mockSankeyPaths;
+  // 타입에 따라 필터 분기
+  let filteredPaths = rawPaths;
+  if (type === 'event') {
+    filteredPaths = rawPaths.filter(path => path[0] === "session_start");
+  }
+  
+  console.log('4. rawPaths length:', rawPaths.length);
+  console.log('5. filteredPaths length:', filteredPaths.length);
+  console.log('6. filteredPaths first 3:', filteredPaths.slice(0, 3));
   
   // 빈 데이터일 때 최소 2단계 dummy 경로 추가
   if (filteredPaths.length === 0) {
@@ -132,13 +147,13 @@ const UserPathSankeyChart = ({ data }: UserPathSankeyChartProps) => {
   }
 
   // 개별 노드 드릴다운 상태 관리 - 초기에 3단계까지 확장
-  const [expandedNodeIds, setExpandedNodeIds] = useState(new Set());
-  const [selectedNode, setSelectedNode] = useState(null);
+  const [expandedNodeIds, setExpandedNodeIds] = useState<Set<string>>(new Set());
+  const [selectedNode, setSelectedNode] = useState<any>(null);
   // 분기 애니메이션 상태
-  const [animateSplit, setAnimateSplit] = useState(false);
-  const [showNodes, setShowNodes] = useState(true); // 노드 등장 제어
-  const [splitSourceId, setSplitSourceId] = useState(null); // 분기 애니메이션 트리거 노드 id
-  const [hoverNode, setHoverNode] = useState(null);
+  const [animateSplit, setAnimateSplit] = useState<boolean>(false);
+  const [showNodes, setShowNodes] = useState<boolean>(true); // 노드 등장 제어
+  const [splitSourceId, setSplitSourceId] = useState<string | null>(null); // 분기 애니메이션 트리거 노드 id
+  const [hoverNode, setHoverNode] = useState<any>(null);
 
   // 초기 상태에서 1단계까지만 확장된 노드들 설정 - 한 번만 실행
   React.useEffect(() => {
@@ -154,18 +169,19 @@ const UserPathSankeyChart = ({ data }: UserPathSankeyChartProps) => {
       }
     });
     setExpandedNodeIds(initialExpandedNodes);
-  }, []); // 빈 의존성 배열로 한 번만 실행
+  }, [filteredPaths]); // filteredPaths가 바뀔 때마다 실행
 
   // 개별 노드 드릴다운 Sankey 데이터 생성 함수 - 경로 집계 처리
-  const createIndividualDrilldownSankeyData = (paths, expandedNodeIds) => {
-
+  const createIndividualDrilldownSankeyData = (paths: string[][], expandedNodeIds: Set<string>) => {
+    console.log('7. createIndividualDrilldownSankeyData called with paths length:', paths.length);
+    console.log('8. expandedNodeIds:', Array.from(expandedNodeIds));
     
-    const nodeMap = new Map();
-    const linkMap = new Map();
-    const pathCountMap = new Map(); // 경로별 카운트 집계
+    const nodeMap = new Map<string, any>();
+    const linkMap = new Map<string, any>();
+    const pathCountMap = new Map<string, number>(); // 경로별 카운트 집계
     
     // 1. 먼저 동일한 경로들을 집계
-    paths.forEach(path => {
+    paths.forEach((path: string[]) => {
       const pathKey = path.join('->');
       pathCountMap.set(pathKey, (pathCountMap.get(pathKey) || 0) + 1);
     });
@@ -272,10 +288,10 @@ const UserPathSankeyChart = ({ data }: UserPathSankeyChartProps) => {
 
 
   // 개별 노드 클릭 핸들러
-  const handleNodeClick = (node) => {
+  const handleNodeClick = (node: any) => {
     let changed = false;
     if (node.hasChildren) {
-      setExpandedNodeIds(prev => {
+      setExpandedNodeIds((prev: Set<string>) => {
         const newSet = new Set(prev);
         if (newSet.has(node.id)) {
           newSet.delete(node.id);
@@ -302,20 +318,20 @@ const UserPathSankeyChart = ({ data }: UserPathSankeyChartProps) => {
   const stepWidthRef = useRef(160);
   useEffect(() => {
     // 실제 데이터에 존재하는 depth만 추출
-    const depths = Array.from(new Set(sankeyData.nodes.map(n => n.depth))).sort((a, b) => a - b);
+    const depths = Array.from(new Set(sankeyData.nodes.map((n: any) => n.depth))).sort((a, b) => a - b);
     const stepCount = depths.length;
     const minStepWidth = 120;
     const stepWidth = Math.max(minStepWidth, 160); // 최소 120, 기본 160
     const dynamicWidth = stepWidth * (stepCount - 1) + 20 + 80; // 20은 노드 패딩, 80은 레이블 너비
 
     // 각 노드의 x0, x1을 depths 배열 기준으로 강제 배치 (헤더와 정렬)
-    sankeyData.nodes.forEach(n => {
+    sankeyData.nodes.forEach((n: any) => {
       const depthIdx = depths.indexOf(n.depth);
       n.x0 = stepWidth * depthIdx;
       n.x1 = n.x0 + 20; // 노드 너비 20
     });
     // width 적용
-    d3.select(svgRef.current).attr("width", dynamicWidth);
+    d3.select(svgRef.current as any).attr("width", dynamicWidth);
 
     
 
@@ -327,33 +343,33 @@ const UserPathSankeyChart = ({ data }: UserPathSankeyChartProps) => {
     const ancestorLinkIds = hoverNode ? getAncestorLinkIds(hoverNode, nodeMap, linkMap) : new Set();
 
     // Draw links
-    d3.select(svgRef.current)
+    d3.select(svgRef.current as any)
       .append("g")
       .attr("fill", "none")
       .selectAll("path")
-      .data(sankeyData.links, d => d.source.id + '-' + d.target.id)
+      .data(sankeyData.links, (d: any) => d.source.id + '-' + d.target.id)
       .join(
         enter => {
           const path = enter.append("path")
             .attr("d", sankeyLinkHorizontal())
-            .attr("stroke", d =>
+            .attr("stroke", (d: any) =>
               hoverNode
                 ? ancestorLinkIds.has(d.source.id + '-' + d.target.id)
                   ? "#90caf9"
                   : "#b0bec5"
                 : "#b0bec5"
             )
-            .attr("stroke-opacity", d =>
+            .attr("stroke-opacity", (d: any) =>
               hoverNode
                 ? ancestorLinkIds.has(d.source.id + '-' + d.target.id)
                   ? 0.7
                   : 0.15
                 : 0.4
             )
-            .attr("stroke-width", d => Math.max(1, d.width))
+            .attr("stroke-width", (d: any) => Math.max(1, d.width))
             .attr("opacity", 1);
           // 분기 애니메이션: source가 splitSourceId인 경우에만 dasharray 애니메이션
-          path.each(function(d) {
+          path.each(function(this: any, d: any) {
             if (splitSourceId && d.source.id === splitSourceId && animateSplit) {
               const len = this.getTotalLength();
               d3.select(this)
@@ -373,72 +389,72 @@ const UserPathSankeyChart = ({ data }: UserPathSankeyChartProps) => {
         },
         update => update
           .attr("d", sankeyLinkHorizontal())
-          .attr("stroke", d =>
+          .attr("stroke", (d: any) =>
             hoverNode
               ? ancestorLinkIds.has(d.source.id + '-' + d.target.id)
                 ? "#90caf9"
                 : "#b0bec5"
               : "#b0bec5"
           )
-          .attr("stroke-opacity", d =>
+          .attr("stroke-opacity", (d: any) =>
             hoverNode
               ? ancestorLinkIds.has(d.source.id + '-' + d.target.id)
                 ? 0.7
                 : 0.15
               : 0.4
           )
-          .attr("stroke-width", d => Math.max(1, d.width))
+          .attr("stroke-width", (d: any) => Math.max(1, d.width))
           .attr("opacity", 1),
         exit => exit.remove()
       );
     // Draw nodes
-    d3.select(svgRef.current)
+    d3.select(svgRef.current as any)
       .append("g")
       .selectAll("rect")
-      .data(sankeyData.nodes, d => d.id)
+      .data(sankeyData.nodes, (d: any) => d.id)
       .join(
         enter => {
           const rect = enter.append("rect")
-            .attr("x", d => d.x0)
-            .attr("y", d => d.y0)
-            .attr("height", d => d.y1 - d.y0)
-            .attr("width", d => d.x1 - d.x0)
-            .attr("fill", d =>
+            .attr("x", (d: any) => d.x0)
+            .attr("y", (d: any) => d.y0)
+            .attr("height", (d: any) => d.y1 - d.y0)
+            .attr("width", (d: any) => d.x1 - d.x0)
+            .attr("fill", (d: any) =>
               hoverNode
                 ? ancestorNodeIds.has(d.id)
                   ? "#1976d2"
                   : "#bbb"
                 : "#666"
             )
-            .attr("opacity", d =>
+            .attr("opacity", (d: any) =>
               splitSourceId && d.parentId === splitSourceId && animateSplit ? 0 : (
                 hoverNode
                   ? ancestorNodeIds.has(d.id)
                     ? 1
                     : 0.2
                   : 1
-              )
+              ) as number
             );
           // 분기 애니메이션: parentId가 splitSourceId인 경우에만 fade-in
-          rect.filter(d => splitSourceId && d.parentId === splitSourceId && animateSplit)
+          rect.filter((d: any) => splitSourceId && d.parentId === splitSourceId && animateSplit)
             .transition()
             .duration(400)
             .attr("opacity", 1);
           return rect;
         },
         update => update
-          .attr("x", d => d.x0)
-          .attr("y", d => d.y0)
-          .attr("height", d => d.y1 - d.y0)
-          .attr("width", d => d.x1 - d.x0)
-          .attr("fill", d =>
+          .attr("x", (d: any) => d.x0)
+          .attr("y", (d: any) => d.y0)
+          .attr("height", (d: any) => d.y1 - d.y0)
+          .attr("width", (d: any) => d.x1 - d.x0)
+          .attr("fill", (d: any) =>
             hoverNode
               ? ancestorNodeIds.has(d.id)
                 ? "#1976d2"
                 : "#bbb"
               : "#666"
           )
-          .attr("opacity", d =>
+          .attr("opacity", (d: any) =>
             hoverNode
               ? ancestorNodeIds.has(d.id)
                 ? 1
@@ -448,7 +464,7 @@ const UserPathSankeyChart = ({ data }: UserPathSankeyChartProps) => {
         exit => exit.remove()
       );
     // 이벤트 바인딩
-    d3.select(svgRef.current).selectAll("rect")
+    d3.select(svgRef.current as any).selectAll("rect")
       .on("mouseover", function (e, d) {
         setHoverNode(d);
         // 툴팁 위치 계산
@@ -463,7 +479,7 @@ const UserPathSankeyChart = ({ data }: UserPathSankeyChartProps) => {
         if (tooltipY + tooltipHeight > window.innerHeight) {
           tooltipY = e.pageY - tooltipHeight - padding;
         }
-        setTooltip({ x: tooltipX, y: tooltipY, text: `${d.name} (${d.count || d.value || 0}명)` });
+        setTooltip({ x: tooltipX, y: tooltipY, text: `${(d as any).name} (${(d as any).count || (d as any).value || 0}명)` });
       })
       .on("mouseout", function (e, d) {
         setHoverNode(null);
@@ -478,14 +494,14 @@ const UserPathSankeyChart = ({ data }: UserPathSankeyChartProps) => {
     if (animateSplit) setTimeout(() => setAnimateSplit(false), 800);
 
     // Add labels with values (GA 스타일) - 모든 노드 텍스트를 오른쪽(x1+8, text-anchor:start)에 표시
-    d3.select(svgRef.current)
+    d3.select(svgRef.current as any)
       .append("g")
       .selectAll("g")
       .data(sankeyData.nodes)
       .join("g")
-      .attr("transform", d => `translate(${d.x1 + 8}, ${(d.y0 + d.y1) / 2})`)
+      .attr("transform", (d: any) => `translate(${d.x1 + 8}, ${(d.y0 + d.y1) / 2})`)
       .style("transition", "all 0.5s ease-in-out")
-      .each(function(d) {
+      .each(function(d: any) {
         const g = d3.select(this);
         g.append("text")
           .attr("dy", "-0.3em")
@@ -535,7 +551,7 @@ const UserPathSankeyChart = ({ data }: UserPathSankeyChartProps) => {
               return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sankey-container" style={{height: '100%', minHeight: 600, maxHeight: '90vh'}}>
       <div className="flex items-center justify-between mb-6">
-        <h2 style={{ fontWeight: 700, fontSize: 20 }}>사용자 경로(사키) 다이어그램</h2>
+        <h2 style={{ fontWeight: 700, fontSize: 20 }}>사용자 경로 다이어그램</h2>
       </div>
       
       <div style={{ display: "flex", flexDirection: "row", marginBottom: 8 }}>
@@ -569,7 +585,7 @@ const UserPathSankeyChart = ({ data }: UserPathSankeyChartProps) => {
 const SankeyChart = ({ data, width = 800, height = 600, nodePadding = 20, onNodeClick, animateSplit, setAnimateSplit, showNodes, setShowNodes, splitSourceId }) => {
   const svgRef = useRef();
   const [tooltip, setTooltip] = useState(null);
-  const [hoverNode, setHoverNode] = useState(null); // hover만 담당
+  const [hoverNode, setHoverNode] = useState<any>(null); // hover만 담당
 
   useEffect(() => {
     if (!data) return;
@@ -624,7 +640,7 @@ const SankeyChart = ({ data, width = 800, height = 600, nodePadding = 20, onNode
     const ancestorLinkIds = hoverNode ? getAncestorLinkIds(hoverNode, nodeMap, linkMap) : new Set();
 
     // Draw links
-    svg
+    d3.select(svgRef.current)
       .append("g")
       .attr("fill", "none")
       .selectAll("path")
@@ -633,24 +649,24 @@ const SankeyChart = ({ data, width = 800, height = 600, nodePadding = 20, onNode
         enter => {
           const path = enter.append("path")
             .attr("d", sankeyLinkHorizontal())
-            .attr("stroke", d =>
+            .attr("stroke", (d: any) =>
               hoverNode
                 ? ancestorLinkIds.has(d.source.id + '-' + d.target.id)
                   ? "#90caf9"
                   : "#b0bec5"
                 : "#b0bec5"
             )
-            .attr("stroke-opacity", d =>
+            .attr("stroke-opacity", (d: any) =>
               hoverNode
                 ? ancestorLinkIds.has(d.source.id + '-' + d.target.id)
                   ? 0.7
                   : 0.15
                 : 0.4
             )
-            .attr("stroke-width", d => Math.max(1, d.width))
+            .attr("stroke-width", (d: any) => Math.max(1, d.width))
             .attr("opacity", 1);
           // 분기 애니메이션: source가 splitSourceId인 경우에만 dasharray 애니메이션
-          path.each(function(d) {
+          path.each(function(this: any, d: any) {
             if (splitSourceId && d.source.id === splitSourceId && animateSplit) {
               const len = this.getTotalLength();
               d3.select(this)
@@ -670,72 +686,72 @@ const SankeyChart = ({ data, width = 800, height = 600, nodePadding = 20, onNode
         },
         update => update
           .attr("d", sankeyLinkHorizontal())
-          .attr("stroke", d =>
+          .attr("stroke", (d: any) =>
             hoverNode
               ? ancestorLinkIds.has(d.source.id + '-' + d.target.id)
                 ? "#90caf9"
                 : "#b0bec5"
               : "#b0bec5"
           )
-          .attr("stroke-opacity", d =>
+          .attr("stroke-opacity", (d: any) =>
             hoverNode
               ? ancestorLinkIds.has(d.source.id + '-' + d.target.id)
                 ? 0.7
                 : 0.15
               : 0.4
           )
-          .attr("stroke-width", d => Math.max(1, d.width))
+          .attr("stroke-width", (d: any) => Math.max(1, d.width))
           .attr("opacity", 1),
         exit => exit.remove()
       );
     // Draw nodes
-    svg
+    d3.select(svgRef.current)
       .append("g")
       .selectAll("rect")
       .data(nodes, d => d.id)
       .join(
         enter => {
           const rect = enter.append("rect")
-            .attr("x", d => d.x0)
-            .attr("y", d => d.y0)
-            .attr("height", d => d.y1 - d.y0)
-            .attr("width", d => d.x1 - d.x0)
-            .attr("fill", d =>
+            .attr("x", (d: any) => d.x0)
+            .attr("y", (d: any) => d.y0)
+            .attr("height", (d: any) => d.y1 - d.y0)
+            .attr("width", (d: any) => d.x1 - d.x0)
+            .attr("fill", (d: any) =>
               hoverNode
                 ? ancestorNodeIds.has(d.id)
                   ? "#1976d2"
                   : "#bbb"
                 : "#666"
             )
-            .attr("opacity", d =>
+            .attr("opacity", (d: any) =>
               splitSourceId && d.parentId === splitSourceId && animateSplit ? 0 : (
                 hoverNode
                   ? ancestorNodeIds.has(d.id)
                     ? 1
                     : 0.2
                   : 1
-              )
+              ) as number
             );
           // 분기 애니메이션: parentId가 splitSourceId인 경우에만 fade-in
-          rect.filter(d => splitSourceId && d.parentId === splitSourceId && animateSplit)
+          rect.filter((d: any) => splitSourceId && d.parentId === splitSourceId && animateSplit)
             .transition()
             .duration(400)
             .attr("opacity", 1);
           return rect;
         },
         update => update
-          .attr("x", d => d.x0)
-          .attr("y", d => d.y0)
-          .attr("height", d => d.y1 - d.y0)
-          .attr("width", d => d.x1 - d.x0)
-          .attr("fill", d =>
+          .attr("x", (d: any) => d.x0)
+          .attr("y", (d: any) => d.y0)
+          .attr("height", (d: any) => d.y1 - d.y0)
+          .attr("width", (d: any) => d.x1 - d.x0)
+          .attr("fill", (d: any) =>
             hoverNode
               ? ancestorNodeIds.has(d.id)
                 ? "#1976d2"
                 : "#bbb"
               : "#666"
           )
-          .attr("opacity", d =>
+          .attr("opacity", (d: any) =>
             hoverNode
               ? ancestorNodeIds.has(d.id)
                 ? 1
@@ -745,7 +761,7 @@ const SankeyChart = ({ data, width = 800, height = 600, nodePadding = 20, onNode
         exit => exit.remove()
       );
     // 이벤트 바인딩
-    svg.selectAll("rect")
+    d3.select(svgRef.current).selectAll("rect")
       .on("mouseover", function (e, d) {
         setHoverNode(d);
         // 툴팁 위치 계산
@@ -760,7 +776,7 @@ const SankeyChart = ({ data, width = 800, height = 600, nodePadding = 20, onNode
         if (tooltipY + tooltipHeight > window.innerHeight) {
           tooltipY = e.pageY - tooltipHeight - padding;
         }
-        setTooltip({ x: tooltipX, y: tooltipY, text: `${d.name} (${d.count || d.value || 0}명)` });
+        setTooltip({ x: tooltipX, y: tooltipY, text: `${(d as any).name} (${(d as any).count || (d as any).value || 0}명)` });
       })
       .on("mouseout", function (e, d) {
         setHoverNode(null);
@@ -775,18 +791,18 @@ const SankeyChart = ({ data, width = 800, height = 600, nodePadding = 20, onNode
     if (animateSplit) setTimeout(() => setAnimateSplit(false), 800);
 
     // Add labels with values (GA 스타일) - 모든 노드 텍스트를 오른쪽(x1+8, text-anchor:start)에 표시
-    svg
+    d3.select(svgRef.current)
       .append("g")
       .selectAll("g")
       .data(nodes)
       .join("g")
-      .attr("transform", d => {
+      .attr("transform", (d: any) => {
         // 맨 위 노드는 y좌표를 최소 20 이상으로 보정
         const y = Math.max((d.y0 + d.y1) / 2, 20);
         return `translate(${d.x1 + 8}, ${y})`;
       })
       .style("transition", "all 0.5s ease-in-out")
-      .each(function(d) {
+      .each(function(d: any) {
         const g = d3.select(this);
         g.append("text")
           .attr("dy", "-0.3em")
