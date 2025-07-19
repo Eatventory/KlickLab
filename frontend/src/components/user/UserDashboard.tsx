@@ -148,7 +148,7 @@ export const UserDashboard: React.FC = () => {
           {/* 상단 차트들 (지역별 + 성별 + 기기플랫폼) */}
           <div className="flex gap-6">
             {/* 지역별 활성 사용자 */}
-            <div className="flex-1 h-[550px]">
+            <div className="flex-1 h-[530px]">
               <RegionalActiveUsers 
                 dateRange={dateRange[0]} 
                 onDataSourceUpdate={handleDataSourceUpdate}
@@ -158,7 +158,7 @@ export const UserDashboard: React.FC = () => {
             </div>
             
             {/* 성별 별 활성 사용자 */}
-            <div className="flex-none w-80 h-[550px]">
+            <div className="flex-none w-[400px] h-[530px]">
               <GenderActiveUsers 
                 dateRange={dateRange[0]} 
                 data={segmentedData.userGender}
@@ -167,7 +167,7 @@ export const UserDashboard: React.FC = () => {
             </div>
             
             {/* 기기 및 플랫폼 분석 */}
-            <div className="flex-none w-80 h-[550px]">
+            <div className="flex-none w-[400px] h-[530px]">
               <DevicePlatformChart 
                 dateRange={dateRange[0]}
                 data={segmentedData.deviceType}
@@ -177,7 +177,7 @@ export const UserDashboard: React.FC = () => {
           </div>
           
           {/* 연령별 활성 사용자 (전체 width) */}
-          <div className="h-[350px]">
+          <div className="w-[940px] h-[280px]">
             <AgeActiveUsers 
               dateRange={dateRange[0]}
               data={segmentedData.userAge}
