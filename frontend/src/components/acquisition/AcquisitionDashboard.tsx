@@ -158,8 +158,10 @@ export const AcquisitionDashboard: React.FC = () => {
       const transformedData: AcquisitionData = {
         // KPI 데이터는 별도로 처리
         hourlyTrendData: hourlyTrendData.map((item: any) => ({
-          hour: item.hour,
-          visitors: item.users
+          hour: item.hour.padStart(2, '0'),
+          total_users: item.total_users,
+          new_users: item.new_users,
+          existing_users: item.existing_users
         })),
         topChannelData: topChannelsData.map((item: any) => ({
           channel: item.channel,
@@ -293,29 +295,27 @@ export const AcquisitionDashboard: React.FC = () => {
         {/* 1행: KPI 카드 + 시간별 트렌드 + 전환율 */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
           {/* KPI 카드 영역 (위아래로 쌓기) */}
-          <div className="md:col-span-3 space-y-4">
+          <div className="md:col-span-2 space-y-4 h-64">
             {/* 활성 사용자 */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4 h-28 hover:shadow-lg transition-shadow">
-              <div className="flex items-center gap-2 mb-1">
-                <Users className="w-4 h-4 text-blue-600" />
-                <h3 className="text-sm font-semibold text-gray-900">활성 사용자</h3>
+            <div className="bg-white rounded-lg border border-gray-200 p-4 h-[calc(50%-0.5rem)] hover:shadow-lg transition-shadow">
+              <div className="text-center">
+                <h3 className="text-sm font-semibold text-gray-900 mb-2">활성 사용자</h3>
+                <div className="text-3xl font-bold text-gray-900 mb-1">
+                  {kpiData ? kpiData.active_users?.toLocaleString() || '0' : '0'}
+                </div>
+                <div className="text-xs text-green-600">+8.2%</div>
               </div>
-              <div className="text-xl font-bold text-gray-900 mb-1">
-                {kpiData ? kpiData.active_users?.toLocaleString() || '0' : '0'}
-              </div>
-              <div className="text-xs text-green-600">+8.2%</div>
             </div>
 
             {/* 신규 유입 사용자 */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4 h-28 hover:shadow-lg transition-shadow">
-              <div className="flex items-center gap-2 mb-1">
-                <Users className="w-4 h-4 text-purple-600" />
-                <h3 className="text-sm font-semibold text-gray-900">신규 유입 사용자</h3>
+            <div className="bg-white rounded-lg border border-gray-200 p-4 h-[calc(50%-0.5rem)] hover:shadow-lg transition-shadow">
+              <div className="text-center">
+                <h3 className="text-sm font-semibold text-gray-900 mb-2">신규 유입 사용자</h3>
+                <div className="text-3xl font-bold text-gray-900 mb-1">
+                  {kpiData ? kpiData.new_users?.toLocaleString() || '0' : '0'}
+                </div>
+                <div className="text-xs text-green-600">+12.5%</div>
               </div>
-              <div className="text-xl font-bold text-gray-900 mb-1">
-                {kpiData ? kpiData.new_users?.toLocaleString() || '0' : '0'}
-              </div>
-              <div className="text-xs text-green-600">+12.5%</div>
             </div>
           </div>
 
@@ -326,7 +326,7 @@ export const AcquisitionDashboard: React.FC = () => {
           </div>
 
           {/* 첫 방문 전환율 */}
-          <div className="md:col-span-3 bg-white rounded-lg border border-gray-200 p-4 h-64 hover:shadow-lg transition-shadow">
+          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-4 h-64 hover:shadow-lg transition-shadow">
             <h3 className="text-sm font-semibold text-gray-900 mb-2">첫 방문 전환율</h3>
             <FunnelConversionChart data={acquisitionData.funnelData} refreshKey={refreshKey} />
           </div>

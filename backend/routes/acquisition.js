@@ -81,14 +81,20 @@ router.get('/hourly-trend', authMiddleware, async (req, res) => {
     
     if (!hasData) {
       const query = `
+        WITH hours AS (
+          SELECT 
+            formatDateTime(toDateTime('2024-01-01') + toIntervalHour(number), '%H') AS hour
+          FROM numbers(24)
+        )
         SELECT 
-          formatDateTime(timestamp, '%H:00') AS hour,
-          countDistinct(user_id) AS users
-        FROM events
-        WHERE timestamp >= now() - INTERVAL 24 HOUR
-          AND sdk_key = '${sdk_key}'
-        GROUP BY hour
-        ORDER BY hour ASC
+          h.hour,
+          COALESCE(countDistinct(e.user_id), 0) AS users
+        FROM hours h
+        LEFT JOIN events e ON formatDateTime(e.timestamp, '%H') = h.hour
+          AND e.timestamp >= now() - INTERVAL 24 HOUR
+          AND e.sdk_key = '${sdk_key}'
+        GROUP BY h.hour
+        ORDER BY h.hour ASC
       `;
 
       const dataRes = await clickhouse.query({ query, format: 'JSONEachRow' });
@@ -104,14 +110,21 @@ router.get('/hourly-trend', authMiddleware, async (req, res) => {
         : `date_time >= now() - INTERVAL 24 HOUR`;
 
       const query = `
+        WITH hours AS (
+          SELECT toString(number) AS hour
+          FROM numbers(24)
+        )
         SELECT 
-          formatDateTime(date_time, '%H:00') as hour,
-          sum(visitors) as users
-        FROM hourly_metrics
-        WHERE ${dateCondition}
-          AND sdk_key = '${sdk_key}'
-        GROUP BY hour
-        ORDER BY hour ASC
+          h.hour,
+          COALESCE(sum(hm.visitors), 0) AS total_users,
+          COALESCE(sum(hm.new_visitors), 0) AS new_users,
+          COALESCE(sum(hm.existing_visitors), 0) AS existing_users
+        FROM hours h
+        LEFT JOIN hourly_metrics hm ON toString(toHour(hm.date_time)) = h.hour
+          AND ${dateCondition}
+          AND hm.sdk_key = '${sdk_key}'
+        GROUP BY h.hour
+        ORDER BY h.hour ASC
       `;
 
       const dataRes = await clickhouse.query({ query, format: 'JSONEachRow' });
@@ -119,7 +132,9 @@ router.get('/hourly-trend', authMiddleware, async (req, res) => {
 
       res.status(200).json(data.map(item => ({
         hour: item.hour,
-        users: Number(item.users)
+        total_users: Number(item.total_users),
+        new_users: Number(item.new_users),
+        existing_users: Number(item.existing_users)
       })));
     }
 

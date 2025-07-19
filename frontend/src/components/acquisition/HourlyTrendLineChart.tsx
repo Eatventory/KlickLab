@@ -3,7 +3,9 @@ import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'rec
 
 interface HourlyData {
   hour: string;
-  visitors: number;
+  total_users: number;
+  new_users: number;
+  existing_users: number;
 }
 
 interface HourlyTrendLineChartProps {
@@ -17,7 +19,11 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     return (
       <div className="bg-white p-2 border border-gray-200 rounded shadow-lg">
         <p className="text-xs text-gray-500">{`시간: ${label}`}</p>
-        <p className="text-sm font-semibold text-indigo-600">{`방문자: ${payload[0].value.toLocaleString()}`}</p>
+        {payload.map((entry: any, index: number) => (
+          <p key={index} className="text-sm font-semibold" style={{ color: entry.color }}>
+            {entry.name}: {entry.value.toLocaleString()}명
+          </p>
+        ))}
       </div>
     );
   }
@@ -44,11 +50,30 @@ export const HourlyTrendLineChart: React.FC<HourlyTrendLineChartProps> = ({ data
         <Tooltip content={<CustomTooltip />} cursor={{ strokeDasharray: '3 3' }} />
         <Line
           type="monotone"
-          dataKey="visitors"
+          dataKey="total_users"
           stroke="#4F46E5"
           strokeWidth={2}
           dot={false}
           activeDot={{ r: 5, strokeWidth: 2 }}
+          name="전체 사용자"
+        />
+        <Line
+          type="monotone"
+          dataKey="new_users"
+          stroke="#10B981"
+          strokeWidth={2}
+          dot={false}
+          activeDot={{ r: 5, strokeWidth: 2 }}
+          name="신규 사용자"
+        />
+        <Line
+          type="monotone"
+          dataKey="existing_users"
+          stroke="#F59E0B"
+          strokeWidth={2}
+          dot={false}
+          activeDot={{ r: 5, strokeWidth: 2 }}
+          name="기존 사용자"
         />
       </LineChart>
     </ResponsiveContainer>
