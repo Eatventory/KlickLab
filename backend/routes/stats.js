@@ -541,4 +541,23 @@ router.get(
   }
 );
 
+// sankey_paths_daily에서 event_path만 뽑아오는 API
+router.get("/sankey-paths", authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+  const query = `
+    SELECT event_path
+    FROM klicklab.sankey_paths_daily
+    WHERE day = today()
+      AND sdk_key = '${sdk_key}'
+  `;
+  try {
+    const result = await clickhouse.query({ query, format: "JSONEachRow" });
+    const data = await result.json();
+    res.status(200).json({ data });
+  } catch (err) {
+    console.error("Sankey Paths API ERROR:", err);
+    res.status(500).json({ error: "Failed to get sankey paths data" });
+  }
+});
+
 module.exports = router;

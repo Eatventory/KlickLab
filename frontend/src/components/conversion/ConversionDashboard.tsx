@@ -3,7 +3,6 @@ import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
 import { UserPathSankeyChart } from '../user/UserPathSankeyChart';
 import { SankeyFunnel } from './SankeyFunnel';
 import { mockSankeyPaths } from '../../data/mockData';
-import dayjs from 'dayjs';
 
 const DEFAULT_EVENTS = ['page_view', 'scroll', 'auto_click', 'user_engagement'];
 const PERIOD_LABELS = { daily: '일', weekly: '주', monthly: '월' };
@@ -575,24 +574,37 @@ export const ConversionDashboard: React.FC = () => {
   // 차트 렌더링 직전 진단 로그
   console.log('[차트 렌더링] addMode:', addMode, 'selectedEvents:', selectedEvents, 'urlTrendChartData:', urlTrendChartData);
 
-  // Sankey 실데이터 상태
-  const [sankeyPaths, setSankeyPaths] = useState<string[][]>([]);
+  // Sankey 경로 데이터 상태 추가
+  const [sankeyPaths, setSankeyPaths] = useState<string[][] | null>(null);
+  const [sankeyLoading, setSankeyLoading] = useState(false);
+  const [sankeyError, setSankeyError] = useState<string | null>(null);
 
-  // Sankey 실데이터 fetch (어제 날짜)
+  // Sankey 데이터 fetch
   useEffect(() => {
     const fetchSankeyPaths = async () => {
+      setSankeyLoading(true);
+      setSankeyError(null);
       try {
         const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
-        if (!token) throw new Error('No token');
-        const yesterday = dayjs().subtract(1, 'day').format('YYYY-MM-DD');
-        const res = await fetch(`/api/overview/sankey-paths/daily?day=${yesterday}`, {
+        const res = await fetch('/api/stats/sankey-paths', {
           headers: { Authorization: `Bearer ${token}` }
         });
+        if (!res.ok) throw new Error('API 오류');
         const json = await res.json();
-        const paths = (json.data || []).map((row: any) => row.path_seq).filter((arr: any) => Array.isArray(arr));
-        setSankeyPaths(paths);
-      } catch (e) {
-        setSankeyPaths([]);
+        if (Array.isArray(json.data)) {
+          // event_path만 추출해서 2차원 배열로 변환
+          const paths = json.data
+            .map((row: any) => Array.isArray(row.event_path) ? row.event_path : null)
+            .filter((p: string[] | null) => Array.isArray(p) && p.length > 1);
+          setSankeyPaths(paths.length > 0 ? paths : null);
+        } else {
+          setSankeyPaths(null);
+        }
+      } catch (err) {
+        setSankeyError('경로 데이터를 불러오지 못했습니다.');
+        setSankeyPaths(null);
+      } finally {
+        setSankeyLoading(false);
       }
     };
     fetchSankeyPaths();
@@ -706,7 +718,6 @@ export const ConversionDashboard: React.FC = () => {
         </h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm border-separate border-spacing-0">
-            <thead>
             {/* 테이블 헤더: 정렬 기능 항상 노출 (URL별과 동일하게) */}
             {addMode === 'event' ? (
               <tr className="border-b border-gray-200 bg-gray-50">
@@ -753,7 +764,6 @@ export const ConversionDashboard: React.FC = () => {
                 </th>
               </tr>
             )}
-            </thead>
             <tbody>
               {addMode === 'event'
                 ? <>
@@ -883,9 +893,11 @@ export const ConversionDashboard: React.FC = () => {
           </table>
         </div>
       </div>
-      {/* 실제 데이터만 넘기도록 수정 (목업 금지) */}
-      {/* 예시: <UserPathSankeyChart data={{ paths: 실제데이터 }} /> */}
-      <UserPathSankeyChart data={{ paths: sankeyPaths }} />
+      {/* 맨 아래, 사키 다이어그램 바깥쪽 div(사각형 칸) 완전히 삭제, 내부 칸만 남김 */}
+      {/* 실제 데이터가 있다면 paths로, 없으면 mockSankeyPaths로 fallback */}
+      <UserPathSankeyChart data={{ paths: sankeyPaths && sankeyPaths.length > 0 ? sankeyPaths : mockSankeyPaths }} />
+      {sankeyLoading && <div style={{ color: '#888', padding: 12 }}>경로 데이터를 불러오는 중...</div>}
+      {sankeyError && <div style={{ color: 'red', padding: 12 }}>{sankeyError}</div>}
     </div>
   );
 };

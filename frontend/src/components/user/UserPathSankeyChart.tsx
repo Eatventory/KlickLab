@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState } from "react";
 import * as d3 from "d3";
 import { sankey as d3Sankey, sankeyLinkHorizontal } from "d3-sankey";
+import { mockSankeyPaths } from "../../data/mockData";
 // TreeSankey import 제거
 
 const TOP_N = 7;
@@ -124,9 +125,11 @@ const UserPathSankeyChart = ({ data }: UserPathSankeyChartProps) => {
   // 디버깅을 위한 임시 로그
   console.log('=== UserPathSankeyChart Debug ===');
   console.log('1. Input data:', data);
+  console.log('2. mockSankeyPaths length:', mockSankeyPaths.length);
+  console.log('3. mockSankeyPaths first 3:', mockSankeyPaths.slice(0, 3));
   
   // data가 없거나, paths가 없거나, paths가 2차원 배열이 아니면 mockSankeyPaths 강제 사용
-  let rawPaths = (data && Array.isArray(data.paths) && Array.isArray(data.paths[0])) ? data.paths : [];
+  let rawPaths = (data && Array.isArray(data.paths) && Array.isArray(data.paths[0])) ? data.paths : mockSankeyPaths;
   let filteredPaths = rawPaths.filter(path => path[0] === "session_start");
   
   console.log('4. rawPaths length:', rawPaths.length);
@@ -547,7 +550,7 @@ const UserPathSankeyChart = ({ data }: UserPathSankeyChartProps) => {
               return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sankey-container" style={{height: '100%', minHeight: 600, maxHeight: '90vh'}}>
       <div className="flex items-center justify-between mb-6">
-        <h2 style={{ fontWeight: 700, fontSize: 20 }}>사용자 경로(사키) 다이어그램</h2>
+        <h2 style={{ fontWeight: 700, fontSize: 20 }}>사용자 경로 다이어그램</h2>
       </div>
       
       <div style={{ display: "flex", flexDirection: "row", marginBottom: 8 }}>
