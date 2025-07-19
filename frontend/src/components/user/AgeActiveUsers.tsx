@@ -42,7 +42,7 @@ export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({ dateRange, data,
     '30s': '30대',
     '40s': '40대',
     '50s': '50대',
-    '60s+': '60대 이상'
+    '60s+': '60+'
   };
 
   // 연령대 순서 정의 (10대부터 60대+ 순)
@@ -149,15 +149,7 @@ export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({ dateRange, data,
       processAgeData(dataArray);
     } catch (error) {
       console.error('Failed to fetch age data:', error);
-      // Fallback 데이터 (10대부터 60대+ 순서)
-      setAgeData([
-        { id: '10s', ageRange: '10대', users: 8000, color: 'hsl(220, 70%, 85%)' },
-        { id: '20s', ageRange: '20대', users: 58000, color: 'hsl(220, 70%, 75%)' },
-        { id: '30s', ageRange: '30대', users: 42000, color: 'hsl(220, 70%, 65%)' },
-        { id: '40s', ageRange: '40대', users: 25000, color: 'hsl(220, 70%, 55%)' },
-        { id: '50s', ageRange: '50대', users: 18000, color: 'hsl(220, 70%, 45%)' },
-        { id: '60s+', ageRange: '60대 이상', users: 12000, color: 'hsl(220, 70%, 35%)' }
-      ]);
+      setAgeData([]);
     } finally {
       setLoading(false);
     }
@@ -198,15 +190,67 @@ export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({ dateRange, data,
   };
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm h-full flex flex-col">
-      <div className="mb-8">
+    <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm h-full flex flex-col">
+      <div className="mb-2">
         <h3 className="text-lg font-semibold text-gray-900 mb-1">연령 별 활성 사용자</h3>
       </div>
 
       {/* 로딩 상태 */}
       {actualLoading && (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-gray-500">데이터를 불러오는 중...</div>
+        <div className="flex-1 flex flex-col">
+          {/* 바 차트 스켈레톤 */}
+          <div className="relative flex-1 flex flex-col justify-start">
+            {/* 배경 그리드 스켈레톤 */}
+            <div className="absolute left-18 right-13 top-0 bottom-0 flex justify-between pointer-events-none">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="w-px h-full bg-gray-200 opacity-20"></div>
+              ))}
+            </div>
+
+            {/* Y축 레이블 스켈레톤 */}
+            <div className="absolute left-0 top-0 bottom-0 w-14 flex flex-col justify-between text-right">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <div key={i} className="w-10 h-3 bg-gray-200 rounded animate-pulse ml-auto" style={{animationDelay: `${i * 0.1}s`}}></div>
+              ))}
+            </div>
+
+            {/* 바 차트 스켈레톤 영역 */}
+            <div className="ml-18 mr-13 flex items-end justify-between mt-4" style={{ height: '160px' }}>
+              {/* 6개 연령대별 바 스켈레톤 */}
+              {['10대', '20대', '30대', '40대', '50대', '60+'].map((age, index) => {
+                // 각 바마다 다른 높이로 스켈레톤 생성 (랜덤한 느낌)
+                const heights = ['60%', '85%', '70%', '45%', '35%', '25%'];
+                return (
+                  <div key={age} className="flex flex-col items-center flex-1">
+                    {/* 스켈레톤 바 */}
+                    <div 
+                      className="w-12 bg-gray-200 rounded-t animate-pulse"
+                      style={{ 
+                        height: heights[index],
+                        animationDelay: `${index * 0.15}s`
+                      }}
+                    ></div>
+                    
+                    {/* X축 레이블 스켈레톤 */}
+                    <div 
+                      className="mt-3 w-8 h-3 bg-gray-200 rounded animate-pulse"
+                      style={{animationDelay: `${index * 0.15 + 0.3}s`}}
+                    ></div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* 중앙 로딩 스피너 */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="w-8 h-8 border-2 border-blue-200 border-t-blue-500 rounded-full animate-spin"></div>
+            </div>
+          </div>
+          
+          {/* 로딩 텍스트 */}
+          <div className="flex justify-center mt-2">
+            <div className="text-gray-500 text-sm">데이터를 불러오는 중...</div>
+          </div>
         </div>
       )}
 
@@ -219,15 +263,15 @@ export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({ dateRange, data,
 
       {/* 막대 그래프 영역 */}
       {!actualLoading && ageData.length > 0 && (
-      <div className="relative flex-1 flex flex-col justify-center">
+      <div className="relative flex-1 flex flex-col justify-start">
         {/* 배경 그리드 */}
-        <div className="absolute left-16 right-13 top-0 bottom-0 flex justify-between pointer-events-none">
+        <div className="absolute left-18 right-13 top-0 bottom-0 flex justify-between pointer-events-none">
           {[0, 1, 2, 3].map((i) => (
             <div key={i} className="w-px h-full bg-gray-200 opacity-20"></div>
           ))}
         </div>
         
-        <div className="space-y-3 relative z-10">
+        <div className="space-y-2 relative z-10 mt-4">
           {ageData.map((age) => {
             const barWidth = (age.users / chartMax) * 100;
             const isHovered = hoveredAge === age.id;
@@ -235,13 +279,13 @@ export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({ dateRange, data,
             return (
               <div key={age.id} className="flex items-center">
                 {/* 연령대 라벨 */}
-                <div className="w-12 text-right text-sm font-medium text-gray-700 mr-4">
+                <div className="w-14 text-right text-sm font-medium text-gray-700 mr-4 whitespace-nowrap">
                   {age.ageRange}
                 </div>
                 
                 {/* 막대 그래프 */}
                 <div className="flex-1 relative mr-3">
-                  <div className="w-full bg-slate-100 rounded-full h-6 relative overflow-hidden">
+                  <div className="w-full bg-slate-100 rounded-full h-5 relative overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all duration-300 cursor-pointer relative"
                       style={{
@@ -268,8 +312,8 @@ export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({ dateRange, data,
           })}
       </div>
 
-      {/* X축 눈금 (동적) */}
-      <div className="mt-8 ml-16 mr-13">
+      {/* X축 눈금 (동적) - 바 시작점과 끝점에 정확히 정렬 */}
+      <div className="mt-3" style={{ marginLeft: '70px', marginRight: '50px' }}>
         <div className="flex justify-between text-xs text-gray-400 font-medium mb-2">
           <span>0</span>
           <span>{formatValue(chartMax / 4, divisor)}{unit}</span>

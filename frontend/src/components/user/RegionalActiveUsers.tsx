@@ -43,25 +43,25 @@ const REGION_NAME_MAPPING: Record<string, string> = {
   'Jeju': '제주특별자치도'
 };
 
-// 지역 데이터 상수 - 컴포넌트 외부로 이동
-const REGION_DATA: RegionData[] = [
-    { id: 'KR-11', name: '서울특별시', users: 120000, percentage: 26.8, color: '#1e40af' },
-    { id: 'KR-41', name: '경기도', users: 95000, percentage: 21.2, color: '#2563eb' },
-    { id: 'KR-26', name: '부산광역시', users: 35000, percentage: 7.8, color: '#3b82f6' },
-    { id: 'KR-48', name: '경상남도', users: 32000, percentage: 7.1, color: '#60a5fa' },
-    { id: 'KR-28', name: '인천광역시', users: 28000, percentage: 6.2, color: '#93c5fd' },
-    { id: 'KR-47', name: '경상북도', users: 22000, percentage: 4.9, color: '#bfdbfe' },
-    { id: 'KR-44', name: '충청남도', users: 20000, percentage: 4.5, color: '#dbeafe' },
-    { id: 'KR-42', name: '강원특별자치도', users: 18000, percentage: 4.0, color: '#eff6ff' },
-    { id: 'KR-45', name: '전라북도', users: 16000, percentage: 3.6, color: '#eff6ff' },
-    { id: 'KR-46', name: '전라남도', users: 15000, percentage: 3.3, color: '#eff6ff' },
-    { id: 'KR-43', name: '충청북도', users: 14000, percentage: 3.1, color: '#eff6ff' },
-    { id: 'KR-27', name: '대구광역시', users: 12000, percentage: 2.7, color: '#eff6ff' },
-    { id: 'KR-29', name: '광주광역시', users: 10000, percentage: 2.2, color: '#eff6ff' },
-    { id: 'KR-30', name: '대전광역시', users: 8000, percentage: 1.8, color: '#eff6ff' },
-    { id: 'KR-31', name: '울산광역시', users: 7000, percentage: 1.6, color: '#eff6ff' },
-    { id: 'KR-50', name: '세종특별자치시', users: 5000, percentage: 1.1, color: '#eff6ff' },
-    { id: 'KR-49', name: '제주특별자치도', users: 3000, percentage: 0.7, color: '#eff6ff' }
+// 지역 메타데이터 (ID, 이름, 색상만 포함)
+const REGION_METADATA = [
+    { id: 'KR-11', name: '서울특별시', color: '#1e40af' },
+    { id: 'KR-41', name: '경기도', color: '#2563eb' },
+    { id: 'KR-26', name: '부산광역시', color: '#3b82f6' },
+    { id: 'KR-48', name: '경상남도', color: '#60a5fa' },
+    { id: 'KR-28', name: '인천광역시', color: '#93c5fd' },
+    { id: 'KR-47', name: '경상북도', color: '#bfdbfe' },
+    { id: 'KR-44', name: '충청남도', color: '#dbeafe' },
+    { id: 'KR-42', name: '강원특별자치도', color: '#eff6ff' },
+    { id: 'KR-45', name: '전라북도', color: '#eff6ff' },
+    { id: 'KR-46', name: '전라남도', color: '#eff6ff' },
+    { id: 'KR-43', name: '충청북도', color: '#eff6ff' },
+    { id: 'KR-27', name: '대구광역시', color: '#eff6ff' },
+    { id: 'KR-29', name: '광주광역시', color: '#eff6ff' },
+    { id: 'KR-30', name: '대전광역시', color: '#eff6ff' },
+    { id: 'KR-31', name: '울산광역시', color: '#eff6ff' },
+    { id: 'KR-50', name: '세종특별자치시', color: '#eff6ff' },
+    { id: 'KR-49', name: '제주특별자치도', color: '#eff6ff' }
   ];
 
 // 색상 범례 상수
@@ -79,7 +79,7 @@ export const RegionalActiveUsers: React.FC<RegionalActiveUsersProps> = ({ dateRa
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [hoveredRegion, setHoveredRegion] = useState<string | null>(null);
   const [mousePosition, setMousePosition] = useState<MousePosition>({ x: 0, y: 0 });
-  const [regionData, setRegionData] = useState<RegionData[]>(REGION_DATA);
+  const [regionData, setRegionData] = useState<RegionData[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -162,7 +162,7 @@ export const RegionalActiveUsers: React.FC<RegionalActiveUsersProps> = ({ dateRa
       console.log('[RegionalActiveUsers] 알려진 지역만 포함한 총 사용자 수:', totalUsers);
 
       // 기존 지역 데이터 업데이트 (영어명 → 한국어명 매핑 적용)
-      const updatedRegionData = REGION_DATA.map(region => {
+      const updatedRegionData = REGION_METADATA.map((region: { id: string; name: string; color: string }) => {
         const koreanName = region.name; // 한국어 지역명
         
         // 영어명에서 한국어명으로 매핑된 데이터 찾기
@@ -186,14 +186,14 @@ export const RegionalActiveUsers: React.FC<RegionalActiveUsersProps> = ({ dateRa
       });
 
       // 사용자 수 기준으로 정렬
-      updatedRegionData.sort((a, b) => b.users - a.users);
+      updatedRegionData.sort((a: RegionData, b: RegionData) => b.users - a.users);
       
       // 순위별 색깔 동적 할당
-      const regionsWithData = updatedRegionData.filter(region => region.users > 0);
-      const regionsWithoutData = updatedRegionData.filter(region => region.users === 0);
+      const regionsWithData = updatedRegionData.filter((region: RegionData) => region.users > 0);
+      const regionsWithoutData = updatedRegionData.filter((region: RegionData) => region.users === 0);
       
       // 사용자 수가 있는 지역들에 순위별 색깔 할당
-      const colorAssignedRegions = regionsWithData.map((region, index) => {
+      const colorAssignedRegions = regionsWithData.map((region: RegionData, index: number) => {
         let colorLevel: number;
         
         if (regionsWithData.length <= COLOR_LEGEND.length) {
@@ -216,7 +216,7 @@ export const RegionalActiveUsers: React.FC<RegionalActiveUsersProps> = ({ dateRa
       });
       
       // 데이터가 없는 지역들은 가장 연한 색으로 설정
-      const noDataRegions = regionsWithoutData.map(region => ({
+      const noDataRegions = regionsWithoutData.map((region: RegionData) => ({
         ...region,
         color: COLOR_LEGEND[0].color // 가장 연한 색
       }));
@@ -227,8 +227,7 @@ export const RegionalActiveUsers: React.FC<RegionalActiveUsersProps> = ({ dateRa
       setRegionData(finalRegionData);
     } catch (error) {
       console.error('Failed to fetch regional data:', error);
-      // Fallback으로 기본 데이터 사용
-      setRegionData(REGION_DATA);
+      setRegionData([]);
     } finally {
       setLoading(false);
     }

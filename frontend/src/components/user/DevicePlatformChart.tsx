@@ -255,13 +255,7 @@ export const DevicePlatformChart: React.FC<DevicePlatformChartProps> = ({ dateRa
       setPlatformData(formattedData);
     } catch (error) {
       console.error('Failed to fetch device platform data:', error);
-      // Fallback 데이터
-      setPlatformData([
-        { id: 'ios', name: 'iOS', users: 180000, percentage: 40.9, color: PLATFORM_COLORS.ios, deviceType: 'mobile' },
-        { id: 'android', name: 'Android', users: 120000, percentage: 27.3, color: PLATFORM_COLORS.android, deviceType: 'mobile' },
-        { id: 'windows', name: 'Windows', users: 100000, percentage: 22.7, color: PLATFORM_COLORS.windows, deviceType: 'desktop' },
-        { id: 'mac', name: 'Mac', users: 40000, percentage: 9.1, color: PLATFORM_COLORS.mac, deviceType: 'desktop' }
-      ]);
+      setPlatformData([]);
     } finally {
       setLoading(false);
     }
@@ -368,8 +362,65 @@ export const DevicePlatformChart: React.FC<DevicePlatformChartProps> = ({ dateRa
 
       {/* 로딩 상태 */}
       {actualLoading && (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-gray-500">데이터를 불러오는 중...</div>
+        <div className="flex-1 flex flex-col">
+          {/* 이중 도넛 차트 스켈레톤 */}
+          <div className="flex items-center justify-center flex-1">
+            <div className="relative">
+              <div className="relative w-[280px] h-[280px] flex items-center justify-center">
+                {/* 외부 링 스켈레톤 (플랫폼): 외부 반지름 126px, 내부 반지름 84px */}
+                <div className="absolute w-[252px] h-[252px] rounded-full border-[21px] border-gray-200 animate-pulse" style={{animationDelay: '0.2s'}}></div>
+                
+                {/* 내부 링 스켈레톤 (기기 타입): 외부 반지름 84px, 내부 반지름 42px */}
+                <div className="absolute w-[168px] h-[168px] rounded-full border-[21px] border-gray-300 animate-pulse" style={{animationDelay: '0.4s'}}></div>
+                
+                {/* 중앙 홀: 반지름 42px = 지름 84px */}
+                <div className="absolute w-[84px] h-[84px] bg-white rounded-full"></div>
+                
+                {/* 로딩 스피너 */}
+                <div className="absolute w-6 h-6 border-2 border-blue-200 border-t-blue-500 rounded-full animate-spin"></div>
+              </div>
+              
+              {/* 범례 스켈레톤 */}
+              <div className="mt-6 flex flex-col gap-3">
+                {/* 기기 타입 범례 */}
+                <div className="flex justify-center gap-6">
+                  <div className="flex items-center gap-2 animate-pulse">
+                    <div className="w-4 h-4 bg-gray-200 rounded"></div>
+                    <div className="w-14 h-4 bg-gray-200 rounded"></div>
+                  </div>
+                  <div className="flex items-center gap-2 animate-pulse">
+                    <div className="w-4 h-4 bg-gray-200 rounded"></div>
+                    <div className="w-16 h-4 bg-gray-200 rounded"></div>
+                  </div>
+                </div>
+                
+                {/* 플랫폼별 범례 */}
+                <div className="flex justify-center gap-4">
+                  <div className="flex items-center gap-2 animate-pulse">
+                    <div className="w-3 h-3 bg-gray-200 rounded"></div>
+                    <div className="w-12 h-3 bg-gray-200 rounded"></div>
+                  </div>
+                  <div className="flex items-center gap-2 animate-pulse">
+                    <div className="w-3 h-3 bg-gray-200 rounded"></div>
+                    <div className="w-16 h-3 bg-gray-200 rounded"></div>
+                  </div>
+                  <div className="flex items-center gap-2 animate-pulse">
+                    <div className="w-3 h-3 bg-gray-200 rounded"></div>
+                    <div className="w-18 h-3 bg-gray-200 rounded"></div>
+                  </div>
+                  <div className="flex items-center gap-2 animate-pulse">
+                    <div className="w-3 h-3 bg-gray-200 rounded"></div>
+                    <div className="w-10 h-3 bg-gray-200 rounded"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* 로딩 텍스트 */}
+          <div className="flex justify-center mt-4">
+            <div className="text-gray-500 text-sm">데이터를 불러오는 중...</div>
+          </div>
         </div>
       )}
 
@@ -442,32 +493,32 @@ export const DevicePlatformChart: React.FC<DevicePlatformChartProps> = ({ dateRa
                     const platformRatio = deviceTotal > 0 ? platform.users / deviceTotal : 0;
                     const platformAngleRange = (deviceEndAngle - deviceStartAngle) * platformRatio;
                     
-                    const startAngle = platformCumulativeAngle;
+                const startAngle = platformCumulativeAngle;
                     const endAngle = platformCumulativeAngle + platformAngleRange;
-                    const isHovered = hoveredSegment === platform.id;
-                    
-                    const pathData = createArcPath(centerX, centerY, CHART_CONFIG.platformInnerRadius, CHART_CONFIG.platformOuterRadius, startAngle, endAngle);
-                    platformCumulativeAngle = endAngle;
+                const isHovered = hoveredSegment === platform.id;
+                
+                const pathData = createArcPath(centerX, centerY, CHART_CONFIG.platformInnerRadius, CHART_CONFIG.platformOuterRadius, startAngle, endAngle);
+                platformCumulativeAngle = endAngle;
 
                     segments.push(
-                      <path
+                  <path
                         key={`platform-${platform.id}`}
-                        d={pathData}
-                        fill={platform.color}
-                        stroke="white"
-                        strokeWidth="3"
-                        className="cursor-pointer transition-all duration-300"
-                        style={{
-                          opacity: hoveredSegment === platform.id ? 1 : 
-                                   hoveredSegment && hoveredSegment !== platform.id ? 0.6 : 0.9,
-                          filter: isHovered ? 'brightness(1.2)' : 'none'
-                        }}
-                        onMouseEnter={(event) => handleSegmentHover(platform.id, event)}
-                        onMouseLeave={handleSegmentLeave}
-                        onMouseMove={handleMouseMove}
-                      />
-                    );
-                  });
+                    d={pathData}
+                    fill={platform.color}
+                    stroke="white"
+                    strokeWidth="3"
+                    className="cursor-pointer transition-all duration-300"
+                    style={{
+                      opacity: hoveredSegment === platform.id ? 1 : 
+                               hoveredSegment && hoveredSegment !== platform.id ? 0.6 : 0.9,
+                      filter: isHovered ? 'brightness(1.2)' : 'none'
+                    }}
+                    onMouseEnter={(event) => handleSegmentHover(platform.id, event)}
+                    onMouseLeave={handleSegmentLeave}
+                    onMouseMove={handleMouseMove}
+                  />
+                );
+              });
                   
                   deviceCumulativeAngle = deviceEndAngle;
                 });
@@ -553,53 +604,53 @@ export const DevicePlatformChart: React.FC<DevicePlatformChartProps> = ({ dateRa
                     
                     const startAngle = platformCumulativeAngle;
                     const endAngle = platformCumulativeAngle + platformAngleRange;
-                    const midAngle = (startAngle + endAngle) / 2;
-                    const midAngleRad = (midAngle * Math.PI) / 180;
-                    
-                    // 텍스트 위치 계산 (외부 링의 중간)
-                    const textRadius = CHART_CONFIG.platformTextRadius;
-                    const textX = centerX + textRadius * Math.cos(midAngleRad);
-                    const textY = centerY + textRadius * Math.sin(midAngleRad);
-                    
-                    // 텍스트 회전 각도 계산 (90도 추가 회전 + 거꾸로 뒤집히지 않도록)
-                    let rotationAngle = midAngle + 90;
-                    if (midAngle > 0 && midAngle < 180) {
-                      rotationAngle = midAngle + 270;
-                    }
-                    
+                const midAngle = (startAngle + endAngle) / 2;
+                const midAngleRad = (midAngle * Math.PI) / 180;
+                
+                // 텍스트 위치 계산 (외부 링의 중간)
+                const textRadius = CHART_CONFIG.platformTextRadius;
+                const textX = centerX + textRadius * Math.cos(midAngleRad);
+                const textY = centerY + textRadius * Math.sin(midAngleRad);
+                
+                // 텍스트 회전 각도 계산 (90도 추가 회전 + 거꾸로 뒤집히지 않도록)
+                let rotationAngle = midAngle + 90;
+                if (midAngle > 0 && midAngle < 180) {
+                  rotationAngle = midAngle + 270;
+                }
+                
                     platformCumulativeAngle = endAngle;
 
-                    // 세그먼트가 충분히 클 때만 텍스트 표시
+                // 세그먼트가 충분히 클 때만 텍스트 표시
                     const actualPercentage = (platformAngleRange / 360) * 100;
                     if (actualPercentage < 8) return;
 
                     texts.push(
                       <g key={`platform-${platform.id}-text`}>
-                        <text 
-                          x={textX} 
-                          y={textY} 
-                          textAnchor="middle" 
-                          dominantBaseline="central"
-                          className="text-xs font-semibold fill-white pointer-events-none"
-                          transform={`rotate(${rotationAngle}, ${textX}, ${textY})`}
-                          dy="-0.5em"
-                        >
-                          {platform.name}
-                        </text>
-                        <text 
-                          x={textX} 
-                          y={textY} 
-                          textAnchor="middle" 
-                          dominantBaseline="central"
-                          className="text-xs font-medium fill-white pointer-events-none"
-                          transform={`rotate(${rotationAngle}, ${textX}, ${textY})`}
-                          dy="0.7em"
-                        >
+                    <text 
+                      x={textX} 
+                      y={textY} 
+                      textAnchor="middle" 
+                      dominantBaseline="central"
+                      className="text-xs font-semibold fill-white pointer-events-none"
+                      transform={`rotate(${rotationAngle}, ${textX}, ${textY})`}
+                      dy="-0.5em"
+                    >
+                      {platform.name}
+                    </text>
+                    <text 
+                      x={textX} 
+                      y={textY} 
+                      textAnchor="middle" 
+                      dominantBaseline="central"
+                      className="text-xs font-medium fill-white pointer-events-none"
+                      transform={`rotate(${rotationAngle}, ${textX}, ${textY})`}
+                      dy="0.7em"
+                    >
                           {actualPercentage.toFixed(1)}%
-                        </text>
-                      </g>
-                    );
-                  });
+                    </text>
+                  </g>
+                );
+              });
                   
                   deviceCumulativeAngle = deviceEndAngle;
                 });

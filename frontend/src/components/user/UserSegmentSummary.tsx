@@ -138,8 +138,7 @@ export const UserSegmentSummary: React.FC<UserSegmentSummaryProps> = ({ refreshK
         }
       } catch (error) {
         console.error('Failed to generate user segment summary:', error);
-        // Fallback 데이터로 요약 생성
-        setSummary('현재 서비스의 <strong>핵심 사용자층</strong>은 <strong>20대 남성</strong>으로, 전체 사용자의 <strong>15.2%</strong>를 차지합니다.');
+        setSummary('');
       }
     };
     

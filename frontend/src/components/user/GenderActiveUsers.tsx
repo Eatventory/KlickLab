@@ -205,11 +205,7 @@ export const GenderActiveUsers: React.FC<GenderActiveUsersProps> = ({ dateRange,
       setGenderData(formattedData);
     } catch (error) {
       console.error('Failed to fetch gender data:', error);
-      // Fallback 데이터 (FEMALE 먼저, MALE 나중에 - 차트와 범례 일치)
-      setGenderData([
-        { id: 'female', name: 'FEMALE', users: 175000, percentage: 39.4, color: GENDER_COLORS.female },
-        { id: 'male', name: 'MALE', users: 267000, percentage: 60.6, color: GENDER_COLORS.male }
-      ]);
+      setGenderData([]);
     } finally {
       setLoading(false);
     }
@@ -298,21 +294,51 @@ export const GenderActiveUsers: React.FC<GenderActiveUsersProps> = ({ dateRange,
       </div>
 
       {/* 로딩 상태 */}
-      {loading && (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-gray-500">데이터를 불러오는 중...</div>
+      {actualLoading && (
+        <div className="flex-1 flex flex-col">
+          {/* 도넛 차트 스켈레톤 */}
+          <div className="flex justify-center mb-8">
+            <div className="relative w-80 h-80 flex items-center justify-center">
+              {/* 실제 차트와 동일한 크기의 도넛 스켈레톤 */}
+              {/* 외부 원: 반지름 125px = 지름 250px */}
+              <div className="absolute w-[250px] h-[250px] rounded-full border-[25px] border-gray-200 animate-pulse"></div>
+              
+              {/* 내부 원 (도넛 홀): 반지름 75px = 지름 150px */}
+              <div className="absolute w-[150px] h-[150px] bg-white rounded-full"></div>
+              
+              {/* 로딩 스피너 */}
+              <div className="absolute w-8 h-8 border-2 border-blue-200 border-t-blue-500 rounded-full animate-spin"></div>
+            </div>
+          </div>
+          
+          {/* 범례 스켈레톤 */}
+          <div className="flex justify-center gap-8">
+            <div className="flex items-center gap-2 animate-pulse">
+              <div className="w-4 h-4 bg-gray-200 rounded"></div>
+              <div className="w-16 h-4 bg-gray-200 rounded"></div>
+            </div>
+            <div className="flex items-center gap-2 animate-pulse">
+              <div className="w-4 h-4 bg-gray-200 rounded"></div>
+              <div className="w-16 h-4 bg-gray-200 rounded"></div>
+            </div>
+          </div>
+          
+          {/* 로딩 텍스트 */}
+          <div className="flex justify-center mt-4">
+            <div className="text-gray-500 text-sm">데이터를 불러오는 중...</div>
+          </div>
         </div>
       )}
 
       {/* 데이터 없음 상태 */}
-      {!loading && genderData.length === 0 && (
+      {!actualLoading && genderData.length === 0 && (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-gray-500">표시할 데이터가 없습니다.</div>
         </div>
       )}
 
       {/* 도넛 차트 영역 */}
-      {!loading && genderData.length > 0 && (
+      {!actualLoading && genderData.length > 0 && (
         <>
       <div className="flex justify-center mb-8">
         <div 
