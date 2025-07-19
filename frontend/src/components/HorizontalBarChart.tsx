@@ -48,6 +48,9 @@ const HorizontalBarChart: React.FC<HorizontalBarChartProps> = ({ data, tooltipRe
   const adjustedX = tooltipPosition.x + tooltipSize.width + 12 > window.innerWidth
     ? tooltipPosition.x - tooltipSize.width - 12
     : tooltipPosition.x + 12;
+  const adjustedY = tooltipPosition.y + tooltipSize.height + 12 > window.innerHeight
+    ? tooltipPosition.y - tooltipSize.height - 12
+    : tooltipPosition.y + 12;
 
   const maxValue = Math.max(...data.map(d => d.value));
 
@@ -108,7 +111,7 @@ const HorizontalBarChart: React.FC<HorizontalBarChartProps> = ({ data, tooltipRe
                 ref={tooltipRef}
                 className="fixed z-50 bg-white border border-gray-200 rounded-md shadow-lg text-sm text-gray-800 px-3 py-2 whitespace-nowrap"
                 style={{
-                  top: tooltipPosition.y,
+                  top: adjustedY,
                   left: adjustedX,
                   pointerEvents: 'none',
                 }}

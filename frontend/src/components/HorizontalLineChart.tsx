@@ -55,19 +55,25 @@ const HorizontalLineChart: React.FC<HorizontalLineChartProps> = ({
 
   const chartRef = useRef<HTMLDivElement | null>(null);
   const [chartLeftOffset, setChartLeftOffset] = useState(0);
+  const [chartBottomOffset, setChartBottomOffset] = useState(0);
 
   useLayoutEffect(() => {
     if (chartRef.current) {
       const rect = chartRef.current.getBoundingClientRect();
       setChartLeftOffset(rect.left);
+      setChartBottomOffset(rect.bottom);
     }
   }, []);
 
   const absoluteX = chartLeftOffset + tooltipPos.x;
+  const absoluteY = chartBottomOffset + tooltipPos.y;
 
   const adjustedX = absoluteX + tooltipSize.width + 12 > window.innerWidth
     ? tooltipPos.x - tooltipSize.width - 12
     : tooltipPos.x + 12;
+  const adjustedY = absoluteY + tooltipSize.height + 12 > window.innerHeight
+    ? tooltipPos.y - tooltipSize.height - 12
+    : tooltipPos.y + 12;
 
   const latestItem = data[data.length - 1];
 
@@ -177,7 +183,7 @@ const HorizontalLineChart: React.FC<HorizontalLineChartProps> = ({
           ref={tooltipRef}
           className="absolute z-50 bg-white border border-gray-200 rounded-md shadow-lg text-sm text-gray-800 px-3 py-2 whitespace-nowrap"
           style={{
-            top: tooltipPos.y,
+            top: adjustedY,
             left: adjustedX,
             pointerEvents: 'none',
           }}
@@ -191,7 +197,10 @@ const HorizontalLineChart: React.FC<HorizontalLineChartProps> = ({
           ref={tooltipRef}
           className="fixed z-50 bg-white border border-gray-200 rounded-md shadow-lg text-sm text-gray-800 px-3 py-2 whitespace-nowrap"
           style={{
-            top: tooltipPos.y,
+            top:
+              chartBottomOffset + tooltipPos.y + tooltipSize.height + 12 > window.innerHeight
+                ? tooltipPos.y - tooltipSize.height - 12
+                : tooltipPos.y + 12,
             left:
               chartLeftOffset + tooltipPos.x + tooltipSize.width + 12 > window.innerWidth
                 ? tooltipPos.x - tooltipSize.width - 12
