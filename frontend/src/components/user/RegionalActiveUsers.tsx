@@ -299,7 +299,7 @@ export const RegionalActiveUsers: React.FC<RegionalActiveUsersProps> = ({ dateRa
   }, [hoveredRegion]);
 
   return (
-    <div className="bg-white rounded-lg border p-6 h-full flex flex-col">
+    <div className="bg-white rounded-lg border p-5 h-full flex flex-col">
       <div className="flex items-center gap-2 mb-3">
         <h2 className="text-lg font-semibold text-gray-900">지역별 활성 사용자</h2>
         {loading && <div className="text-xs text-gray-500">업데이트 중...</div>}
@@ -522,7 +522,7 @@ export const RegionalActiveUsers: React.FC<RegionalActiveUsersProps> = ({ dateRa
                 onMouseLeave={handleRegionLeave}
                 onMouseMove={handleMouseMove}
               >
-                <div className="flex items-center justify-between text-xs mb-1">
+                <div className="flex items-center justify-between text-xs mb-2">
                   <div className="flex items-center gap-2">
                     <div 
                       className="w-2 h-2 rounded"
