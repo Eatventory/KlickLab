@@ -8,6 +8,7 @@ import { FunnelConversionChart } from './FunnelConversionChart';
 import { DeviceBrowserDonutChart } from './DeviceBrowserDonutChart';
 import { HourlyTrendLineChart } from './HourlyTrendLineChart';
 import { ClickFlowSankeyChart } from './ClickFlowSankeyChart';
+import { keyframes } from 'framer-motion';
 
 // 타입 정의
 interface FilterOptions {
@@ -151,16 +152,26 @@ export const AcquisitionDashboard: React.FC = () => {
           visitors: item.users,
           conversionRate: 0 // 백엔드에서 계산 필요
         })),
-        deviceData: platformData.device.map((item: any) => ({
-          name: item.type,
-          value: item.users,
-          percentage: 0 // 백엔드에서 계산 필요
-        })),
-        browserData: platformData.browser.map((item: any) => ({
-          name: item.name,
-          value: item.users,
-          percentage: 0 // 백엔드에서 계산 필요
-        })),
+        deviceData: (() => {
+          const totalDeviceUsers = platformData.device.reduce((sum: number, item: any) => sum + item.users, 0);
+          return platformData.device.map((item: any) => ({
+            name: item.type,
+            value: item.users,
+            percentage: totalDeviceUsers > 0 ? Math.round((item.users / totalDeviceUsers) * 100) : 0
+          }));
+        })(),
+        browserData: (() => {
+          console.log('[DEBUG] platformData.browser:', platformData.browser);
+          const totalBrowserUsers = platformData.browser.reduce((sum: number, item: any) => sum + item.users, 0);
+          console.log('[DEBUG] totalBrowserUsers:', totalBrowserUsers);
+          const result = platformData.browser.map((item: any) => ({
+            name: item.name,
+            value: item.users,
+            percentage: totalBrowserUsers > 0 ? Math.round((item.users / totalBrowserUsers) * 100) : 0
+          }));
+          console.log('[DEBUG] browserData result:', result);
+          return result;
+        })(),
         clickFlowData: {
           nodes: [], // clickFlowData에서 노드 추출 로직 필요
           links: clickFlowData.map((item: any) => ({
@@ -180,10 +191,14 @@ export const AcquisitionDashboard: React.FC = () => {
           clicks: 0 // 백엔드에서 clicks 데이터 추가 필요
         })),
         realtimeData: {
-          topCountries: countriesData.map((item: any) => ({
-            country: item.region,
-            users: item.users
-          }))
+          topCountries: countriesData.map((item: any) => {
+            const key = Object.keys(item).find(k => k !== 'users');
+            console.log('[Region Key]', key, '| item:', item);
+            return {
+              city: item[key ?? 'unknown'],
+              users: item.users
+            };
+          })
         }
       };
 
@@ -312,7 +327,7 @@ export const AcquisitionDashboard: React.FC = () => {
           <div className="md:col-span-6 bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
             <h3 className="text-sm font-semibold text-gray-900 mb-2">상위 유입 채널</h3>
             <HorizontalBarChart
-              data={acquisitionData.topChannelData.map((d:any)=>({label:d.channel,value:d.users}))}
+              data={acquisitionData.topChannelData.map((d:any, index: number)=>({label:d.channel,value:d.users, key: `${d.channel}-${index}`}))}
               valueFormatter={(v)=>v.toLocaleString() + '명'}
             />
           </div>
@@ -336,7 +351,7 @@ export const AcquisitionDashboard: React.FC = () => {
             <h3 className="text-sm font-semibold text-gray-900 mb-2">채널 그룹 분석</h3>
             <div className="space-y-1 text-xs">
               {acquisitionData.channelGroupData.slice(0, 5).map((group, index) => (
-                <div key={index} className="flex justify-between">
+                <div key={`${group.channel}-${group.device}-${index}`} className="flex justify-between">
                   <span>{group.channel} - {group.device}</span>
                   <span>{group.users}</span>
                 </div>
@@ -350,21 +365,21 @@ export const AcquisitionDashboard: React.FC = () => {
           <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
             <h4 className="text-sm font-semibold text-gray-900 mb-2">신규 사용자 채널</h4>
             <HorizontalBarChart
-              data={acquisitionData.channelGroupData.slice(0,10).map((c:any)=>({label:c.channel,value:c.newUsers}))}
+              data={acquisitionData.channelGroupData.slice(0,10).map((c:any, index: number)=>({label:c.channel,value:c.newUsers, key: `new-${c.channel}-${index}`}))}
               valueFormatter={(v)=>v.toLocaleString()+'명'}
             />
           </div>
           <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
             <h4 className="text-sm font-semibold text-gray-900 mb-2">Google Ads 캠페인</h4>
             <HorizontalBarChart
-              data={acquisitionData.sessionData.slice(0,10).map((c:any)=>({label:c.campaign,value:c.sessions}))}
+              data={acquisitionData.sessionData.slice(0,10).map((c:any, index: number)=>({label:c.campaign,value:c.sessions, key: `campaign-${c.campaign}-${index}`}))}
               valueFormatter={(v)=>v.toLocaleString()+'회'}
             />
           </div>
           <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
             <h4 className="text-sm font-semibold text-gray-900 mb-2">상위 지역 유입</h4>
             <HorizontalBarChart
-              data={acquisitionData.realtimeData.topCountries.slice(0,10).map((c:any)=>({label:c.country,value:c.users}))}
+              data={acquisitionData.realtimeData.topCountries.slice(0,10).map((c:any, index: number)=>({label:c.city,value:c.users, key: `country-${c.city}-${index}`}))}
               valueFormatter={(v)=>v.toLocaleString()+'명'}
             />
           </div>

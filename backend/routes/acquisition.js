@@ -19,12 +19,10 @@ router.get('/overview', authMiddleware, async (req, res) => {
   const { startDate, endDate } = req.query;
   
   try {
-    // 날짜 조건 설정
     const dateCondition = startDate && endDate 
       ? `date >= toDate('${startDate}') AND date <= toDate('${endDate}')`
       : buildQueryWhereClause("daily", 7);
 
-    // active_users: 특정 날짜 기준 전체 유저 수
     const activeUsersQuery = `
       SELECT sum(visitors) as active_users
       FROM daily_metrics
@@ -32,7 +30,6 @@ router.get('/overview', authMiddleware, async (req, res) => {
         AND sdk_key = '${sdk_key}'
     `;
 
-    // new_users: daily_user_distribution 에서 is_new = 1 유저 집계
     const newUsersQuery = `
       SELECT sum(new_visitors) AS new_users
       FROM daily_metrics
@@ -40,7 +37,6 @@ router.get('/overview', authMiddleware, async (req, res) => {
         AND sdk_key = '${sdk_key}'
     `;
 
-    // realtime_users: 최근 5분간 user_id count(distinct)
     const realtimeUsersQuery = `
       SELECT count(distinct user_id) as realtime_users
       FROM events
@@ -72,7 +68,6 @@ router.get('/hourly-trend', authMiddleware, async (req, res) => {
   const { startDate, endDate } = req.query;
   
   try {
-    // 먼저 hourly_metrics 테이블에 데이터가 있는지 확인
     const checkQuery = `
       SELECT count() as count
       FROM hourly_metrics
@@ -85,7 +80,6 @@ router.get('/hourly-trend', authMiddleware, async (req, res) => {
     const hasData = checkData.data[0]?.count > 0;
     
     if (!hasData) {
-      // hourly_metrics 테이블이 없으면 최근 24시간 events 테이블로부터 집계
       const query = `
         SELECT 
           formatDateTime(timestamp, '%H:00') AS hour,
@@ -105,7 +99,6 @@ router.get('/hourly-trend', authMiddleware, async (req, res) => {
         users: Number(item.users)
       })));
     } else {
-      // hourly_metrics에 데이터가 있으면 원래 쿼리 실행
       const dateCondition = startDate && endDate 
         ? `date_time >= toDateTime('${startDate}') AND date_time <= toDateTime('${endDate}')`
         : `date_time >= now() - INTERVAL 24 HOUR`;
@@ -141,7 +134,6 @@ router.get('/top-channels', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   
   try {
-    // 임시로 날짜 필터 제거하여 모든 기간의 데이터 조회
     const query = `
       SELECT 
         segment_value as channel,
@@ -226,30 +218,30 @@ router.get('/platform-analysis', authMiddleware, async (req, res) => {
   
   try {
     const dateCondition = startDate && endDate 
-      ? `date >= toDate('${startDate}') AND date <= toDate('${endDate}')`
-      : buildQueryWhereClause("daily", 7);
+      ? `timestamp >= toDateTime('${startDate}') AND timestamp <= toDateTime('${endDate}')`
+      : `timestamp >= now() - INTERVAL 7 DAY`;
 
-    // 디바이스 분석: daily_user_distribution 기준
     const deviceQuery = `
       SELECT 
-        segment_value AS type,
-        sum(user_count) AS users
-      FROM klicklab.daily_user_distribution
-      WHERE segment_type = 'device_type'
-        AND sdk_key = '${sdk_key}'
-      GROUP BY segment_value
+        device_type AS type,
+        count(distinct user_id) AS users
+      FROM events
+      WHERE sdk_key = '${sdk_key}'
+        AND ${dateCondition}
+        AND device_type != ''
+      GROUP BY device_type
       ORDER BY users DESC
     `;
 
-    // 브라우저 분석: daily_user_distribution 기준
     const browserQuery = `
       SELECT 
-        segment_value AS name,
-        sum(user_count) AS users
-      FROM klicklab.daily_user_distribution
-      WHERE segment_type = 'browser_name'
-        AND sdk_key = '${sdk_key}'
-      GROUP BY segment_value
+        browser AS name,
+        count(distinct user_id) AS users
+      FROM events
+      WHERE sdk_key = '${sdk_key}'
+        AND ${dateCondition}
+        AND browser != ''
+      GROUP BY browser
       ORDER BY users DESC
       LIMIT 10
     `;
@@ -402,10 +394,18 @@ router.get('/top-countries', authMiddleware, async (req, res) => {
   const { startDate, endDate } = req.query;
 
   try {
-    const candidateCols = ['traffic_country', 'traffic_region', 'country', 'region'];
+    const candidateCols = ['city', 'traffic_country', 'traffic_region', 'country', 'region'];
     const colQuery = `
       SELECT name FROM system.columns 
       WHERE database = 'klicklab' AND table = 'events' AND name IN (${candidateCols.map(c => `'${c}'`).join(",")})
+      ORDER BY CASE 
+        WHEN name = 'city' THEN 1
+        WHEN name = 'traffic_country' THEN 2
+        WHEN name = 'traffic_region' THEN 3
+        WHEN name = 'country' THEN 4
+        WHEN name = 'region' THEN 5
+        ELSE 6
+      END
       LIMIT 1`;
 
     const colRes = await clickhouse.query({ query: colQuery, format: 'JSONEachRow' });
@@ -413,7 +413,6 @@ router.get('/top-countries', authMiddleware, async (req, res) => {
     const col = colRows[0]?.name;
 
     if (!col) {
-      // 컬럼이 없으면 빈 배열 반환 (대시보드 오류 방지)
       return res.status(200).json([]);
     }
 
@@ -429,6 +428,7 @@ router.get('/top-countries', authMiddleware, async (req, res) => {
       WHERE ${dateCondition}
         AND sdk_key = '${sdk_key}'
         AND ${col} != ''
+        AND ${col} IS NOT NULL
       GROUP BY ${col}
       ORDER BY users DESC
       LIMIT 20
