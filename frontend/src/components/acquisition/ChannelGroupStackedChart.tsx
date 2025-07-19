@@ -190,15 +190,14 @@ export const ChannelGroupStackedChart: React.FC<ChannelGroupStackedChartProps> =
   }
 
   return (
-    <div className="w-full h-full flex items-center justify-center">
-      <div className="w-full h-[85%]">
-        <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-            data={safeData}
-            layout="vertical"
-            margin={{ top: 5, right: 10, left: 20, bottom: 80 }}
-            barCategoryGap="15%"
-          >
+    <div className="w-full h-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart
+          data={safeData}
+          layout="vertical"
+          margin={{ top: 10, right: 10, left: 20, bottom: 30 }}
+          barCategoryGap="20%"
+        >
           <XAxis
             type="number"
             domain={[0, 100]}
@@ -214,50 +213,49 @@ export const ChannelGroupStackedChart: React.FC<ChannelGroupStackedChartProps> =
           <Tooltip content={<CustomTooltip />} />
           <Legend content={<CustomLegend />} />
 
-                     {/* Mobile */}
-           <Bar
-             dataKey="mobile"
-             stackId="a"
-             fill={DEVICE_COLORS.mobile}
-             stroke={DEVICE_COLORS.mobile}
-             strokeWidth={2}
-             minPointSize={5}
-             barSize={15}
-          >
-          {/* 
-          <LabelList
+          {/* Mobile */}
+          <Bar
             dataKey="mobile"
-            position="insideRight"
-            formatter={(value: any) => (value > 0 ? `${value.toFixed(1)}%` : '')}
-            className="text-white text-xs font-semibold"
-            fill="#FFFFFF"
-          />
-          */}
+            stackId="a"
+            fill={DEVICE_COLORS.mobile}
+            stroke={DEVICE_COLORS.mobile}
+            strokeWidth={2}
+            minPointSize={5}
+            barSize={15}
+          >
+            {/* 
+            <LabelList
+              dataKey="mobile"
+              position="insideRight"
+              formatter={(value: any) => (value > 0 ? `${value.toFixed(1)}%` : '')}
+              className="text-white text-xs font-semibold"
+              fill="#FFFFFF"
+            />
+            */}
           </Bar>
 
-                     {/* Desktop */}
-           <Bar
-             dataKey="desktop"
-             stackId="a"
-             fill={DEVICE_COLORS.desktop}
-             stroke={DEVICE_COLORS.desktop}
-             strokeWidth={2}
-             minPointSize={5}
-             barSize={15}
-          >
-          {/* 
-          <LabelList
+          {/* Desktop */}
+          <Bar
             dataKey="desktop"
-            position="insideRight"
-            formatter={(value: any) => (value > 0 ? `${value.toFixed(1)}%` : '')}
-            className="text-white text-xs font-semibold"
-            fill="#FFFFFF"
-          />
-          */}
+            stackId="a"
+            fill={DEVICE_COLORS.desktop}
+            stroke={DEVICE_COLORS.desktop}
+            strokeWidth={2}
+            minPointSize={5}
+            barSize={15}
+          >
+            {/* 
+            <LabelList
+              dataKey="desktop"
+              position="insideRight"
+              formatter={(value: any) => (value > 0 ? `${value.toFixed(1)}%` : '')}
+              className="text-white text-xs font-semibold"
+              fill="#FFFFFF"
+            />
+            */}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
-      </div>
     </div>
   );
 };
