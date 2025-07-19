@@ -3,11 +3,12 @@ import { Calendar, Settings, Share2, MoreHorizontal, BarChart3, Target, Globe, U
 import { useSegmentFilter } from '../../context/SegmentFilterContext';
 
 // 컴포넌트들 import
-import HorizontalBarChart from '../HorizontalBarChart';
+import HorizontalBarChart from '../../components/HorizontalBarChart';
 import { FunnelConversionChart } from './FunnelConversionChart';
 import { DeviceBrowserDonutChart } from './DeviceBrowserDonutChart';
 import { HourlyTrendLineChart } from './HourlyTrendLineChart';
 import { ClickFlowSankeyChart } from './ClickFlowSankeyChart';
+import { ChannelGroupStackedChart } from './ChannelGroupStackedChart';
 import { keyframes } from 'framer-motion';
 
 // 타입 정의
@@ -324,13 +325,13 @@ export const AcquisitionDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* 3행: 상위 채널 + 플랫폼 분석 */}
+        {/* 3행: 채널 그룹 + 플랫폼 분석 */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-          <div className="md:col-span-6 bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-            <h3 className="text-sm font-semibold text-gray-900 mb-2">상위 유입 채널</h3>
-            <HorizontalBarChart
-              data={acquisitionData.topChannelData.map((d:any, index: number)=>({label:d.channel,value:d.users, key: `${d.channel}-${index}`}))}
-              valueFormatter={(v)=>v.toLocaleString() + '명'}
+          <div className="md:col-span-6 bg-white rounded-lg border border-gray-200 p-4 h-[300px] hover:shadow-lg transition-shadow">
+            <h3 className="text-sm font-semibold text-gray-900 mb-2">채널 그룹 분석</h3>
+            <ChannelGroupStackedChart 
+              data={acquisitionData.channelGroupData} 
+              refreshKey={refreshKey} 
             />
           </div>
           <div className="md:col-span-6 bg-white rounded-lg border border-gray-200 p-4 h-[300px] hover:shadow-lg transition-shadow">
@@ -343,22 +344,18 @@ export const AcquisitionDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* 4행: 유입 흐름 + 채널 그룹 */}
+        {/* 4행: 유입 흐름 + 상위 채널 */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-          <div className="md:col-span-6 bg-white rounded-lg border border-gray-200 p-4 h-56 hover:shadow-lg transition-shadow">
+          <div className="md:col-span-8 bg-white rounded-lg border border-gray-200 p-4 h-[300px] hover:shadow-lg transition-shadow">
             <h3 className="text-sm font-semibold text-gray-900 mb-2">유입 흐름</h3>
             <ClickFlowSankeyChart data={acquisitionData.clickFlowData} refreshKey={refreshKey} />
           </div>
-          <div className="md:col-span-6 bg-white rounded-lg border border-gray-200 p-4 h-56 hover:shadow-lg transition-shadow">
-            <h3 className="text-sm font-semibold text-gray-900 mb-2">채널 그룹 분석</h3>
-            <div className="space-y-1 text-xs">
-              {acquisitionData.channelGroupData.slice(0, 5).map((group, index) => (
-                <div key={`${group.channel}-${group.device}-${index}`} className="flex justify-between">
-                  <span>{group.channel} - {group.device}</span>
-                  <span>{group.users}</span>
-                </div>
-              ))}
-            </div>
+          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-6 h-[300px] shadow-sm">
+            <h3 className="text-sm font-semibold text-gray-900 mb-2">상위 유입 채널</h3>
+            <HorizontalBarChart
+              data={acquisitionData.topChannelData.map((d:any, index: number)=>({label:d.channel,value:d.users, key: `${d.channel}-${index}`}))}
+              valueFormatter={(v)=>v.toLocaleString() + '명'}
+            />
           </div>
         </div>
         
