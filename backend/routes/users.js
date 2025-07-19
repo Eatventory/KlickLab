@@ -7,6 +7,28 @@ const { getLocalNow } = require("../utils/timeUtils");
 
 const localNow = getLocalNow();
 
+// 날짜 범위 처리 헬퍼 함수
+const getDateRange = (req) => {
+  const { startDate, endDate } = req.query;
+  
+  if (startDate && endDate) {
+    return {
+      start: startDate,
+      end: endDate
+    };
+  }
+  
+  // 기본값: 최근 7일
+  const today = new Date();
+  const fromDate = new Date(today);
+  fromDate.setDate(today.getDate() - 6);
+  
+  return {
+    start: fromDate.toISOString().slice(0, 10),
+    end: today.toISOString().slice(0, 10)
+  };
+};
+
 router.get("/top-clicks", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   try {
@@ -22,10 +44,9 @@ router.get("/top-clicks", authMiddleware, async (req, res) => {
       return res.status(400).json({ error: "Invalid user segment" });
     }
 
-    const today = new Date();
-    const fromDate = new Date(today);
-    fromDate.setDate(today.getDate() - 6);
-    const fromDateStr = fromDate.toISOString().slice(0, 10); // 'YYYY-MM-DD'
+    // 날짜 범위 가져오기
+    const { start, end } = getDateRange(req);
+    console.log(`[Users API] Date range: ${start} to ${end}`);
 
     // 1. 클릭 요약
     const summaryQuery = `
@@ -35,7 +56,7 @@ router.get("/top-clicks", authMiddleware, async (req, res) => {
         sum(total_users) AS totalUsers,
         round(sum(total_clicks) / sum(total_users), 1) AS avgClicksPerUser
       FROM daily_click_summary
-      WHERE segment_type = '${segment}' AND date >= toDate('${localNow}') - INTERVAL 6 DAY
+      WHERE segment_type = '${segment}' AND date >= toDate('${start}') AND date <= toDate('${end}')
         AND sdk_key = '${sdk_key}'
       GROUP BY segment
     `;
@@ -48,7 +69,7 @@ router.get("/top-clicks", authMiddleware, async (req, res) => {
         sum(total_clicks) AS totalClicks,
         sum(user_count) AS userCount
       FROM daily_top_elements
-      WHERE segment_type = '${segment}' AND date >= toDate('${localNow}') - INTERVAL 6 DAY
+      WHERE segment_type = '${segment}' AND date >= toDate('${start}') AND date <= toDate('${end}')
         AND sdk_key = '${sdk_key}'
       GROUP BY segment, element
       ORDER BY segment, totalClicks DESC
@@ -62,7 +83,7 @@ router.get("/top-clicks", authMiddleware, async (req, res) => {
         dist_value,
         sum(user_count) AS count
       FROM daily_user_distribution
-      WHERE segment_type = '${segment}' AND date >= toDate('${localNow}') - INTERVAL 6 DAY
+      WHERE segment_type = '${segment}' AND date >= toDate('${start}') AND date <= toDate('${end}')
         AND sdk_key = '${sdk_key}'
       GROUP BY segment, dist_type, dist_value
     `;
