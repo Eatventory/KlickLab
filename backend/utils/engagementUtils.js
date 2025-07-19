@@ -208,12 +208,23 @@ function getUsersOverTimeQuery(startDate, endDate, sdk_key) {
 }
 
 function getEventCountsQuery(startDate, endDate, sdk_key) {
-  // TODO: events 테이블 대신 다른 집계 테이블 사용
   return `
     WITH
       toDate('${startDate}') AS start,
       toDate('${endDate}') AS end,
-      dateDiff('day', start, end) AS days
+      dateDiff('day', start, end) AS days,
+      events AS (
+        SELECT
+          summary_date AS date,
+          event_name,
+          sumMerge(event_count_state) AS event_count,
+          uniqMerge(unique_users_state) AS user_count,
+          round(sumMerge(event_count_state) / uniqMerge(unique_users_state), 2) AS avg_event_per_user
+        FROM klicklab.daily_event_agg
+        WHERE sdk_key = '${sdk_key}'
+          AND summary_date BETWEEN start AND end
+        GROUP BY summary_date, event_name
+      )
     SELECT
       d.date,
       e.event_name,
@@ -223,24 +234,12 @@ function getEventCountsQuery(startDate, endDate, sdk_key) {
     FROM (
       SELECT addDays(start, number) AS date FROM numbers(days + 1)
     ) d
-    LEFT JOIN (
-      SELECT 
-        toDate(timestamp) AS date,
-        event_name,
-        count(*) AS event_count,
-        uniqExact(client_id) AS user_count,
-        round(count() / uniqExact(client_id), 2) AS avg_event_per_user
-      FROM events
-      WHERE timestamp BETWEEN '${startDate}T00:00:00' AND '${endDate}T23:59:59'
-        AND sdk_key = '${sdk_key}'
-      GROUP BY date, event_name
-    ) e ON d.date = e.date
+    LEFT JOIN events e ON d.date = e.date
     WHERE e.event_name IS NOT NULL
     ORDER BY d.date ASC, event_count DESC
-    LIMIT 100
-    SETTINGS max_threads = 8
   `;
 }
+
 
 function getPageTimesQuery(startDate, endDate, sdk_key, limit = 10) {
   return `
