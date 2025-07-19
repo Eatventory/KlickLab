@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Users, TrendingUp } from 'lucide-react';
+import dayjs from 'dayjs';
 
 interface UserSegmentSummaryProps {
   refreshKey?: number;
+  dateRange?: { startDate: Date; endDate: Date; key: string };
 }
 
 interface SegmentData {
@@ -16,7 +18,7 @@ interface SegmentData {
   };
 }
 
-export const UserSegmentSummary: React.FC<UserSegmentSummaryProps> = ({ refreshKey }) => {
+export const UserSegmentSummary: React.FC<UserSegmentSummaryProps> = ({ refreshKey, dateRange }) => {
   const [summary, setSummary] = useState<string>('');
 
   useEffect(() => {
@@ -24,8 +26,17 @@ export const UserSegmentSummary: React.FC<UserSegmentSummaryProps> = ({ refreshK
       try {
         const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
         if (!token) throw new Error("No token");
+        
+        // 날짜 범위 쿼리 스트링 생성
+        let dateQuery = '';
+        if (dateRange) {
+          const startStr = dayjs(dateRange.startDate).format('YYYY-MM-DD');
+          const endStr = dayjs(dateRange.endDate).format('YYYY-MM-DD');
+          dateQuery = `&startDate=${startStr}&endDate=${endStr}`;
+        }
+        
         // 성별 TOP 1 데이터 가져오기
-        const genderResponse = await fetch('/api/users/top-clicks?filter=user_gender', {headers: { Authorization: `Bearer ${token}` }});
+        const genderResponse = await fetch(`/api/users/top-clicks?filter=user_gender${dateQuery}`, {headers: { Authorization: `Bearer ${token}` }});
         const genderData = await genderResponse.json();
         
         if (genderData.data && genderData.data.length > 0) {
@@ -83,7 +94,7 @@ export const UserSegmentSummary: React.FC<UserSegmentSummaryProps> = ({ refreshK
     // 30초마다 요약 갱신
     const interval = setInterval(generateSummary, 30000);
     return () => clearInterval(interval);
-  }, [refreshKey]);
+  }, [refreshKey, dateRange]);
 
   return (
     <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-lg p-4">
