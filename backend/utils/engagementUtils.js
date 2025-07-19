@@ -325,6 +325,25 @@ function getPageViewsQuery(startDate, endDate, sdk_key, limit = 10) {
   `;
 }
 
+function getPageStatsQuery(startDate, endDate, sdk_key) {
+  return `
+    SELECT
+      dpa.page_path,
+      sumMerge(dpa.pageview_count_state) AS page_views,
+      uniqMerge(dpa.unique_users_state) AS active_users,
+      round(page_views / active_users, 2) AS pageviews_per_user,
+      round(sumMerge(dpa.total_time_state) / active_users, 2) AS avg_engagement_time_sec,
+      sumMerge(dea.event_count_state) AS total_events
+    FROM daily_page_agg AS dpa
+    LEFT JOIN daily_event_agg AS dea
+      ON dpa.summary_date = dea.summary_date AND dpa.sdk_key = dea.sdk_key
+    WHERE dpa.sdk_key = '${sdk_key}'
+      AND dpa.summary_date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
+    GROUP BY dpa.page_path
+    ORDER BY page_views DESC
+  `;
+}
+
 module.exports = {
   getAvgSessionQuery,
   getSessionsPerUserQuery,
@@ -334,5 +353,6 @@ module.exports = {
   getEventCountsQuery,
   getPageTimesQuery,
   getBounceRateQuery,
-  getPageViewsQuery
+  getPageViewsQuery,
+  getPageStatsQuery
 };
