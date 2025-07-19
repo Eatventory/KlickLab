@@ -182,6 +182,8 @@ export const AcquisitionDashboard: React.FC = () => {
         },
         channelGroupData: channelGroupsData.map((item: any) => ({
           channel: item.channel,
+          device: item.device,
+          users: item.users,
           newUsers: item.users,
           sessions: item.users // 임시로 users 사용
         })),
@@ -370,7 +372,7 @@ export const AcquisitionDashboard: React.FC = () => {
             />
           </div>
           <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-            <h4 className="text-sm font-semibold text-gray-900 mb-2">Google Ads 캠페인</h4>
+            <h4 className="text-sm font-semibold text-gray-900 mb-2">마케팅 캠페인 유입</h4>
             <HorizontalBarChart
               data={acquisitionData.sessionData.slice(0,10).map((c:any, index: number)=>({label:c.campaign,value:c.sessions, key: `campaign-${c.campaign}-${index}`}))}
               valueFormatter={(v)=>v.toLocaleString()+'회'}
