@@ -18,7 +18,9 @@ const EngagementEvents: React.FC<EngagementEventsProps> = ({ eventCounts }) => {
       <ChartTableWrapper
         data={(() => {
           const map: Record<string, { eventCount: number; userCount: number }> = {};
-          eventCounts.forEach(({ eventName, eventCount, userCount }) => {
+          eventCounts
+            .filter(({ eventName }) => eventName !== '')
+            .forEach(({ eventName, eventCount, userCount }) => {
             if (!map[eventName]) {
               map[eventName] = { eventCount: 0, userCount: 0 };
             }
