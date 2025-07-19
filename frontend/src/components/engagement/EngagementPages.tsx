@@ -104,6 +104,7 @@ const EngagementPages: React.FC<EngagementPagesProps> = ({ pageStats }) => {
                 : []
             }
             height={400}
+            showLegendBottom={true}
             tooltipRenderer={(item, hoveredLineKey) => {
               const sortedKeys = selectedKeys
                 .filter(key => item[key] !== undefined)

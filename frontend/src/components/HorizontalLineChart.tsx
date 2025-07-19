@@ -25,6 +25,7 @@ interface HorizontalLineChartProps {
   }[];
   height?: number;
   showLegend?: boolean;
+  showLegendBottom?: boolean;
   tooltipRenderer?: (item: any, hoveredLineKey?: string | null) => React.ReactNode;
   legendTooltipRenderer?: (item: any, key: string) => React.ReactNode;
 }
@@ -39,6 +40,7 @@ const HorizontalLineChart: React.FC<HorizontalLineChartProps> = ({
   legendTooltipRenderer,
   height = 200,
   showLegend = false,
+  showLegendBottom = false,
 }) => {
   const [hoveredLineKey, setHoveredLineKey] = useState<string | null>(null);
   const [hoveredItem, setHoveredItem] = useState<any | null>(null);
@@ -85,7 +87,7 @@ const HorizontalLineChart: React.FC<HorizontalLineChartProps> = ({
   }
 
   return (
-    <div ref={chartRef} className="relative flex w-full" style={{ height: height }}>
+    <div ref={chartRef} className="relative flex w-full pb-4" style={{ height: height }}>
       <div className="flex-1 h-full">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart
@@ -154,6 +156,26 @@ const HorizontalLineChart: React.FC<HorizontalLineChartProps> = ({
             })}
           </ComposedChart>
         </ResponsiveContainer>
+        {showLegendBottom && (
+          <div className="absolute left-0 right-0 flex justify-center items-center gap-4 bg-white bg-opacity-80 z-10">
+            {lines.map((line, idx) => {
+              const color = line.color || defaultColors[idx % defaultColors.length];
+              const isHovered = hoveredLineKey === null || hoveredLineKey === line.key;
+
+              return (
+                <div
+                  key={line.key}
+                  className="flex items-center gap-1 cursor-pointer text-sm text-gray-700"
+                  onMouseEnter={() => setHoveredLineKey(line.key)}
+                  onMouseLeave={() => setHoveredLineKey(null)}
+                >
+                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
+                  <span style={{ opacity: isHovered ? 1 : 0.3 }}>{line.name}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {showLegend && latestItem && (

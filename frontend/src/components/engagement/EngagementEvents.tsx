@@ -95,6 +95,7 @@ const EngagementEvents: React.FC<EngagementEventsProps> = ({ eventCounts }) => {
                 : []
             }
             height={400}
+            showLegendBottom={true}
             tooltipRenderer={(item, hoveredLineKey) => {
               const sortedKeys = selectedKeys
                 .filter((key) => item[key] !== undefined)

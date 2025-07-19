@@ -91,6 +91,7 @@ const EngagementVisits: React.FC<EngagementVisitsProps> = ({ visitStats }) => {
                 : []
             }
             height={400}
+            showLegendBottom={true}
             tooltipRenderer={(item, hoveredLineKey) => {
               const sortedKeys = selectedKeys
                 .filter(k => item[k] !== undefined)
