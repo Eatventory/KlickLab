@@ -788,4 +788,29 @@ router.get("/pageview-urls", authMiddleware, async (req, res) => {
   }
 });
 
+// Sankey 일간 경로 데이터 API
+router.get("/sankey-paths/daily", authMiddleware, async (req, res) => {
+  const { day } = req.query; // 예: '2024-06-07'
+  const { sdk_key } = req.user;
+  if (!day) {
+    return res
+      .status(400)
+      .json({ error: "day 파라미터가 필요합니다 (YYYY-MM-DD)" });
+  }
+  try {
+    const query = `
+      SELECT session_id, user_id, path_seq, path_length
+      FROM sankey_paths_daily
+      WHERE day = toDate('${day}')
+        AND sdk_key = '${sdk_key}'
+    `;
+    const result = await clickhouse.query({ query, format: "JSONEachRow" });
+    const rows = await result.json();
+    res.status(200).json({ data: rows });
+  } catch (err) {
+    console.error("Sankey 일간 경로 API ERROR:", err);
+    res.status(500).json({ error: "Failed to get sankey daily paths" });
+  }
+});
+
 module.exports = router;

@@ -25,6 +25,10 @@ export const Dashboard: React.FC = () => {
 
   // 현재 탭을 URL에서 추출
   const tabPath = location.pathname.split('/')[2] || 'overview';
+  
+  // 디버깅용 로그
+  console.log('Current pathname:', location.pathname);
+  console.log('Current tabPath:', tabPath);
 
   const handleTabChange = (tab: string) => {
     navigate(`/dashboard/${tab}`);
@@ -115,18 +119,25 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* 메인 콘텐츠 영역: 탭별 라우팅 */}
-          <main className={"flex-1 transition-all overflow-y-auto h-[calc(100vh-148px)] mt-[148px]"}>
-            <Routes>
-              <Route path="overview" element={<OverviewDashboard ref={overviewRef} onLastUpdated={handleOverviewUpdate} />} />
-              <Route path="users" element={<UserDashboard />} />
-              <Route path="traffic" element={<TrafficDashboard />} />
-              <Route path="engagement" element={<EngagementDashboard />} />
-              <Route path="reports" element={<ReportDashboard />} />
-              <Route path="settings" element={<SettingsDashboard />} />
-              <Route path="conversion" element={<ConversionDashboard />} />
-              <Route path="" element={<Navigate to="/dashboard/overview" replace />} />
-              <Route path="*" element={<Navigate to="/dashboard/overview" replace />} />
-            </Routes>
+          <main className={"flex-1 transition-all overflow-y-auto h-[calc(100vh-148px)] mt-[148px] bg-gray-50"}>
+            <div className="p-6">
+              {/* 디버깅 정보 */}
+              <div className="mb-4 p-2 bg-blue-100 text-blue-800 rounded text-sm">
+                현재 탭: {tabPath} | URL: {location.pathname}
+              </div>
+              
+              <Routes>
+                <Route path="overview" element={<OverviewDashboard ref={overviewRef} onLastUpdated={handleOverviewUpdate} />} />
+                <Route path="users" element={<UserDashboard />} />
+                <Route path="traffic" element={<TrafficDashboard />} />
+                <Route path="engagement" element={<EngagementDashboard />} />
+                <Route path="reports" element={<ReportDashboard />} />
+                <Route path="settings" element={<SettingsDashboard />} />
+                <Route path="conversion" element={<ConversionDashboard />} />
+                <Route path="" element={<Navigate to="/dashboard/overview" replace />} />
+                <Route path="*" element={<Navigate to="/dashboard/overview" replace />} />
+              </Routes>
+            </div>
           </main>
         </div>
       </div>
