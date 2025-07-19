@@ -229,22 +229,30 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
               </th>
               <th className="p-2 text-left"></th>
               <th className="p-2 text-left cursor-pointer" onClick={() => handleSort('label')}>
-                <div className="flex items-center gap-1">
-                  <ArrowDown className={`w-4 h-4 transition-transform duration-200 ${sortKey === 'label' ? '' : 'opacity-0 hover:opacity-25'} ${sortOrder === 'desc' ? 'rotate-0' : 'rotate-180'}`} />
+                <div className="flex items-center gap-1 group">
+                  <ArrowDown
+                    className={`w-4 h-4 transition-transform duration-200 ${
+                      sortKey === 'label' ? '' : 'opacity-0 group-hover:opacity-25'
+                    } ${sortOrder === 'desc' ? 'rotate-0' : 'rotate-180'}`}
+                  />
                   <span>{title ? title : '항목'}</span>
                 </div>
               </th>
               {valueKeys.map(({ key, label }) => (
-                <th
-                  key={key}
-                  className="p-2 text-right cursor-pointer"
-                  onClick={() => handleSort(key)}
-                >
-                  <div className="flex items-center justify-end gap-1">
-                    <ArrowDown className={`w-4 h-4 transition-transform duration-200 ${sortKey === key ? '' : 'opacity-0 hover:opacity-25'} ${sortOrder === 'desc' ? 'rotate-0' : 'rotate-180'}`} />
-                    <span>{label}</span>
-                  </div>
-                </th>
+              <th
+                key={key}
+                className="p-2 text-right cursor-pointer"
+                onClick={() => handleSort(key)}
+              >
+                <div className="flex items-center justify-end gap-1 group">
+                  <ArrowDown
+                    className={`w-4 h-4 transition-transform duration-200 ${
+                      sortKey === key ? '' : 'opacity-0 group-hover:opacity-25'
+                    } ${sortOrder === 'desc' ? 'rotate-0' : 'rotate-180'}`}
+                  />
+                  <span>{label}</span>
+                </div>
+              </th>
               ))}
             </tr>
           </thead>
