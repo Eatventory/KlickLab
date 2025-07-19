@@ -43,7 +43,7 @@ export const DeviceBrowserDonutChart: React.FC<DeviceBrowserDonutChartProps> = (
 
   const CustomLegend = ({ payload }: any) => {
     return (
-      <div className="flex flex-wrap gap-2 mt-2">
+      <div className="flex flex-wrap gap-2 mt-2 justify-center">
         {payload?.map((entry: any, index: number) => (
           <div key={index} className="flex items-center gap-1 text-xs">
             <div 
@@ -51,7 +51,6 @@ export const DeviceBrowserDonutChart: React.FC<DeviceBrowserDonutChartProps> = (
               style={{ backgroundColor: entry.color }}
             />
             <span className="text-gray-700">{entry.value}</span>
-            <span className="text-gray-500">({entry.payload.percentage}%)</span>
           </div>
         ))}
       </div>
@@ -64,15 +63,15 @@ export const DeviceBrowserDonutChart: React.FC<DeviceBrowserDonutChartProps> = (
         {/* 디바이스 차트 */}
         <div className="h-full">
           <h4 className="text-sm font-semibold text-gray-900 mb-2">디바이스</h4>
-          <div className="h-36">
+          <div className="h-44">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                 <Pie
                   data={deviceData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={25}
-                  outerRadius={50}
+                  innerRadius={30}
+                  outerRadius={60}
                   paddingAngle={2}
                   dataKey="value"
                 >
@@ -90,15 +89,15 @@ export const DeviceBrowserDonutChart: React.FC<DeviceBrowserDonutChartProps> = (
         {/* 브라우저 차트 */}
         <div className="h-full">
           <h4 className="text-sm font-semibold text-gray-900 mb-2">브라우저</h4>
-          <div className="h-36">
+          <div className="h-44">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                 <Pie
                   data={browserData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={25}
-                  outerRadius={50}
+                  innerRadius={30}
+                  outerRadius={60}
                   paddingAngle={2}
                   dataKey="value"
                 >

@@ -1,5 +1,14 @@
 import React, { useMemo } from 'react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+  LabelList,
+} from 'recharts';
 
 interface ChannelGroupData {
   channel: string;
@@ -14,82 +23,117 @@ interface ChannelGroupStackedChartProps {
 
 // 디바이스별 색상 정의
 const DEVICE_COLORS = {
-  mobile: '#3b82f6',    // 파란색
-  desktop: '#10b981',   // 초록색
-  tablet: '#f59e0b',    // 주황색
-  unknown: '#6b7280'    // 회색
+  mobile: '#3B82F6', // 파랑
+  desktop: '#10B981', // 초록
 };
 
-// 커스텀 툴팁 컴포넌트
+// 커스텀 툴팁
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
+    const data = payload[0]?.payload;
+    const totalUsers = data?.totalUsers || 0;
+
     return (
       <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
         <p className="font-semibold text-gray-900 mb-2">{label}</p>
         {payload.map((entry: any, index: number) => (
           <p key={index} className="text-sm" style={{ color: entry.color }}>
-            {entry.name}: {entry.value?.toLocaleString()}명
+            {entry.name}: {entry.value?.toFixed(1) || 0}% ({Math.round((entry.value / 100) * totalUsers).toLocaleString()}명)
           </p>
         ))}
+        <p className="text-sm font-semibold text-gray-700 mt-2 pt-2 border-t border-gray-100">
+          총 {totalUsers.toLocaleString()}명
+        </p>
       </div>
     );
   }
   return null;
 };
 
-// 커스텀 Y축 라벨
-const CustomYAxisTick = ({ x, y, payload }: any) => {
-  return (
-    <g transform={`translate(${x},${y})`}>
-      <text x={0} y={0} dy={4} textAnchor="end" fill="#666" className="text-xs">
-        {payload.value}
-      </text>
-    </g>
-  );
-};
+// Y축 레이블
+const CustomYAxisTick = ({ x, y, payload }: any) => (
+  <g transform={`translate(${x},${y})`}>
+    <text x={-5} y={8} textAnchor="end" fill="#666" className="text-xs">
+      {payload.value}
+    </text>
+  </g>
+);
 
-export const ChannelGroupStackedChart: React.FC<ChannelGroupStackedChartProps> = ({ 
-  data, 
-  refreshKey 
+// X축 레이블
+const CustomXAxisTick = ({ x, y, payload }: any) => (
+  <g transform={`translate(${x},${y})`}>
+    <text x={0} y={0} textAnchor="middle" fill="#666" className="text-xs">
+      {payload.value}%
+    </text>
+  </g>
+);
+
+export const ChannelGroupStackedChart: React.FC<ChannelGroupStackedChartProps> = ({
+  data,
+  refreshKey,
 }) => {
-  // 데이터 전처리: 채널별로 디바이스 데이터를 그룹화하고 상위 5개 채널만 선택
   const processedData = useMemo(() => {
-    // 채널별 총 사용자 수 계산
+    if (!data || data.length === 0) return [];
+
     const channelTotals = data.reduce((acc, item) => {
       acc[item.channel] = (acc[item.channel] || 0) + item.users;
       return acc;
     }, {} as Record<string, number>);
 
-    // 상위 5개 채널 선택
     const topChannels = Object.entries(channelTotals)
       .sort(([, a], [, b]) => b - a)
       .slice(0, 5)
       .map(([channel]) => channel);
 
-    // 선택된 채널들의 데이터만 필터링하고 Recharts 형식으로 변환
-    const filteredData = data.filter(item => topChannels.includes(item.channel));
-    
-    // 채널별로 디바이스 데이터를 그룹화
+    const filteredData = data.filter(
+      item =>
+        topChannels.includes(item.channel) &&
+        item.channel &&
+        item.channel.trim() !== ''
+    );
+
     const groupedByChannel = filteredData.reduce((acc, item) => {
-      if (!acc[item.channel]) {
-        acc[item.channel] = {};
-      }
+      if (!acc[item.channel]) acc[item.channel] = {};
       acc[item.channel][item.device] = item.users;
       return acc;
     }, {} as Record<string, Record<string, number>>);
 
-    // Recharts 형식으로 변환
-    return Object.entries(groupedByChannel).map(([channel, devices]) => ({
-      channel,
-      ...devices
-    }));
+    const allDeviceTypes = ['mobile', 'desktop'];
+
+    return Object.entries(groupedByChannel)
+      .filter(([channel]) => channel && channel.trim() !== '')
+      .map(([channel, devices]) => {
+        const total = allDeviceTypes.reduce(
+          (sum, device) => sum + (Number(devices[device] || 0)),
+          0
+        );
+
+        const row: any = {
+          channel: channel.trim(),
+          totalUsers: total,
+        };
+
+        allDeviceTypes.forEach(device => {
+          const value = Number(devices[device] || 0);
+          row[device] = total > 0 ? (value / total) * 100 : 0;
+        });
+
+        return row;
+      });
   }, [data, refreshKey]);
 
-  // 디바이스 타입들 추출 (데이터에서 실제 사용되는 디바이스만)
-  const deviceTypes = useMemo(() => {
-    const devices = new Set(data.map(item => item.device));
-    return Array.from(devices).sort();
-  }, [data]);
+  const safeData = processedData
+    .map(item => ({
+      ...item,
+      mobile: typeof item.mobile === 'number' && !isNaN(item.mobile) ? item.mobile : 0,
+      desktop:
+        typeof item.desktop === 'number' && !isNaN(item.desktop) ? item.desktop : 0,
+      totalUsers:
+        typeof item.totalUsers === 'number' && !isNaN(item.totalUsers)
+          ? item.totalUsers
+          : 0,
+    }))
+    .filter(item => item.mobile + item.desktop > 0);
 
   if (!data || data.length === 0) {
     return (
@@ -100,41 +144,64 @@ export const ChannelGroupStackedChart: React.FC<ChannelGroupStackedChartProps> =
   }
 
   return (
-    <div className="w-full h-full">
+    <div className="w-full h-full flex items-center justify-center" style={{ height: '270px' }}>
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart
-          data={processedData}
-          layout="horizontal"
-          margin={{ top: 20, right: 30, left: 80, bottom: 20 }}
-        >
-          <XAxis 
-            type="number" 
-            axisLine={false}
-            tickLine={false}
-            tickFormatter={(value) => value.toLocaleString()}
+                  <BarChart
+            data={safeData}
+            layout="vertical"
+            margin={{ top: 18, right: 30, left: 54, bottom: 18 }}
+            barCategoryGap="25%"
+          >
+          <XAxis
+            type="number"
+            domain={[0, 100]}
+            tick={<CustomXAxisTick />}
           />
-          <YAxis 
-            dataKey="channel" 
+          <YAxis
             type="category"
-            axisLine={false}
-            tickLine={false}
+            dataKey="channel"
             tick={<CustomYAxisTick />}
-            width={80}
           />
           <Tooltip content={<CustomTooltip />} />
-          <Legend />
-          
-          {deviceTypes.map((device) => (
-            <Bar
-              key={device}
-              dataKey={device}
-              stackId="a"
-              fill={DEVICE_COLORS[device as keyof typeof DEVICE_COLORS] || DEVICE_COLORS.unknown}
-              radius={[0, 2, 2, 0]}
+          <Legend verticalAlign="top" />
+
+                     {/* Mobile */}
+           <Bar
+             dataKey="mobile"
+             stackId="a"
+             fill={DEVICE_COLORS.mobile}
+             stroke={DEVICE_COLORS.mobile}
+             strokeWidth={1.5}
+             minPointSize={4}
+             barSize={15}
+          >
+            <LabelList
+              dataKey="mobile"
+              position="insideRight"
+              formatter={(value: any) => (value > 0 ? `${value.toFixed(1)}%` : '')}
+              className="text-white text-xs"
             />
-          ))}
+          </Bar>
+
+                     {/* Desktop */}
+           <Bar
+             dataKey="desktop"
+             stackId="a"
+             fill={DEVICE_COLORS.desktop}
+             stroke={DEVICE_COLORS.desktop}
+             strokeWidth={1.5}
+             minPointSize={4}
+             barSize={15}
+          >
+            <LabelList
+              dataKey="desktop"
+              position="insideRight"
+              formatter={(value: any) => (value > 0 ? `${value.toFixed(1)}%` : '')}
+              className="text-white text-xs"
+            />
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </div>
   );
-}; 
+};

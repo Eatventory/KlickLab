@@ -162,15 +162,12 @@ export const AcquisitionDashboard: React.FC = () => {
           }));
         })(),
         browserData: (() => {
-          console.log('[DEBUG] platformData.browser:', platformData.browser);
           const totalBrowserUsers = platformData.browser.reduce((sum: number, item: any) => sum + item.users, 0);
-          console.log('[DEBUG] totalBrowserUsers:', totalBrowserUsers);
           const result = platformData.browser.map((item: any) => ({
             name: item.name,
             value: item.users,
             percentage: totalBrowserUsers > 0 ? Math.round((item.users / totalBrowserUsers) * 100) : 0
           }));
-          console.log('[DEBUG] browserData result:', result);
           return result;
         })(),
         clickFlowData: {
@@ -196,7 +193,6 @@ export const AcquisitionDashboard: React.FC = () => {
         realtimeData: {
           topCountries: countriesData.map((item: any) => {
             const key = Object.keys(item).find(k => k !== 'users');
-            console.log('[Region Key]', key, '| item:', item);
             return {
               city: item[key ?? 'unknown'],
               users: item.users
@@ -274,68 +270,99 @@ export const AcquisitionDashboard: React.FC = () => {
       </div>
 
       <div className="p-4 space-y-6">
-        {/* 1행: KPI 카드 3개 */}
+        {/* 1행: KPI 카드 + 시간별 트렌드 + 전환율 */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-          {/* 활성 사용자 */}
-          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-4 h-32 hover:shadow-lg transition-shadow">
-            <div className="flex items-center gap-2 mb-1">
-              <Users className="w-4 h-4 text-blue-600" />
-              <h3 className="text-sm font-semibold text-gray-900">활성 사용자</h3>
+          {/* KPI 카드 영역 (위아래로 쌓기) */}
+          <div className="md:col-span-3 space-y-4">
+            {/* 활성 사용자 */}
+            <div className="bg-white rounded-lg border border-gray-200 p-4 h-28 hover:shadow-lg transition-shadow">
+              <div className="flex items-center gap-2 mb-1">
+                <Users className="w-4 h-4 text-blue-600" />
+                <h3 className="text-sm font-semibold text-gray-900">활성 사용자</h3>
+              </div>
+              <div className="text-xl font-bold text-gray-900 mb-1">
+                {kpiData ? kpiData.active_users?.toLocaleString() || '0' : '0'}
+              </div>
+              <div className="text-xs text-green-600">+8.2%</div>
             </div>
-            <div className="text-2xl font-bold text-gray-900 mb-1">
-              {kpiData ? kpiData.active_users?.toLocaleString() || '0' : '0'}
+
+            {/* 신규 유입 사용자 */}
+            <div className="bg-white rounded-lg border border-gray-200 p-4 h-28 hover:shadow-lg transition-shadow">
+              <div className="flex items-center gap-2 mb-1">
+                <Users className="w-4 h-4 text-purple-600" />
+                <h3 className="text-sm font-semibold text-gray-900">신규 유입 사용자</h3>
+              </div>
+              <div className="text-xl font-bold text-gray-900 mb-1">
+                {kpiData ? kpiData.new_users?.toLocaleString() || '0' : '0'}
+              </div>
+              <div className="text-xs text-green-600">+12.5%</div>
             </div>
-            <div className="text-xs text-green-600">+8.2%</div>
           </div>
 
-          {/* 신규 유입 사용자 */}
-          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-4 h-32 hover:shadow-lg transition-shadow">
-            <div className="flex items-center gap-2 mb-1">
-              <Users className="w-4 h-4 text-purple-600" />
-              <h3 className="text-sm font-semibold text-gray-900">신규 유입 사용자</h3>
-            </div>
-            <div className="text-2xl font-bold text-gray-900 mb-1">
-              {kpiData ? kpiData.new_users?.toLocaleString() || '0' : '0'}
-            </div>
-            <div className="text-xs text-green-600">+12.5%</div>
-          </div>
-
-          {/* 실시간 사용자 */}
-          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-4 h-32 hover:shadow-lg transition-shadow">
-            <div className="flex items-center gap-2 mb-1">
-              <Clock className="w-4 h-4 text-orange-600" />
-              <h3 className="text-sm font-semibold text-gray-900">실시간 사용자</h3>
-            </div>
-            <div className="text-2xl font-bold text-gray-900 mb-1">
-              {kpiData ? kpiData.realtime_users || '0' : '0'}
-            </div>
-            <div className="text-xs text-gray-500">지난 5분 기준</div>
-          </div>
-        </div>
-
-        {/* 2행: 시간별 트렌드 + 전환율 */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-          <div className="md:col-span-8 bg-white rounded-lg border border-gray-200 p-4 h-64 hover:shadow-lg transition-shadow">
+          {/* 시간별 유입 트렌드 */}
+          <div className="md:col-span-6 bg-white rounded-lg border border-gray-200 p-4 h-64 hover:shadow-lg transition-shadow">
             <h3 className="text-sm font-semibold text-gray-900 mb-2">시간별 유입 트렌드</h3>
             <HourlyTrendLineChart data={acquisitionData.hourlyTrendData} refreshKey={refreshKey} />
           </div>
-          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-4 h-64 hover:shadow-lg transition-shadow">
+
+          {/* 첫 방문 전환율 */}
+          <div className="md:col-span-3 bg-white rounded-lg border border-gray-200 p-4 h-64 hover:shadow-lg transition-shadow">
             <h3 className="text-sm font-semibold text-gray-900 mb-2">첫 방문 전환율</h3>
             <FunnelConversionChart data={acquisitionData.funnelData} refreshKey={refreshKey} />
           </div>
         </div>
 
-        {/* 3행: 채널 그룹 + 플랫폼 분석 */}
+        {/* 2행: 상위 유입채널 + 신규 사용자 채널 + 유입 채널별 디바이스 비율 + 유입 플랫폼 분석 */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-          <div className="md:col-span-6 bg-white rounded-lg border border-gray-200 p-4 h-[300px] hover:shadow-lg transition-shadow">
-            <h3 className="text-sm font-semibold text-gray-900 mb-2">채널 그룹 분석</h3>
+          {/* 상위 유입채널 */}
+          <div className="md:col-span-2 bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+            <h3 className="text-sm font-semibold text-gray-900 mb-2">상위 유입 채널</h3>
+            <HorizontalBarChart
+              data={acquisitionData.topChannelData.map((d:any, index: number)=>({label:d.channel,value:d.users, key: `${d.channel}-${index}`}))}
+              valueFormatter={(v)=>v.toLocaleString() + '명'}
+            />
+          </div>
+
+          {/* 신규 사용자 채널 */}
+          <div className="md:col-span-2 bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+            <h4 className="text-sm font-semibold text-gray-900 mb-2">신규 사용자 채널</h4>
+            <HorizontalBarChart
+              data={(() => {
+                // 채널별로 사용자 수 집계
+                const channelTotals = acquisitionData.channelGroupData.reduce((acc: any, item: any) => {
+                  if (!acc[item.channel]) {
+                    acc[item.channel] = 0;
+                  }
+                  acc[item.channel] += item.newUsers || 0;
+                  return acc;
+                }, {});
+                
+                // 상위 10개 채널 선택
+                return Object.entries(channelTotals)
+                  .sort(([, a]: any, [, b]: any) => b - a)
+                  .slice(0, 10)
+                  .map(([channel, users]: any, index: number) => ({
+                    label: channel,
+                    value: users,
+                    key: `new-${channel}-${index}`
+                  }));
+              })()}
+              valueFormatter={(v)=>v.toLocaleString()+'명'}
+            />
+          </div>
+
+          {/* 유입 채널별 디바이스 비율 */}
+          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-4 h-[450px] hover:shadow-lg transition-shadow">
+            <h3 className="text-sm font-semibold text-gray-900 mb-2">유입 채널별 디바이스 비율</h3>
             <ChannelGroupStackedChart 
               data={acquisitionData.channelGroupData} 
               refreshKey={refreshKey} 
             />
           </div>
-          <div className="md:col-span-6 bg-white rounded-lg border border-gray-200 p-4 h-[300px] hover:shadow-lg transition-shadow">
-            <h3 className="text-sm font-semibold text-gray-900 mb-2">디바이스/브라우저 분석</h3>
+
+          {/* 유입 플랫폼 분석 */}
+          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-4 h-[450px] hover:shadow-lg transition-shadow">
+            <h3 className="text-sm font-semibold text-gray-900 mb-2">유입 플랫폼 분석</h3>
             <DeviceBrowserDonutChart 
               deviceData={acquisitionData.deviceData} 
               browserData={acquisitionData.browserData}
@@ -344,38 +371,25 @@ export const AcquisitionDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* 4행: 유입 흐름 + 상위 채널 */}
+        {/* 3행: 유입 흐름 + 마케팅 캠페인 유입 + 상위 지역 유입 */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-          <div className="md:col-span-8 bg-white rounded-lg border border-gray-200 p-4 h-[300px] hover:shadow-lg transition-shadow">
+          {/* 유입 흐름 */}
+          <div className="md:col-span-6 bg-white rounded-lg border border-gray-200 p-4 h-[300px] hover:shadow-lg transition-shadow">
             <h3 className="text-sm font-semibold text-gray-900 mb-2">유입 흐름</h3>
             <ClickFlowSankeyChart data={acquisitionData.clickFlowData} refreshKey={refreshKey} />
           </div>
-          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-6 h-[300px] shadow-sm">
-            <h3 className="text-sm font-semibold text-gray-900 mb-2">상위 유입 채널</h3>
-            <HorizontalBarChart
-              data={acquisitionData.topChannelData.map((d:any, index: number)=>({label:d.channel,value:d.users, key: `${d.channel}-${index}`}))}
-              valueFormatter={(v)=>v.toLocaleString() + '명'}
-            />
-          </div>
-        </div>
-        
-        {/* 5행: 하단 상세 정보 3분할 */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-            <h4 className="text-sm font-semibold text-gray-900 mb-2">신규 사용자 채널</h4>
-            <HorizontalBarChart
-              data={acquisitionData.channelGroupData.slice(0,10).map((c:any, index: number)=>({label:c.channel,value:c.newUsers, key: `new-${c.channel}-${index}`}))}
-              valueFormatter={(v)=>v.toLocaleString()+'명'}
-            />
-          </div>
-          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+
+          {/* 마케팅 캠페인 유입 */}
+          <div className="md:col-span-3 bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
             <h4 className="text-sm font-semibold text-gray-900 mb-2">마케팅 캠페인 유입</h4>
             <HorizontalBarChart
               data={acquisitionData.sessionData.slice(0,10).map((c:any, index: number)=>({label:c.campaign,value:c.sessions, key: `campaign-${c.campaign}-${index}`}))}
               valueFormatter={(v)=>v.toLocaleString()+'회'}
             />
           </div>
-          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+
+          {/* 상위 지역 유입 */}
+          <div className="md:col-span-3 bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
             <h4 className="text-sm font-semibold text-gray-900 mb-2">상위 지역 유입</h4>
             <HorizontalBarChart
               data={acquisitionData.realtimeData.topCountries.slice(0,10).map((c:any, index: number)=>({label:c.city,value:c.users, key: `country-${c.city}-${index}`}))}
