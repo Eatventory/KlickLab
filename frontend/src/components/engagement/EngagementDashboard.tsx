@@ -52,6 +52,7 @@ export const EngagementDashboard: React.FC = () => {
   const [selectedMetric2, setSelectedMetric2] = useState<'avgSessionSecs' | 'sessionsPerUsers'>('avgSessionSecs');
 
   const [openCollapse, setOpenCollapse] = useState<string>(engagementTaps[0]);
+  const [fetchedTabs, setFetchedTabs] = useState<{ [key: string]: boolean }>({});
 
   const [dateRange, setDateRange] = useState([
     { startDate: addDays(new Date(), -29), endDate: new Date(), key: 'selection' }
@@ -130,14 +131,16 @@ export const EngagementDashboard: React.FC = () => {
   
   useEffect(() => {
     const { startDate, endDate } = dateRange[0];
-    if (!startDate || !endDate) return;
-    fetchTabData(openCollapse, startDate, endDate);
+    if (!startDate || !endDate || !openCollapse) return;
+    if (!fetchedTabs[openCollapse]) {
+      fetchTabData(openCollapse, startDate, endDate);
+      setFetchedTabs((prev) => ({ ...prev, [openCollapse]: true }));
+    }
     const interval = setInterval(() => {
       fetchTabData(openCollapse, startDate, endDate);
-    }, 60000);
+    }, 60000); // 1분 간격으로 polling
     return () => clearInterval(interval);
   }, [openCollapse, dateRange]);
-  
 
   return (
     <>
