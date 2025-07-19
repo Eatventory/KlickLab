@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { addDays } from 'date-fns';
+import dayjs from 'dayjs';
 import { Calendar, Settings, Share2, MoreHorizontal, BarChart3, Target, Globe, Users, TrendingUp, Clock } from 'lucide-react';
 import { useSegmentFilter } from '../../context/SegmentFilterContext';
+
+import DateRangeSelector from '../ui/DateRangeSelector';
 
 // 컴포넌트들 import
 import HorizontalBarChart from '../../components/HorizontalBarChart';
@@ -49,13 +53,27 @@ export const AcquisitionDashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const fetchAcquisitionData = async () => {
+  // DateRangeSelector 상태 추가
+  const [dateRange, setDateRange] = useState([
+    { startDate: addDays(new Date(), -29), endDate: new Date(), key: 'selection' }
+  ]);
+  const [tempRange, setTempRange] = useState(dateRange);
+  const [showPicker, setShowPicker] = useState(false);
+
+  const fetchAcquisitionData = async (start?: Date, end?: Date) => {
     try {
       setLoading(true);
       setError(null);
 
       const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
       if (!token) throw new Error("No token");
+
+      // 날짜 범위 처리
+      const startDate = start || dateRange[0].startDate;
+      const endDate = end || dateRange[0].endDate;
+      const startStr = dayjs(startDate).format('YYYY-MM-DD');
+      const endStr = dayjs(endDate).format('YYYY-MM-DD');
+      const dateQuery = `startDate=${startStr}&endDate=${endStr}`;
 
       // SDK_KEY 확인 로그
       console.log('[SDK_KEY CHECK] Bearer Token:', token);
@@ -91,15 +109,15 @@ export const AcquisitionDashboard: React.FC = () => {
         campaignsRes,
         countriesRes
       ] = await Promise.all([
-        fetch(`/api/acquisition/overview?${globalFilterString}`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`/api/acquisition/hourly-trend?${globalFilterString}`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`/api/acquisition/top-channels?${globalFilterString}`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`/api/acquisition/funnel-conversion?${globalFilterString}`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`/api/acquisition/platform-analysis?${globalFilterString}`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`/api/acquisition/click-flow?${globalFilterString}`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`/api/acquisition/channel-groups?${globalFilterString}`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`/api/acquisition/campaigns?${globalFilterString}`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`/api/acquisition/top-countries?${globalFilterString}`, { headers: { Authorization: `Bearer ${token}` } })
+        fetch(`/api/acquisition/overview?${dateQuery}${globalFilterQuery}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/acquisition/hourly-trend?${dateQuery}${globalFilterQuery}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/acquisition/top-channels?${dateQuery}${globalFilterQuery}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/acquisition/funnel-conversion?${dateQuery}${globalFilterQuery}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/acquisition/platform-analysis?${dateQuery}${globalFilterQuery}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/acquisition/click-flow?${dateQuery}${globalFilterQuery}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/acquisition/channel-groups?${dateQuery}${globalFilterQuery}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/acquisition/campaigns?${dateQuery}${globalFilterQuery}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/acquisition/top-countries?${dateQuery}${globalFilterQuery}`, { headers: { Authorization: `Bearer ${token}` } })
       ]);
 
       // 응답 확인
@@ -216,8 +234,19 @@ export const AcquisitionDashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchAcquisitionData();
-  }, [filters, JSON.stringify(globalFilter.conditions)]);
+    const { startDate, endDate } = dateRange[0];
+    if (startDate && endDate) {
+      fetchAcquisitionData(startDate, endDate);
+    }
+
+    const interval = setInterval(() => {
+      const { startDate, endDate } = dateRange[0];
+      if (startDate && endDate) {
+        fetchAcquisitionData(startDate, endDate);
+      }
+    }, 60000); // 1분마다 갱신
+    return () => clearInterval(interval);
+  }, [dateRange]);
 
   if (loading && !acquisitionData) {
     return (
@@ -244,32 +273,23 @@ export const AcquisitionDashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* 헤더 */}
-      <div className="bg-white border-b border-gray-200 px-4 py-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h1 className="text-lg font-semibold text-gray-900">획득 개요</h1>
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <Calendar className="w-4 h-4" />
-              <span>최근 7일 대비 이전 기간</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button className="p-1.5 text-gray-600 hover:text-gray-900">
-              <Settings className="w-4 h-4" />
-            </button>
-            <button className="p-1.5 text-gray-600 hover:text-gray-900">
-              <Share2 className="w-4 h-4" />
-            </button>
-            <button className="p-1.5 text-gray-600 hover:text-gray-900">
-              <MoreHorizontal className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
+    <>
+      <div className="w-full flex justify-end border-b-2 border-dashed">
+        <DateRangeSelector
+          dateRange={dateRange}
+          tempRange={tempRange}
+          showPicker={showPicker}
+          setDateRange={(range) => setDateRange(range.map(r => ({ ...r, key: 'selection' })))}
+          setTempRange={(range) => setTempRange(range.map(r => ({ ...r, key: 'selection' })))}
+          setShowPicker={setShowPicker}
+          onApply={(start, end) => {
+            setDateRange([{ startDate: start, endDate: end, key: 'selection' }]);
+            fetchAcquisitionData(start, end);
+          }}
+        />
       </div>
 
-      <div className="p-4 space-y-6">
+      <div className="min-h-screen bg-gray-50 p-4 space-y-6">
         {/* 1행: KPI 카드 + 시간별 트렌드 + 전환율 */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
           {/* KPI 카드 영역 (위아래로 쌓기) */}
@@ -333,7 +353,7 @@ export const AcquisitionDashboard: React.FC = () => {
                   if (!acc[item.channel]) {
                     acc[item.channel] = 0;
                   }
-                  acc[item.channel] += item.newUsers || 0;
+                  acc[item.channel] += item.users || 0;
                   return acc;
                 }, {});
                 
@@ -398,6 +418,6 @@ export const AcquisitionDashboard: React.FC = () => {
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }; 

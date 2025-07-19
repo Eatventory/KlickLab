@@ -132,8 +132,13 @@ router.get('/hourly-trend', authMiddleware, async (req, res) => {
 // [3] 상위 유입 채널
 router.get('/top-channels', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
+  const { startDate, endDate } = req.query;
   
   try {
+    const dateCondition = startDate && endDate 
+      ? `date >= toDate('${startDate}') AND date <= toDate('${endDate}')`
+      : buildQueryWhereClause("daily", 7);
+
     const query = `
       SELECT 
         segment_value as channel,
@@ -142,6 +147,7 @@ router.get('/top-channels', authMiddleware, async (req, res) => {
       FROM klicklab.daily_click_summary
       WHERE segment_type = 'traffic_source'
         AND sdk_key = '${sdk_key}'
+        AND ${dateCondition}
       GROUP BY segment_value
       ORDER BY users DESC
       LIMIT 5
@@ -332,6 +338,7 @@ router.get('/channel-groups', authMiddleware, async (req, res) => {
       WHERE segment_type = 'traffic_source'
         AND dist_type    = 'device'
         AND sdk_key      = '${sdk_key}'
+        AND ${dateCondition}
       GROUP BY segment_value, dist_value
       ORDER BY users DESC
       LIMIT 20
