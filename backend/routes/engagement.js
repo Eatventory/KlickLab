@@ -262,4 +262,66 @@ router.get('/visit-stats', authMiddleware, async (req, res) => {
   }
 });
 
+router.get('/revisit', authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+  const { startDate, endDate } = req.query;
+
+  if (!startDate || !endDate) {
+    return res.status(400).json({ error: 'Missing startDate or endDate' });
+  }
+
+  try {
+    const query = `
+      WITH date_series AS (
+        SELECT toDate('${startDate}') + number AS date
+        FROM numbers(datediff('day', toDate('${startDate}'), toDate('${endDate}')) + 1)
+      ),
+      dau_table AS (
+        SELECT date, visitors AS dau
+        FROM klicklab.daily_metrics
+        WHERE sdk_key = '${sdk_key}' AND date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
+      ),
+      wau_table AS (
+        SELECT date, visitors AS wau
+        FROM klicklab.weekly_metrics
+        WHERE sdk_key = '${sdk_key}'
+      ),
+      mau_table AS (
+        SELECT date, visitors AS mau
+        FROM klicklab.weekly_metrics
+        WHERE sdk_key = '${sdk_key}'
+      )
+      SELECT
+        ds.date AS date,
+        dt.dau,
+        wt.wau,
+        mt.mau,
+        round(dt.dau / wt.wau, 4) AS dau_wau_ratio,
+        round(dt.dau / mt.mau, 4) AS dau_mau_ratio,
+        round(wt.wau / mt.mau, 4) AS wau_mau_ratio
+      FROM date_series ds
+      LEFT JOIN dau_table dt ON ds.date = dt.date
+      LEFT JOIN wau_table wt ON wt.date = toStartOfWeek(ds.date)
+      LEFT JOIN mau_table mt ON mt.date = toStartOfMonth(ds.date)
+      ORDER BY ds.date ASC
+    `;
+
+    const dataRes = await clickhouse.query({ query, format: 'JSONEachRow' });
+    const data = await dataRes.json();
+
+    res.status(200).json(data.map(row => ({
+      date: row.date,
+      dau: Number(row.dau),
+      wau: Number(row.wau),
+      mau: Number(row.mau),
+      dauWauRatio: Number(row.dau_wau_ratio),
+      dauMauRatio: Number(row.dau_mau_ratio),
+      wauMauRatio: Number(row.wau_mau_ratio),
+    })));
+  } catch (err) {
+    console.error('Error fetching revisit stats:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
 module.exports = router;

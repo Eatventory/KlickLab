@@ -45,6 +45,16 @@ export interface UsersOverTimeData {
   monthlyUsers: number;
 }
 
+export interface RevisitData {
+  date: string;
+  dau: number;
+  wau: number;
+  mau: number;
+  dauWauRatio: number;
+  dauMauRatio: number;
+  wauMauRatio: number;
+}
+
 export interface EventCountsData {
   date: string;
   eventName: string;

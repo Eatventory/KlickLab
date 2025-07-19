@@ -22,6 +22,7 @@ import type {
   AvgSessionSecsData,
   SessionsPerUsersData,
   UsersOverTimeData,
+  RevisitData,
   EventCountsData,
   PageStatsData,
   VisitStatsData,
@@ -38,6 +39,8 @@ export const EngagementDashboard: React.FC = () => {
   const [avgSessionSecs, setAvgSessionSecs] = useState<AvgSessionSecsData[]>([]);
   const [sessionsPerUsers, setSessionsPerUsers] = useState<SessionsPerUsersData[]>([]);
   const [usersOverTime, setUsersOverTime] = useState<UsersOverTimeData[]>([]);
+  const [revisit, setRevisit] = useState<RevisitData[]>([]);
+
   const [eventCounts, setEventCounts] = useState<EventCountsData[]>([]);
   const [pageStats, setPageStats] = useState<PageStatsData[]>([]);
   const [visitStats, setVisitStats] = useState<VisitStatsData[]>([]);
@@ -67,7 +70,7 @@ export const EngagementDashboard: React.FC = () => {
     try {
       switch (tab) {
         case engagementTaps[0]: {
-          const [resOverview, resPageTimes, resPageViewCounts, resBounceRates,resViewCounts, resClickCounts, resUOTime] = await Promise.all([
+          const [resOverview, resPageTimes, resPageViewCounts, resBounceRates,resViewCounts, resClickCounts, resUOTime, resRevisit] = await Promise.all([
             fetch(`/api/engagement/overview?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
             fetch(`/api/engagement/page-times?${query}&limit=5`, { headers: { Authorization: `Bearer ${token}` } }),
             fetch(`/api/engagement/page-views?${query}&limit=5`, { headers: { Authorization: `Bearer ${token}` } }),
@@ -75,11 +78,12 @@ export const EngagementDashboard: React.FC = () => {
             fetch(`/api/engagement/view-counts?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
             fetch(`/api/engagement/click-counts?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
             fetch(`/api/engagement/users-over-time?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
+            fetch(`/api/engagement/revisit?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
           ]);
   
-          const [dataOverview, dataPageTimes, dataPageViewCounts, dataBounceRates, dataViewCounts, dataClickCounts, dataUOTime] = await Promise.all([
-            resOverview.json(), resPageTimes.json(), resPageViewCounts.json(),
-            resBounceRates.json(), resViewCounts.json(), resClickCounts.json(), resUOTime.json(),
+          const [dataOverview, dataPageTimes, dataPageViewCounts, dataBounceRates, dataViewCounts, dataClickCounts, dataUOTime, dataRevisit] = await Promise.all([
+            resOverview.json(), resPageTimes.json(), resPageViewCounts.json(), resBounceRates.json(),
+            resViewCounts.json(), resClickCounts.json(), resUOTime.json(), resRevisit.json(),
           ]);
   
           setAvgSessionSecs(dataOverview.data.avgSessionSeconds);
@@ -90,6 +94,7 @@ export const EngagementDashboard: React.FC = () => {
           setViewCounts(dataViewCounts);
           setClickCounts(dataClickCounts);
           setUsersOverTime(dataUOTime);
+          setRevisit(dataRevisit);
           break;
         }
   
@@ -165,6 +170,7 @@ export const EngagementDashboard: React.FC = () => {
           viewCounts={viewCounts}
           clickCounts={clickCounts}
           usersOverTime={usersOverTime}
+          revisit={revisit}
           selectedMetric={selectedMetric}
           selectedMetric2={selectedMetric2}
           setSelectedMetric={setSelectedMetric}
