@@ -13,6 +13,7 @@ import type {
   AvgSessionSecsData,
   SessionsPerUsersData,
   UsersOverTimeData,
+  RevisitData,
 } from '../../data/engagementTypes';
 
 interface Props {
@@ -24,6 +25,7 @@ interface Props {
   viewCounts: ViewCountsData[];
   clickCounts: ClickCountsData[];
   usersOverTime: UsersOverTimeData[];
+  revisit: RevisitData[];
   selectedMetric: 'viewCounts' | 'clickCounts';
   selectedMetric2: 'avgSessionSecs' | 'sessionsPerUsers';
   setSelectedMetric: (key: 'viewCounts' | 'clickCounts') => void;
@@ -41,6 +43,7 @@ const EngagementOverview: React.FC<Props> = ({
   viewCounts,
   clickCounts,
   usersOverTime,
+  revisit,
   selectedMetric,
   selectedMetric2,
   setSelectedMetric,
@@ -150,6 +153,66 @@ const EngagementOverview: React.FC<Props> = ({
           />
         </div>
 
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">사용자 재방문</h2>
+          </div>
+          <HorizontalLineChart
+            data={revisit.map((d) => ({
+              date: d.date,
+              dauWauRatio: d.dauWauRatio,
+              dauMauRatio: d.dauMauRatio,
+              wauMauRatio: d.wauMauRatio,
+            }))}
+            lines={[
+              { key: 'wauMauRatio', name: 'WAU/MAU' },
+              { key: 'dauMauRatio', name: 'DAU/MAU' },
+              { key: 'dauWauRatio', name: 'DAU/WAU' },
+            ]}
+            tooltipRenderer={(item, hoveredLineKey) => (
+              <div className="text-sm space-y-1 min-w-[120px]">
+                <div className="text-gray-500">{item.date}</div>
+
+                <div
+                  className="flex items-center"
+                  style={{ opacity: hoveredLineKey && hoveredLineKey !== 'wauMauRatio' ? 0.3 : 1 }}
+                >
+                  <span className="w-2 h-0.5 bg-[#3b82f6]" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#3b82f6] border border-white mr-1" />
+                  <span className="text-xs text-gray-700">WAU/MAU</span>
+                  <span className="ml-auto font-bold text-right text-gray-900">
+                    {(item.wauMauRatio * 100).toFixed(1)}%
+                  </span>
+                </div>
+
+                <div
+                  className="flex items-center"
+                  style={{ opacity: hoveredLineKey && hoveredLineKey !== 'dauMauRatio' ? 0.3 : 1 }}
+                >
+                  <span className="w-2 h-0.5 bg-[#22c55e]" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#22c55e] border border-white mr-1" />
+                  <span className="text-xs text-gray-700">DAU/MAU</span>
+                  <span className="ml-auto font-bold text-right text-gray-900">
+                    {(item.dauMauRatio * 100).toFixed(1)}%
+                  </span>
+                </div>
+
+                <div
+                  className="flex items-center"
+                  style={{ opacity: hoveredLineKey && hoveredLineKey !== 'dauWauRatio' ? 0.3 : 1 }}
+                >
+                  <span className="w-2 h-0.5 bg-[#f97316]" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#f97316] border border-white mr-1" />
+                  <span className="text-xs text-gray-700">DAU/WAU</span>
+                  <span className="ml-auto font-bold text-right text-gray-900">
+                    {(item.dauWauRatio * 100).toFixed(1)}%
+                  </span>
+                </div>
+              </div>
+            )}
+          />
+        </div>
+
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 pt-0 col-span-2">
           <ChartWrapper
             metrics={[
@@ -192,10 +255,14 @@ const EngagementOverview: React.FC<Props> = ({
               { key: 'dailyUsers', name: '1일' },
             ]}
             showLegend={true}
-            tooltipRenderer={(item) => (
+            tooltipRenderer={(item, hoveredLineKey) => (
               <div className="text-sm space-y-1 min-w-[120px]">
                 <div className="text-gray-500">{item.date}</div>
-                <div className="flex items-center">
+            
+                <div
+                  className="flex items-center"
+                  style={{ opacity: hoveredLineKey && hoveredLineKey !== 'monthlyUsers' ? 0.3 : 1 }}
+                >
                   <span className="w-2 h-0.5 bg-[#3b82f6]" />
                   <span className="w-2.5 h-2.5 rounded-full bg-[#3b82f6] border border-white mr-1" />
                   <span className="text-xs text-gray-700">30일</span>
@@ -203,7 +270,11 @@ const EngagementOverview: React.FC<Props> = ({
                     {item.monthlyUsers.toLocaleString()}
                   </span>
                 </div>
-                <div className="flex items-center">
+            
+                <div
+                  className="flex items-center"
+                  style={{ opacity: hoveredLineKey && hoveredLineKey !== 'weeklyUsers' ? 0.3 : 1 }}
+                >
                   <span className="w-2 h-0.5 bg-[#22c55e]" />
                   <span className="w-2.5 h-2.5 rounded-full bg-[#22c55e] border border-white mr-1" />
                   <span className="text-xs text-gray-700">7일</span>
@@ -211,7 +282,11 @@ const EngagementOverview: React.FC<Props> = ({
                     {item.weeklyUsers.toLocaleString()}
                   </span>
                 </div>
-                <div className="flex items-center">
+            
+                <div
+                  className="flex items-center"
+                  style={{ opacity: hoveredLineKey && hoveredLineKey !== 'dailyUsers' ? 0.3 : 1 }}
+                >
                   <span className="w-2 h-0.5 bg-[#f97316]" />
                   <span className="w-2.5 h-2.5 rounded-full bg-[#f97316] border border-white mr-1" />
                   <span className="text-xs text-gray-700">1일</span>
