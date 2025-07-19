@@ -1,4 +1,4 @@
-import React, { useState, useRef, useLayoutEffect } from 'react';
+import React, { useState, useRef, useLayoutEffect, useMemo } from 'react';
 import {
   ComposedChart,
   Line,
@@ -24,6 +24,7 @@ interface HorizontalLineChartProps {
     color?: string;
   }[];
   height?: number;
+  unit?: 'daily' | 'weekly' | 'monthly';
   showLegend?: boolean;
   showLegendBottom?: boolean;
   tooltipRenderer?: (item: any, hoveredLineKey?: string | null) => React.ReactNode;
@@ -39,6 +40,7 @@ const HorizontalLineChart: React.FC<HorizontalLineChartProps> = ({
   tooltipRenderer,
   legendTooltipRenderer,
   height = 200,
+  unit = 'daily',
   showLegend = false,
   showLegendBottom = false,
 }) => {
@@ -86,12 +88,43 @@ const HorizontalLineChart: React.FC<HorizontalLineChartProps> = ({
     return value?.toLocaleString();
   }
 
+  const filteredData = useMemo(() => {
+    if (unit === 'weekly') {
+      const result: typeof data = [];
+      for (let i = 0; i < data.length; i += 7) {
+        const group = data.slice(i, i + 7);
+        const avgItem: Record<string, any> = { date: group[0].date };
+        for (const line of lines) {
+          avgItem[line.key] = Math.round(group.reduce((sum, item) => sum + (item[line.key] ?? 0), 0) / group.length);
+        }
+        result.push(avgItem);
+      }
+      return result;
+    }
+    if (unit === 'monthly') {
+      const grouped: Record<string, Record<string, any>[]> = {};
+      for (const item of data) {
+        const month = item.date.slice(0, 7);
+        grouped[month] ??= [];
+        grouped[month].push(item);
+      }
+      return Object.entries(grouped).map(([month, items]) => {
+        const avgItem: Record<string, any> = { date: month };
+        for (const line of lines) {
+          avgItem[line.key] = Math.round(items.reduce((sum, i) => sum + (i[line.key] ?? 0), 0) / items.length);
+        }
+        return avgItem;
+      });
+    }
+    return data;
+  }, [data, lines, unit]);
+
   return (
     <div ref={chartRef} className="relative flex w-full pb-4" style={{ height: height }}>
       <div className="flex-1 h-full">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart
-            data={data}
+            data={filteredData}
             height={height}
             onMouseMove={(e: any) => {
               if (e?.activePayload?.[0]) {
