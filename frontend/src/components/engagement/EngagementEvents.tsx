@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import HorizontalLineChart from '../HorizontalLineChart';
 import ChartTableWrapper from '../ui/ChartTableWrapper';
 import type { EventCountsData } from '../../data/engagementTypes';
@@ -7,12 +7,23 @@ interface EngagementEventsProps {
   eventCounts: EventCountsData[];
 }
 
+const keys = ['eventCount', 'userCount', 'avgEventPerUser'];
+const labels = ['이벤트 수', '총 사용자', '사용자당 평균 이벤트 수'];
+const valueKeys = [
+  { key: keys[0], label: labels[0], showPercent: true },
+  { key: keys[1], label: labels[1], showPercent: true },
+  { key: keys[2], label: labels[2] },
+];
+const getKeyIndex = (k: string) => keys.indexOf(k) >= 0 ? keys.indexOf(k) : 0;
+
 const EngagementEvents: React.FC<EngagementEventsProps> = ({ eventCounts }) => {
+  const [sortKey, setSortKey] = useState<string>(keys[0]);
+
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6" id="engagementEvents">
       <div className="flex items-center gap-2 mb-4">
         <h2 className="text-lg font-semibold text-gray-900">
-          시간 경과에 따른 이벤트 이름별 활성 사용자당 이벤트 수
+          시간 경과에 따른 이벤트 이름별 활성 사용자당 {labels[getKeyIndex(sortKey)]}
         </h2>
       </div>
       <ChartTableWrapper
@@ -40,13 +51,12 @@ const EngagementEvents: React.FC<EngagementEventsProps> = ({ eventCounts }) => {
             };
           });
         })()}
-        valueKeys={[
-          { key: 'eventCount', label: '이벤트 수', showPercent: true },
-          { key: 'userCount', label: '총 사용자', showPercent: true },
-          { key: 'avgEventPerUser', label: '사용자당 평균 이벤트 수' },
-        ]}
-        autoSelectBy="eventCount"
+        valueKeys={valueKeys}
+        autoSelectBy={keys[0]}
         title="이벤트 이름"
+        onSortChange={(KEY) => {
+          setSortKey(KEY);
+        }}
       >
         {(selectedKeys, chartData, lineDefs) => (
           <HorizontalLineChart
@@ -57,7 +67,14 @@ const EngagementEvents: React.FC<EngagementEventsProps> = ({ eventCounts }) => {
                 let sum = 0;
                 selectedKeys.forEach(event => {
                   const match = eventCounts.find(d => d.date === date && d.eventName === event);
-                  const val = match?.eventCount || 0;
+                  const val =
+                    sortKey === keys[0]
+                      ? match?.eventCount || 0
+                      : sortKey === keys[1]
+                      ? match?.userCount || 0
+                      : sortKey === keys[2]
+                      ? match?.avgEventPerUser || 0
+                      : 0;
                   row[event] = val;
                   sum += val;
                 });

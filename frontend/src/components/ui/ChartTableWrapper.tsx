@@ -19,6 +19,7 @@ export interface ChartTableWrapperProps {
     chartData: Record<string, any>[] ,
     lineDefs: { key: string; name: string }[]
   ) => React.ReactNode;
+  onSortChange?: (key: string, order: 'asc' | 'desc') => void;
 }
 
 const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
@@ -29,6 +30,7 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
   title,
   valueKeys,
   children,
+  onSortChange
 }) => {
   const [selectedKeys, setSelectedKeys] = useState<string[]>(['SUM']);
   const [searchText, setSearchText] = useState('');
@@ -120,10 +122,13 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
 
   const handleSort = (key: string) => {
     if (sortKey === key) {
-      setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'));
+      const newOrder = sortOrder === 'asc' ? 'desc' : 'asc';
+      setSortOrder(newOrder);
+      onSortChange?.(key, newOrder);
     } else {
       setSortKey(key);
       setSortOrder('desc');
+      onSortChange?.(key, 'desc');
     }
   };
 
@@ -227,16 +232,9 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
                   onChange={toggleAll}
                 />
               </th>
-              <th className="p-2 text-left"></th>
-              <th className="p-2 text-left cursor-pointer" onClick={() => handleSort('label')}>
-                <div className="flex items-center gap-1 group">
-                  <ArrowDown
-                    className={`w-4 h-4 transition-transform duration-200 ${
-                      sortKey === 'label' ? '' : 'opacity-0 group-hover:opacity-25'
-                    } ${sortOrder === 'desc' ? 'rotate-0' : 'rotate-180'}`}
-                  />
-                  <span>{title ? title : '항목'}</span>
-                </div>
+              <th className="p-2 text-left" />
+              <th className="p-2 text-left">
+                <span>{title ? title : '항목'}</span>
               </th>
               {valueKeys.map(({ key, label }) => (
               <th
