@@ -66,16 +66,27 @@ const EngagementEvents: React.FC<EngagementEventsProps> = ({ eventCounts }) => {
               });
             })()}
             lines={[
-              ...selectedKeys.map(k => ({ key: k, name: k })),
-              { key: 'sum_selected_events', name: '합계', color: "#2596be", dash: "3 3" },
+              ...selectedKeys
+                .filter(k => k !== 'sum_selected_events')
+                .map(k => ({ key: k, name: k })),
+              ...(selectedKeys.includes('sum_selected_events')
+                ? [{ key: 'sum_selected_events', name: '합계', color: '#2596be', dash: '3 3' }]
+                : []),
             ]}
-            areas={[{ key: 'sum_selected_events', name: '합계', color: "#2596be" }]}
+            areas={
+              selectedKeys.includes('sum_selected_events')
+                ? [{ key: 'sum_selected_events', name: '합계', color: '#2596be' }]
+                : []
+            }
             height={400}
             tooltipRenderer={(item, hoveredLineKey) => {
-              const keys = [...selectedKeys, 'sum_selected_events'];
-              const sortedKeys = keys
+              const sortedKeys = selectedKeys
                 .filter((key) => item[key] !== undefined)
-                .sort((a, b) => (item[b] ?? 0) - (item[a] ?? 0));
+                .sort((a, b) => {
+                  if (a === 'sum_selected_events') return -1;
+                  if (b === 'sum_selected_events') return 1;
+                  return (item[b] ?? 0) - (item[a] ?? 0);
+                });
               const colors = ['#3b82f6', '#10b981', '#f97316', '#6366f1', '#ef4444', '#2596be'];
               return (
                 <div className="text-sm">

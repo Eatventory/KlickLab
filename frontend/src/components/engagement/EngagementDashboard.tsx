@@ -7,6 +7,8 @@ import DateRangeSelector from '../ui/DateRangeSelector';
 import EngagementOverview from './EngagementOverview';
 import EngagementEvents from './EngagementEvents';
 
+// import { eventCounts } from '../../data/eventCountsMock';
+
 import type {
   PageTimeData,
   PageViewCountsData,

@@ -16,7 +16,7 @@ export interface ChartTableWrapperProps {
   valueKeys: { key: string; label: string; showPercent?: boolean }[];
   children: (
     selectedKeys: string[],
-    chartData: Record<string, any>[],
+    chartData: Record<string, any>[] ,
     lineDefs: { key: string; name: string }[]
   ) => React.ReactNode;
 }
@@ -30,25 +30,27 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
   valueKeys,
   children,
 }) => {
-  const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
+  const [selectedKeys, setSelectedKeys] = useState<string[]>(['sum_selected_events']);
   const [searchText, setSearchText] = useState('');
   const [sortKey, setSortKey] = useState<string | null>(null);
-  useEffect(() => {
-    if (autoSelectBy) {
-      setSortKey(autoSelectBy);
-    }
-  }, [autoSelectBy]);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const [isManualSelection, setIsManualSelection] = useState(false);
 
   useEffect(() => {
-    if (autoSelectTopN && autoSelectBy && selectedKeys.length === 0 && !isManualSelection) {
-      const sorted = [...data]
-        .sort((a, b) => (b.values[autoSelectBy] || 0) - (a.values[autoSelectBy] || 0))
-        .slice(0, autoSelectTopN)
-        .map(d => d.key);
-      setSelectedKeys(sorted);
+    if (autoSelectBy) setSortKey(autoSelectBy);
+  }, [autoSelectBy]);
+
+  useEffect(() => {
+    if (!isManualSelection) {
+      setSelectedKeys((prev) => {
+        const hasSum = prev.includes('sum_selected_events');
+        const topN = [...data]
+          .sort((a, b) => (b.values[autoSelectBy!] || 0) - (a.values[autoSelectBy!] || 0))
+          .slice(0, autoSelectTopN)
+          .map(d => d.key);
+        return [...(hasSum ? ['sum_selected_events'] : ['sum_selected_events']), ...topN];
+      });
     }
   }, [autoSelectTopN, autoSelectBy, data, isManualSelection]);
 
@@ -62,12 +64,7 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
     return [...filtered].sort((a, b) => {
       const aVal = sortKey === 'label' ? a.label : a.values[sortKey] || 0;
       const bVal = sortKey === 'label' ? b.label : b.values[sortKey] || 0;
-
-      if (sortOrder === 'asc') {
-        return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
-      } else {
-        return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
-      }
+      return sortOrder === 'asc' ? aVal < bVal ? -1 : aVal > bVal ? 1 : 0 : aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
     });
   }, [data, searchText, sortKey, sortOrder]);
 
@@ -77,7 +74,7 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
     const start = (currentPage - 1) * itemsPerPage;
     return filteredData.slice(start, start + itemsPerPage);
   }, [filteredData, currentPage, itemsPerPage]);
-  
+
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
 
   const totals = useMemo(() => {
@@ -102,19 +99,23 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
     });
   }, [data, selectedKeys, valueKeys]);
 
-  const lineDefs = useMemo(() => [
-    ...selectedKeys.map(key => ({ key, name: key })),
-  ], [selectedKeys]);
+  const lineDefs = useMemo(() => (
+    selectedKeys
+      .filter(k => k !== 'sum_selected_events')
+      .map(key => ({ key, name: key }))
+  ), [selectedKeys]);
 
   const toggleSelect = (key: string) => {
     setIsManualSelection(true);
-    setSelectedKeys(prev =>
-      prev.includes(key)
-        ? prev.filter(k => k !== key)
-        : prev.length < maxSelectable
-          ? [...prev, key]
-          : prev
-    );
+    setSelectedKeys(prev => {
+      const isSelected = prev.includes(key);
+      if (key === 'sum_selected_events') {
+        return isSelected ? prev.filter(k => k !== key) : [...prev, key];
+      }
+      const selectedWithoutSum = prev.filter(k => k !== 'sum_selected_events');
+      if (!isSelected && selectedWithoutSum.length >= maxSelectable) return prev;
+      return isSelected ? prev.filter(k => k !== key) : [...prev, key];
+    });
   };
 
   const handleSort = (key: string) => {
@@ -126,13 +127,20 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
     }
   };
 
+  const toggleAll = () => {
+    setIsManualSelection(true);
+    const topKeys = filteredData.slice(0, maxSelectable).map(row => row.key);
+    setSelectedKeys(prev => {
+      const hasSum = prev.includes('sum_selected_events');
+      const isAllSelected = topKeys.every(k => prev.includes(k));
+      return isAllSelected ? (hasSum ? ['sum_selected_events'] : []) : [...(hasSum ? ['sum_selected_events'] : []), ...topKeys];
+    });
+  };
+
   return (
     <div>
-      {/* Chart */}
       {children(selectedKeys, chartData, lineDefs)}
-
-      <div className='w-full border-t flex justify-between mt-6'>
-        {/* 검색창 */}
+      <div className="w-full border-t flex justify-between mt-6">
         <div className='mx-1 py-1 w-1/2 flex hover:bg-gray-100 hover:rounded-sm'>
           <Search className='m-2 text-gray-500'/>
           <input
@@ -147,8 +155,6 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
             className="text-sm placeholder-gray-500 w-full bg-transparent"
           />
         </div>
-
-        {/* 페이지네이션 */}
         <div className="p-2 flex justify-end items-center gap-4 text-sm">
           <div className="flex items-center gap-1">
             <span className="text-gray-600">페이지당 행 수:</span>
@@ -158,14 +164,12 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
               onChange={e => {
                 setCurrentPage(1);
                 setItemsPerPage(parseInt(e.target.value, 10));
-              }}
-            >
+              }}>
               {[10, 20, 50, 100].map(n => (
                 <option key={n} value={n}>{n}</option>
               ))}
             </select>
           </div>
-
           <div className="flex items-center gap-1">
             <span className="text-gray-600">이동:</span>
             <input
@@ -180,7 +184,6 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
               className="w-12 px-2 py-1 rounded text-center"
             />
           </div>
-
           <div className="flex items-center gap-2 text-gray-600">
             <button
               disabled={currentPage === 1}
@@ -190,11 +193,9 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
               <ChevronLeft />
             </button>
             <span>
-              {Math.min((currentPage - 1) * itemsPerPage + 1, filteredData.length)}
-              ~
+              {Math.min((currentPage - 1) * itemsPerPage + 1, filteredData.length)}~
               {Math.min(currentPage * itemsPerPage, filteredData.length)}
-              &nbsp;/&nbsp;
-              {filteredData.length}
+              &nbsp;/&nbsp;{filteredData.length}
             </span>
             <button
               disabled={currentPage === totalPages}
@@ -206,74 +207,56 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
           </div>
         </div>
       </div>
-
-      {/* Table */}
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm table-fixed">
-        <colgroup>
-          <col className="w-[40px]" />
-          <col className="w-[40px]" />
-          <col className="w-[200px]" />
-          {valueKeys.map((_, idx) => (
-            <col key={idx} className="w-[140px]" />
-          ))}
-        </colgroup>
+          <colgroup>
+            <col className="w-[40px]" />
+            <col className="w-[40px]" />
+            <col className="w-[200px]" />
+            {valueKeys.map((_, idx) => (
+              <col key={idx} className="w-[140px]" />
+            ))}
+          </colgroup>
           <thead className="bg-gray-50 border-t">
             <tr>
-              <th className="p-2" />
+              <th className="p-2 text-left">
+                <input
+                  id="masterCheckbox"
+                  type="checkbox"
+                  checked={filteredData.slice(0, maxSelectable).every(row => selectedKeys.includes(row.key))}
+                  onChange={toggleAll}
+                />
+              </th>
               <th className="p-2 text-left"></th>
               <th className="p-2 text-left cursor-pointer" onClick={() => handleSort('label')}>
                 <div className="flex items-center gap-1">
-                  <ArrowDown
-                    className={`w-4 h-4 transition-transform duration-200 ${
-                      sortKey === 'label' ? "" : "opacity-0 hover:opacity-25"
-                    } ${
-                      sortOrder === 'desc' ? 'rotate-0' : 'rotate-180'
-                    }`}
-                  />
+                  <ArrowDown className={`w-4 h-4 transition-transform duration-200 ${sortKey === 'label' ? '' : 'opacity-0 hover:opacity-25'} ${sortOrder === 'desc' ? 'rotate-0' : 'rotate-180'}`} />
                   <span>{title ? title : '항목'}</span>
                 </div>
               </th>
               {valueKeys.map(({ key, label }) => (
                 <th
-                key={key}
-                className="p-2 text-right cursor-pointer"
-                onClick={() => handleSort(key)}
-              >
-                <div className="flex items-center justify-end gap-1">
-                  <ArrowDown
-                    className={`w-4 h-4 transition-transform duration-200 ${
-                      sortKey === key ? "" : "opacity-0 hover:opacity-25"
-                    } ${
-                      sortOrder === 'desc' ? 'rotate-0' : 'rotate-180'
-                    }`}
-                  />
-                  <span>{label}</span>
-                </div>
-              </th>
+                  key={key}
+                  className="p-2 text-right cursor-pointer"
+                  onClick={() => handleSort(key)}
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    <ArrowDown className={`w-4 h-4 transition-transform duration-200 ${sortKey === key ? '' : 'opacity-0 hover:opacity-25'} ${sortOrder === 'desc' ? 'rotate-0' : 'rotate-180'}`} />
+                    <span>{label}</span>
+                  </div>
+                </th>
               ))}
             </tr>
           </thead>
           <tbody>
             <tr className="bg-gray-100 font-semibold border-t">
-            <td className="p-2">
-              <input
-                id="masterCheckbox"
-                type="checkbox"
-                checked={selectedKeys.length > 0}
-                onChange={(e) => {
-                  if (e.target.checked) {
-                    const top5 = filteredData
-                      .slice(0, maxSelectable)
-                      .map((row) => row.key);
-                    setSelectedKeys(top5);
-                  } else {
-                    setSelectedKeys([]);
-                  }
-                  setIsManualSelection(true);
-                }}
-              />
-            </td>
+              <td className="p-2">
+                <input
+                  type="checkbox"
+                  checked={selectedKeys.includes('sum_selected_events')}
+                  onChange={() => toggleSelect('sum_selected_events')}
+                />
+              </td>
               <td className="p-2" />
               <td className="p-2">합계</td>
               {valueKeys.map(({ key }) => (
@@ -286,7 +269,7 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
                   <input
                     type="checkbox"
                     checked={selectedKeys.includes(row.key)}
-                    disabled={!selectedKeys.includes(row.key) && selectedKeys.length >= maxSelectable}
+                    disabled={!selectedKeys.includes(row.key) && selectedKeys.filter(k => k !== 'sum_selected_events').length >= maxSelectable}
                     onChange={() => toggleSelect(row.key)}
                   />
                 </td>

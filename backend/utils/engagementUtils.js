@@ -240,7 +240,6 @@ function getEventCountsQuery(startDate, endDate, sdk_key) {
   `;
 }
 
-
 function getPageTimesQuery(startDate, endDate, sdk_key, limit = 10) {
   return `
     SELECT
