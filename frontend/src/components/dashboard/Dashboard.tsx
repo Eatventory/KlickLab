@@ -27,8 +27,8 @@ export const Dashboard: React.FC = () => {
   const tabPath = location.pathname.split('/')[2] || 'overview';
   
   // 디버깅용 로그
-  console.log('Current pathname:', location.pathname);
-  console.log('Current tabPath:', tabPath);
+  // console.log('Current pathname:', location.pathname);
+  // console.log('Current tabPath:', tabPath);
 
   const handleTabChange = (tab: string) => {
     navigate(`/dashboard/${tab}`);

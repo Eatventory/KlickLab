@@ -23,7 +23,7 @@ const EngagementEvents: React.FC<EngagementEventsProps> = ({ eventCounts }) => {
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6" id="engagementEvents">
       <div className="flex items-center gap-2 mb-4">
         <h2 className="text-lg font-semibold text-gray-900">
-          시간 경과에 따른 이벤트 이름별 활성 사용자당 {labels[getKeyIndex(sortKey)]}
+          시간 경과에 따른 이벤트 이름별 {labels[getKeyIndex(sortKey)]}
         </h2>
       </div>
       <ChartTableWrapper

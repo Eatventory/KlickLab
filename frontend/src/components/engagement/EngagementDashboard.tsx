@@ -53,6 +53,7 @@ export const EngagementDashboard: React.FC = () => {
 
   const [openCollapse, setOpenCollapse] = useState<string>(engagementTaps[0]);
   const [fetchedTabs, setFetchedTabs] = useState<{ [key: string]: boolean }>({});
+  const [fetchCache, setFetchCache] = useState<{[tab: string]: { start: string; end: string }}>({});
 
   const [dateRange, setDateRange] = useState([
     { startDate: addDays(new Date(), -29), endDate: new Date(), key: 'selection' }
@@ -60,15 +61,25 @@ export const EngagementDashboard: React.FC = () => {
   const [tempRange, setTempRange] = useState(dateRange);
   const [showPicker, setShowPicker] = useState(false);
 
-  const fetchTabData = async (tab: string, start: Date, end: Date) => {
+  const fetchTabData = async (
+    tab: string,
+    start: Date,
+    end: Date,
+    force = false // 강제 fetch 여부
+  ) => {
     const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
     if (!token) return;
 
     const startStr = dayjs(start).format('YYYY-MM-DD');
     const endStr = dayjs(end).format('YYYY-MM-DD');
-    const query = `startDate=${startStr}&endDate=${endStr}`;
+    if (!force && fetchCache[tab]?.start === startStr && fetchCache[tab]?.end === endStr) {
+      console.log(`[SKIP] ${tab} - 캐시 hit`);
+      return;
+    }
 
+    const query = `startDate=${startStr}&endDate=${endStr}`;
     try {
+      setLoading(true);
       switch (tab) {
         case engagementTaps[0]: {
           const [resOverview, resPageTimes, resPageViewCounts, resBounceRates,resViewCounts, resClickCounts, resUOTime, resRevisit] = await Promise.all([
@@ -81,12 +92,10 @@ export const EngagementDashboard: React.FC = () => {
             fetch(`/api/engagement/users-over-time?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
             fetch(`/api/engagement/revisit?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
           ]);
-  
           const [dataOverview, dataPageTimes, dataPageViewCounts, dataBounceRates, dataViewCounts, dataClickCounts, dataUOTime, dataRevisit] = await Promise.all([
             resOverview.json(), resPageTimes.json(), resPageViewCounts.json(), resBounceRates.json(),
             resViewCounts.json(), resClickCounts.json(), resUOTime.json(), resRevisit.json(),
           ]);
-  
           setAvgSessionSecs(dataOverview.data.avgSessionSeconds);
           setSessionsPerUsers(dataOverview.data.sessionsPerUser);
           setPageTimes(dataPageTimes);
@@ -98,21 +107,18 @@ export const EngagementDashboard: React.FC = () => {
           setRevisit(dataRevisit);
           break;
         }
-  
         case engagementTaps[1]: {
           const res = await fetch(`/api/engagement/event-counts?${query}`, { headers: { Authorization: `Bearer ${token}` } });
           const data = await res.json();
           setEventCounts(data);
           break;
         }
-  
         case engagementTaps[2]: {
           const res = await fetch(`/api/engagement/page-stats?${query}`, { headers: { Authorization: `Bearer ${token}` } });
           const data = await res.json();
           setPageStats(data);
           break;
         }
-  
         case engagementTaps[3]: {
           const res = await fetch(`/api/engagement/visit-stats?${query}`, { headers: { Authorization: `Bearer ${token}` } });
           const data = await res.json();
@@ -120,6 +126,11 @@ export const EngagementDashboard: React.FC = () => {
           break;
         }
       }
+
+      setFetchCache((prev) => ({
+        ...prev,
+        [tab]: { start: startStr, end: endStr },
+      }));
     } catch (err: any) {
       console.error(err);
       setError(err.message || '알 수 없는 오류');
@@ -128,7 +139,7 @@ export const EngagementDashboard: React.FC = () => {
       setIsFirstLoad(false);
     }
   };
-  
+
   useEffect(() => {
     const { startDate, endDate } = dateRange[0];
     if (!startDate || !endDate || !openCollapse) return;
@@ -137,8 +148,12 @@ export const EngagementDashboard: React.FC = () => {
       setFetchedTabs((prev) => ({ ...prev, [openCollapse]: true }));
     }
     const interval = setInterval(() => {
-      fetchTabData(openCollapse, startDate, endDate);
-    }, 60000); // 1분 간격으로 polling
+      const now = new Date();
+      const minute = now.getMinutes();
+      if (minute % 10 === 0) { // 매 10분마다 fetch 실행
+        fetchTabData(openCollapse, startDate, endDate);
+      }
+    }, 60000);
     return () => clearInterval(interval);
   }, [openCollapse, dateRange]);
 
@@ -154,7 +169,7 @@ export const EngagementDashboard: React.FC = () => {
           setShowPicker={setShowPicker}
           onApply={(start, end) => {
             setDateRange([{ startDate: start, endDate: end, key: 'selection' }]);
-            fetchTabData(openCollapse, start, end);
+            fetchTabData(openCollapse, start, end, true);
           }}
         />
       </div>
