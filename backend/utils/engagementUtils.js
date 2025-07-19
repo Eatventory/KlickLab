@@ -327,40 +327,73 @@ function getPageViewsQuery(startDate, endDate, sdk_key, limit = 10) {
 
 function getPageStatsQuery(startDate, endDate, sdk_key) {
   return `
-    SELECT
-      dpa.summary_date AS date,
-      dpa.page_path,
-      sumMerge(dpa.pageview_count_state) AS page_views,
-      uniqMerge(dpa.unique_users_state) AS active_users,
-      round(page_views / active_users, 2) AS pageviews_per_user,
-      round(sumMerge(dpa.total_time_state) / active_users, 2) AS avg_engagement_time_sec,
-      sumMerge(dea.event_count_state) AS total_events
-    FROM daily_page_agg AS dpa
-    LEFT JOIN daily_event_agg AS dea
-      ON dpa.summary_date = dea.summary_date AND dpa.sdk_key = dea.sdk_key
-    WHERE dpa.sdk_key = '${sdk_key}'
-      AND dpa.summary_date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
-    GROUP BY dpa.summary_date, dpa.page_path
-    ORDER BY date DESC, page_views DESC
+    WITH 
+      toDate('${startDate}') AS start,
+      toDate('${endDate}') AS end,
+      dateDiff('day', start, end) AS days
+    SELECT 
+      d.date AS date,
+      data.page_path,
+      ifNull(data.page_views, 0) AS page_views,
+      ifNull(data.active_users, 0) AS active_users,
+      ifNull(data.pageviews_per_user, 0) AS pageviews_per_user,
+      ifNull(data.avg_engagement_time_sec, 0) AS avg_engagement_time_sec,
+      ifNull(data.total_events, 0) AS total_events
+    FROM (
+      SELECT addDays(start, number) AS date FROM numbers(days + 1)
+    ) d
+    LEFT JOIN (
+      SELECT
+        dpa.summary_date AS date,
+        dpa.page_path,
+        sumMerge(dpa.pageview_count_state) AS page_views,
+        uniqMerge(dpa.unique_users_state) AS active_users,
+        round(sumMerge(dpa.pageview_count_state) / nullIf(uniqMerge(dpa.unique_users_state), 0), 2) AS pageviews_per_user,
+        round(sumMerge(dpa.total_time_state) / nullIf(uniqMerge(dpa.unique_users_state), 0), 2) AS avg_engagement_time_sec,
+        sumMerge(dea.event_count_state) AS total_events
+      FROM daily_page_agg AS dpa
+      LEFT JOIN daily_event_agg AS dea
+        ON dpa.summary_date = dea.summary_date AND dpa.sdk_key = dea.sdk_key
+      WHERE dpa.sdk_key = '${sdk_key}'
+        AND dpa.summary_date BETWEEN start AND end
+      GROUP BY dpa.summary_date, dpa.page_path
+    ) AS data ON d.date = data.date
+    ORDER BY d.date DESC, page_views DESC
   `;
 }
 
 function getVisitStatsQuery(startDate, endDate, sdk_key) {
   return `
-    SELECT
-      dpa.summary_date AS date,
-      dpa.page_path,
-      argMax(dm.visitors, dm.date) AS sessions,
-      uniqMerge(dpa.unique_users_state) AS active_users,
-      argMax(dm.new_visitors, dm.date) AS new_visitors,
-      round(sumMerge(dpa.total_time_state) / active_users, 2) AS avg_session_seconds
-    FROM daily_page_agg dpa
-    LEFT JOIN daily_metrics dm
-      ON dpa.summary_date = dm.date AND dpa.sdk_key = '${sdk_key}'
-    WHERE dpa.sdk_key = '${sdk_key}'
-      AND dpa.summary_date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
-    GROUP BY dpa.summary_date, dpa.page_path
-    ORDER BY dpa.summary_date ASC, sessions DESC
+    WITH 
+      toDate('${startDate}') AS start,
+      toDate('${endDate}') AS end,
+      dateDiff('day', start, end) AS days
+    SELECT 
+      d.date AS date,
+      data.page_path,
+      ifNull(data.sessions, 0) AS sessions,
+      ifNull(data.active_users, 0) AS active_users,
+      ifNull(data.new_visitors, 0) AS new_visitors,
+      ifNull(data.avg_session_seconds, 0) AS avg_session_seconds
+    FROM (
+      SELECT addDays(start, number) AS date FROM numbers(days + 1)
+    ) d
+    LEFT JOIN (
+      SELECT
+        dpa.summary_date AS date,
+        dpa.page_path,
+        argMax(dm.visitors, dm.date) AS sessions,
+        uniqMerge(dpa.unique_users_state) AS active_users,
+        argMax(dm.new_visitors, dm.date) AS new_visitors,
+        round(sumMerge(dpa.total_time_state) / nullIf(uniqMerge(dpa.unique_users_state), 0), 2) AS avg_session_seconds
+      FROM daily_page_agg dpa
+      LEFT JOIN daily_metrics dm
+        ON dpa.summary_date = dm.date AND dpa.sdk_key = '${sdk_key}'
+      WHERE dpa.sdk_key = '${sdk_key}'
+        AND dpa.summary_date BETWEEN start AND end
+      GROUP BY dpa.summary_date, dpa.page_path
+    ) AS data ON d.date = data.date
+    ORDER BY d.date ASC, sessions DESC
   `;
 }
 

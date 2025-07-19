@@ -27,7 +27,7 @@ import type {
   VisitStatsData,
 } from '../../data/engagementTypes';
 
-const engagementTaps: string[] = ["참여도 개요", "이벤트 보고서", "페이지 및 화면 보고서", "방문 페이지 보고서"];
+const engagementTaps: string[] = ['참여도 개요', '이벤트 보고서', '페이지 및 화면 보고서', '방문 페이지 보고서'];
 
 export const EngagementDashboard: React.FC = () => {
   const [pageTimes, setPageTimes] = useState<PageTimeData[]>([]);
@@ -59,7 +59,7 @@ export const EngagementDashboard: React.FC = () => {
   const fetchData = async (start: Date, end: Date) => {
     try {
       const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
-      if (!token) throw new Error("No token");
+      if (!token) throw new Error('No token');
       if (isFirstLoad) setLoading(true);
       setError(null);
 
@@ -141,7 +141,7 @@ export const EngagementDashboard: React.FC = () => {
 
   return (
     <>
-      <div className="w-full flex justify-end border-b-2 border-dashed">
+      <div className='w-full flex justify-end border-b-2 border-dashed'>
         <DateRangeSelector
           dateRange={dateRange}
           tempRange={tempRange}
