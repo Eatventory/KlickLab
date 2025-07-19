@@ -43,7 +43,7 @@ export const DeviceBrowserDonutChart: React.FC<DeviceBrowserDonutChartProps> = (
 
   const CustomLegend = ({ payload }: any) => {
     return (
-      <div className="flex flex-wrap gap-2 mt-2 justify-center">
+      <div className="flex flex-wrap gap-2 mt-4 justify-center">
         {payload?.map((entry: any, index: number) => (
           <div key={index} className="flex items-center gap-1 text-xs">
             <div 
@@ -59,10 +59,12 @@ export const DeviceBrowserDonutChart: React.FC<DeviceBrowserDonutChartProps> = (
 
   return (
     <div className="h-full w-full">
-      <div className="grid grid-cols-2 gap-4 h-full">
+      <div className="grid grid-cols-2 gap-4 h-full pt-4">
         {/* 디바이스 차트 */}
         <div className="h-full">
-          <h4 className="text-sm font-semibold text-gray-900 mb-2">디바이스</h4>
+          <div className="text-center mb-0">
+            <h4 className="text-sm font-semibold text-gray-900">디바이스</h4>
+          </div>
           <div className="h-44">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
@@ -88,7 +90,9 @@ export const DeviceBrowserDonutChart: React.FC<DeviceBrowserDonutChartProps> = (
 
         {/* 브라우저 차트 */}
         <div className="h-full">
-          <h4 className="text-sm font-semibold text-gray-900 mb-2">브라우저</h4>
+          <div className="text-center mb-0">
+            <h4 className="text-sm font-semibold text-gray-900">브라우저</h4>
+          </div>
           <div className="h-44">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>

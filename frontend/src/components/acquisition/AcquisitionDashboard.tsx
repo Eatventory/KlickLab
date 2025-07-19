@@ -157,12 +157,30 @@ export const AcquisitionDashboard: React.FC = () => {
       // 데이터 변환 및 매핑
       const transformedData: AcquisitionData = {
         // KPI 데이터는 별도로 처리
-        hourlyTrendData: hourlyTrendData.map((item: any) => ({
-          hour: item.hour.padStart(2, '0'),
-          total_users: item.total_users,
-          new_users: item.new_users,
-          existing_users: item.existing_users
-        })),
+        hourlyTrendData: hourlyTrendData.map((item: any) => {
+          // 데이터 검증 및 수정
+          const newUsers = Number(item.new_users) || 0;
+          const existingUsers = Number(item.existing_users) || 0;
+          const reportedTotal = Number(item.total_users) || 0;
+          
+          // total_users가 new_users + existing_users와 일치하는지 확인
+          const calculatedTotal = newUsers + existingUsers;
+          const totalUsers = reportedTotal > 0 && Math.abs(reportedTotal - calculatedTotal) < 10 
+            ? reportedTotal 
+            : calculatedTotal;
+          
+          // 데이터 로깅 (문제 진단용)
+          if (newUsers > totalUsers) {
+            console.warn(`시간 ${item.hour}: 신규 사용자(${newUsers})가 전체 사용자(${totalUsers})보다 많음`);
+          }
+          
+          return {
+            hour: item.hour.padStart(2, '0'),
+            total_users: totalUsers,
+            new_users: newUsers,
+            existing_users: existingUsers
+          };
+        }),
         topChannelData: topChannelsData.map((item: any) => ({
           channel: item.channel,
           users: item.users,
@@ -335,7 +353,7 @@ export const AcquisitionDashboard: React.FC = () => {
         {/* 2행: 상위 유입채널 + 신규 사용자 채널 + 유입 채널별 디바이스 비율 + 유입 플랫폼 분석 */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
           {/* 상위 유입채널 */}
-          <div className="md:col-span-2 bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+          <div className="md:col-span-2 bg-white rounded-lg border border-gray-200 p-4 h-[320px] shadow-sm">
             <h3 className="text-sm font-semibold text-gray-900 mb-2">상위 유입 채널</h3>
             <HorizontalBarChart
               data={acquisitionData.topChannelData.map((d:any, index: number)=>({label:d.channel,value:d.users, key: `${d.channel}-${index}`}))}
@@ -344,7 +362,7 @@ export const AcquisitionDashboard: React.FC = () => {
           </div>
 
           {/* 신규 사용자 채널 */}
-          <div className="md:col-span-2 bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+          <div className="md:col-span-2 bg-white rounded-lg border border-gray-200 p-4 h-[320px] shadow-sm">
             <h4 className="text-sm font-semibold text-gray-900 mb-2">신규 사용자 채널</h4>
             <HorizontalBarChart
               data={(() => {
@@ -372,7 +390,7 @@ export const AcquisitionDashboard: React.FC = () => {
           </div>
 
           {/* 유입 채널별 디바이스 비율 */}
-          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-4 h-[350px] hover:shadow-lg transition-shadow">
+          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-4 h-[320px] hover:shadow-lg transition-shadow">
             <h3 className="text-sm font-semibold text-gray-900 mb-2">유입 채널별 디바이스 비율</h3>
             <ChannelGroupStackedChart 
               data={acquisitionData.channelGroupData} 
@@ -381,7 +399,7 @@ export const AcquisitionDashboard: React.FC = () => {
           </div>
 
           {/* 유입 플랫폼 분석 */}
-          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-4 h-[270px] hover:shadow-lg transition-shadow">
+          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-4 h-[320px] hover:shadow-lg transition-shadow">
             <h3 className="text-sm font-semibold text-gray-900 mb-2">유입 플랫폼 분석</h3>
             <DeviceBrowserDonutChart 
               deviceData={acquisitionData.deviceData} 

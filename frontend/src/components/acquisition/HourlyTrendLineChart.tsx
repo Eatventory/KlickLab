@@ -31,6 +31,22 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export const HourlyTrendLineChart: React.FC<HourlyTrendLineChartProps> = ({ data }) => {
+  // 데이터 검증 및 로깅
+  React.useEffect(() => {
+    if (data && data.length > 0) {
+      data.forEach((item, index) => {
+        if (item.new_users > item.total_users) {
+          console.error(`시간별 트렌드 데이터 오류 [${index}]:`, {
+            hour: item.hour,
+            total_users: item.total_users,
+            new_users: item.new_users,
+            existing_users: item.existing_users
+          });
+        }
+      });
+    }
+  }, [data]);
+
   return (
     <ResponsiveContainer width="100%" height="100%">
       <LineChart data={data} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>

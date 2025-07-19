@@ -32,6 +32,8 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     const data = payload[0]?.payload;
     const totalUsers = data?.totalUsers || 0;
+    const mobilePercent = data?.mobile || 0;
+    const desktopPercent = data?.desktop || 0;
 
     return (
       <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
@@ -43,6 +45,9 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         ))}
         <p className="text-sm font-semibold text-gray-700 mt-2 pt-2 border-t border-gray-100">
           총 {totalUsers.toLocaleString()}명
+        </p>
+        <p className="text-xs text-gray-500 mt-1">
+          비율 합계: {(mobilePercent + desktopPercent).toFixed(1)}%
         </p>
       </div>
     );
@@ -62,7 +67,7 @@ const CustomYAxisTick = ({ x, y, payload }: any) => (
 // X축 레이블
 const CustomXAxisTick = ({ x, y, payload }: any) => (
   <g transform={`translate(${x},${y})`}>
-    <text x={0} y={0} textAnchor="middle" fill="#666" className="text-xs">
+    <text x={0} y={14} textAnchor="middle" fill="#666" className="text-xs">
       {payload.value}%
     </text>
   </g>
@@ -92,6 +97,9 @@ export const ChannelGroupStackedChart: React.FC<ChannelGroupStackedChartProps> =
   const processedData = useMemo(() => {
     if (!data || data.length === 0) return [];
 
+    // 원본 데이터 로깅
+    console.log('원본 데이터:', data);
+
     const channelTotals = data.reduce((acc, item) => {
       acc[item.channel] = (acc[item.channel] || 0) + item.users;
       return acc;
@@ -102,6 +110,8 @@ export const ChannelGroupStackedChart: React.FC<ChannelGroupStackedChartProps> =
       .slice(0, 5)
       .map(([channel]) => channel);
 
+    console.log('상위 채널:', topChannels);
+
     const filteredData = data.filter(
       item =>
         topChannels.includes(item.channel) &&
@@ -109,34 +119,53 @@ export const ChannelGroupStackedChart: React.FC<ChannelGroupStackedChartProps> =
         item.channel.trim() !== ''
     );
 
+    console.log('필터링된 데이터:', filteredData);
+
     const groupedByChannel = filteredData.reduce((acc, item) => {
       if (!acc[item.channel]) acc[item.channel] = {};
       acc[item.channel][item.device] = item.users;
       return acc;
     }, {} as Record<string, Record<string, number>>);
 
+    console.log('채널별 그룹화:', groupedByChannel);
+
     const allDeviceTypes = ['mobile', 'desktop'];
 
-    return Object.entries(groupedByChannel)
+    const result = Object.entries(groupedByChannel)
       .filter(([channel]) => channel && channel.trim() !== '')
       .map(([channel, devices]) => {
-        const total = allDeviceTypes.reduce(
-          (sum, device) => sum + (Number(devices[device] || 0)),
-          0
-        );
+        const mobileUsers = Number(devices['mobile'] || 0);
+        const desktopUsers = Number(devices['desktop'] || 0);
+        const total = mobileUsers + desktopUsers;
+
+        console.log(`${channel} 채널:`, {
+          mobile: mobileUsers,
+          desktop: desktopUsers,
+          total: total
+        });
 
         const row: any = {
           channel: channel.trim(),
           totalUsers: total,
+          mobile: total > 0 ? (mobileUsers / total) * 100 : 0,
+          desktop: total > 0 ? (desktopUsers / total) * 100 : 0,
         };
 
-        allDeviceTypes.forEach(device => {
-          const value = Number(devices[device] || 0);
-          row[device] = total > 0 ? (value / total) * 100 : 0;
-        });
+        // 비율 검증
+        const totalRatio = row.mobile + row.desktop;
+        if (Math.abs(totalRatio - 100) > 0.1) {
+          console.warn(`${channel} 채널 비율 오류:`, {
+            mobile: row.mobile,
+            desktop: row.desktop,
+            total: totalRatio
+          });
+        }
 
         return row;
       });
+
+    console.log('최종 처리된 데이터:', result);
+    return result;
   }, [data, refreshKey]);
 
   const safeData = processedData
@@ -161,8 +190,9 @@ export const ChannelGroupStackedChart: React.FC<ChannelGroupStackedChartProps> =
   }
 
   return (
-    <div className="w-full h-full">
-      <ResponsiveContainer width="100%" height="100%">
+    <div className="w-full h-full flex items-center justify-center">
+      <div className="w-full h-[85%]">
+        <ResponsiveContainer width="100%" height="100%">
                   <BarChart
             data={safeData}
             layout="vertical"
@@ -192,7 +222,7 @@ export const ChannelGroupStackedChart: React.FC<ChannelGroupStackedChartProps> =
              stroke={DEVICE_COLORS.mobile}
              strokeWidth={2}
              minPointSize={5}
-             barSize={17}
+             barSize={15}
           >
           {/* 
           <LabelList
@@ -227,6 +257,7 @@ export const ChannelGroupStackedChart: React.FC<ChannelGroupStackedChartProps> =
           </Bar>
         </BarChart>
       </ResponsiveContainer>
+      </div>
     </div>
   );
 };
