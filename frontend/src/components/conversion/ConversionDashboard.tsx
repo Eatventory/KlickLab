@@ -1,5 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart } from 'recharts';
+import { UserPathSankeyChart } from '../user/UserPathSankeyChart';
+import { SankeyFunnel } from './SankeyFunnel';
+import { mockSankeyPaths } from '../../data/mockData';
+import dayjs from 'dayjs';
 
 const DEFAULT_EVENTS = ['page_view', 'scroll', 'auto_click', 'user_engagement'];
 const PERIOD_LABELS = { daily: '일', weekly: '주', monthly: '월' };
@@ -32,16 +36,39 @@ export const ConversionDashboard: React.FC = () => {
   const [urlTrendLoading, setUrlTrendLoading] = useState(false);
   const [urlTrendError, setUrlTrendError] = useState<string|null>(null);
 
+  // 기간별 데이터 범위 설정 함수 추가
+  const getPeriodRange = (period: 'daily'|'weekly'|'monthly') => {
+    const today = new Date();
+    let startDate: string;
+    let endDate: string;
+    endDate = today.toISOString().slice(0, 10); // YYYY-MM-DD
+    if (period === 'daily') {
+      const d = new Date(today);
+      d.setDate(d.getDate() - 30); // 31일치
+      startDate = d.toISOString().slice(0, 10);
+    } else if (period === 'weekly') {
+      const d = new Date(today);
+      d.setDate(d.getDate() - 7 * 11); // 12주치
+      startDate = d.toISOString().slice(0, 10);
+    } else {
+      const d = new Date(today);
+      d.setMonth(d.getMonth() - 11); // 12개월치
+      startDate = d.toISOString().slice(0, 10);
+    }
+    return { startDate, endDate };
+  };
+
   // 트렌드 데이터 불러오기 (이벤트/URL 모드 분기)
   useEffect(() => {
     if (!selectedEvents.length) return;
+    const { startDate, endDate } = getPeriodRange(period);
     if (addMode === 'event') {
       setLoading(true);
       setError(null);
       const fetchTrend = async () => {
         try {
           const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
-          const params = new URLSearchParams({ events: selectedEvents.join(','), period });
+          const params = new URLSearchParams({ events: selectedEvents.join(','), period, start_date: startDate, end_date: endDate });
           const res = await fetch(`/api/overview/event-trend?${params}`, { headers: { Authorization: `Bearer ${token}` } });
           const json = await res.json();
           setTrendData(json.data || []);
@@ -59,7 +86,7 @@ export const ConversionDashboard: React.FC = () => {
         try {
           const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
           // 여러 URL별로 page_view 트렌드 데이터 fetch (날짜별로)
-          const params = new URLSearchParams({ urls: selectedEvents.join(','), period });
+          const params = new URLSearchParams({ urls: selectedEvents.join(','), period, start_date: startDate, end_date: endDate });
           const res = await fetch(`/api/overview/pageview-trend?${params}`, { headers: { Authorization: `Bearer ${token}` } });
           if (!res.ok) throw new Error('API 오류');
           const json = await res.json();
@@ -80,10 +107,11 @@ export const ConversionDashboard: React.FC = () => {
   useEffect(() => {
     setLoading(true);
     setError(null);
+    const { startDate, endDate } = getPeriodRange(period);
     const fetchSummary = async () => {
       try {
         const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
-        const params = new URLSearchParams({ events: allEvents.join(',') });
+        const params = new URLSearchParams({ events: allEvents.join(','), start_date: startDate, end_date: endDate });
         const res = await fetch(`/api/overview/event-summary?${params}`, { headers: { Authorization: `Bearer ${token}` } });
         const json = await res.json();
         setSummaryData(json.data || []);
@@ -96,7 +124,7 @@ export const ConversionDashboard: React.FC = () => {
       }
     };
     fetchSummary();
-  }, []);
+  }, [period]);
 
   // URL 정규화 함수 (공백 제거, 중복 제거, 끝 슬래시 통일)
   const normalizeUrl = (url: string) => {
@@ -116,9 +144,10 @@ export const ConversionDashboard: React.FC = () => {
     }
     setUrlSummaryLoading(true);
     setUrlSummaryError(null);
+    const { startDate, endDate } = getPeriodRange(period);
     try {
       const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
-      const params = new URLSearchParams({ urls: normUrls.join(",") });
+      const params = new URLSearchParams({ urls: normUrls.join(","), start_date: startDate, end_date: endDate });
       // 진단용 로그: 요청 파라미터
       console.log('[pageview-summary 요청]', `/api/overview/pageview-summary?${params}`);
       const res = await fetch(`/api/overview/pageview-summary?${params}`, {
@@ -546,25 +575,51 @@ export const ConversionDashboard: React.FC = () => {
   // 차트 렌더링 직전 진단 로그
   console.log('[차트 렌더링] addMode:', addMode, 'selectedEvents:', selectedEvents, 'urlTrendChartData:', urlTrendChartData);
 
+  // Sankey 실데이터 상태
+  const [sankeyPaths, setSankeyPaths] = useState<string[][]>([]);
+
+  // Sankey 실데이터 fetch (어제 날짜)
+  useEffect(() => {
+    const fetchSankeyPaths = async () => {
+      try {
+        const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+        if (!token) throw new Error('No token');
+        const yesterday = dayjs().subtract(1, 'day').format('YYYY-MM-DD');
+        const res = await fetch(`/api/overview/sankey-paths/daily?day=${yesterday}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const json = await res.json();
+        const paths = (json.data || []).map((row: any) => row.path_seq).filter((arr: any) => Array.isArray(arr));
+        setSankeyPaths(paths);
+      } catch (e) {
+        setSankeyPaths([]);
+      }
+    };
+    fetchSankeyPaths();
+  }, []);
+
   return (
     <div className="space-y-8">
       {/* 상단: GA 스타일 제목 */}
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-lg font-bold text-gray-900">시간 경과에 따른 이벤트 이름별 이벤트 수</h2>
-        <div className="flex items-center gap-2">
-          {/* 기간 단위 선택 드롭다운 스타일 */}
-          <div className="relative">
-            <select
-              value={period}
-              onChange={e => setPeriod(e.target.value as any)}
-              className="border rounded-full px-3 py-1 text-sm shadow-sm focus:ring-2 focus:ring-blue-200 bg-white text-gray-900"
-              style={{ minWidth: 64 }}
-            >
-              <option value="daily">일</option>
-              <option value="weekly">주</option>
-              <option value="monthly">월</option>
-            </select>
+        <div className="flex flex-col items-end gap-1">
+          <div className="flex items-center gap-2">
+            {/* 기간 단위 선택 드롭다운 스타일 */}
+            <div className="relative">
+              <select
+                value={period}
+                onChange={e => setPeriod(e.target.value as any)}
+                className="border rounded-full px-3 py-1 text-sm shadow-sm focus:ring-2 focus:ring-blue-200 bg-white text-gray-900"
+                style={{ minWidth: 64 }}
+              >
+                <option value="daily">일</option>
+                <option value="weekly">주</option>
+                <option value="monthly">월</option>
+              </select>
+            </div>
           </div>
+          <span className="text-xs text-gray-400 mt-1">일간: 31일, 주간: 12주, 월간: 12개월 데이터</span>
         </div>
       </div>
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -651,6 +706,7 @@ export const ConversionDashboard: React.FC = () => {
         </h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm border-separate border-spacing-0">
+            <thead>
             {/* 테이블 헤더: 정렬 기능 항상 노출 (URL별과 동일하게) */}
             {addMode === 'event' ? (
               <tr className="border-b border-gray-200 bg-gray-50">
@@ -697,10 +753,29 @@ export const ConversionDashboard: React.FC = () => {
                 </th>
               </tr>
             )}
+            </thead>
             <tbody>
               {addMode === 'event'
                 ? <>
-                    {/* 데이터 행 먼저 렌더링 */}
+                    {/* 합계(전체) 행을 먼저 렌더링 */}
+                    {totalRow && (
+                      <tr className="border-b border-gray-200 bg-blue-50 font-bold sticky top-0 z-10">
+                        <td className="py-2 px-3 text-center">
+                          {/* 합계 체크박스 */}
+                          <input
+                            type="checkbox"
+                            checked={checkedEvents.includes('합계')}
+                            onChange={() => toggleCheckedEvent('합계')}
+                            className="accent-blue-600"
+                          />
+                        </td>
+                        <td className="py-2 px-3">합계</td>
+                        <td className="py-2 px-3 text-right">{totalRow.count.toLocaleString()} <span className="text-xs text-gray-400">(100%)</span></td>
+                        <td className="py-2 px-3 text-right">{totalRow.users.toLocaleString()} <span className="text-xs text-gray-400">(100%)</span></td>
+                        <td className="py-2 px-3 text-right">{totalRow.avg.toFixed(2)}</td>
+                      </tr>
+                    )}
+                    {/* 데이터 행 */}
                     {filteredSummary.map((row: any, i: number) => {
                       // 퍼센트 계산
                       const countPct = totalRow ? (row.count / totalRow.count * 100) : 0;
@@ -743,24 +818,6 @@ export const ConversionDashboard: React.FC = () => {
                         </tr>
                       );
                     })}
-                    {/* 합계(전체) 행은 항상 마지막에 렌더링 */}
-                    {totalRow && (
-                      <tr className="border-b border-gray-200 bg-blue-50 font-bold sticky bottom-0 z-10">
-                        <td className="py-2 px-3 text-center">
-                          {/* 합계 체크박스 */}
-                          <input
-                            type="checkbox"
-                            checked={checkedEvents.includes('합계')}
-                            onChange={() => toggleCheckedEvent('합계')}
-                            className="accent-blue-600"
-                          />
-                        </td>
-                        <td className="py-2 px-3">합계</td>
-                        <td className="py-2 px-3 text-right">{totalRow.count.toLocaleString()} <span className="text-xs text-gray-400">(100%)</span></td>
-                        <td className="py-2 px-3 text-right">{totalRow.users.toLocaleString()} <span className="text-xs text-gray-400">(100%)</span></td>
-                        <td className="py-2 px-3 text-right">{totalRow.avg.toFixed(2)}</td>
-                      </tr>
-                    )}
                   </>
                 : (
                     <>
@@ -826,6 +883,9 @@ export const ConversionDashboard: React.FC = () => {
           </table>
         </div>
       </div>
+      {/* 실제 데이터만 넘기도록 수정 (목업 금지) */}
+      {/* 예시: <UserPathSankeyChart data={{ paths: 실제데이터 }} /> */}
+      <UserPathSankeyChart data={{ paths: sankeyPaths }} />
     </div>
   );
 };
