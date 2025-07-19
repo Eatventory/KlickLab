@@ -3,7 +3,7 @@ import { Calendar, Settings, Share2, MoreHorizontal, BarChart3, Target, Globe, U
 import { useSegmentFilter } from '../../context/SegmentFilterContext';
 
 // 컴포넌트들 import
-import { TopChannelBarChart } from './TopChannelBarChart';
+import HorizontalBarChart from '../HorizontalBarChart';
 import { FunnelConversionChart } from './FunnelConversionChart';
 import { DeviceBrowserDonutChart } from './DeviceBrowserDonutChart';
 import { HourlyTrendLineChart } from './HourlyTrendLineChart';
@@ -309,8 +309,12 @@ export const AcquisitionDashboard: React.FC = () => {
 
         {/* 3행: 상위 채널 + 플랫폼 분석 */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-          <div className="md:col-span-6">
-            <TopChannelBarChart data={acquisitionData.topChannelData} refreshKey={refreshKey} />
+          <div className="md:col-span-6 bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+            <h3 className="text-sm font-semibold text-gray-900 mb-2">상위 유입 채널</h3>
+            <HorizontalBarChart
+              data={acquisitionData.topChannelData.map((d:any)=>({label:d.channel,value:d.users}))}
+              valueFormatter={(v)=>v.toLocaleString() + '명'}
+            />
           </div>
           <div className="md:col-span-6 bg-white rounded-lg border border-gray-200 p-4 h-[300px] hover:shadow-lg transition-shadow">
             <h3 className="text-sm font-semibold text-gray-900 mb-2">디바이스/브라우저 분석</h3>
@@ -343,38 +347,26 @@ export const AcquisitionDashboard: React.FC = () => {
         
         {/* 5행: 하단 상세 정보 3분할 */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-4 h-48 hover:shadow-lg transition-shadow">
+          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
             <h4 className="text-sm font-semibold text-gray-900 mb-2">신규 사용자 채널</h4>
-            <div className="space-y-1 text-xs">
-              {acquisitionData.channelGroupData.slice(0, 5).map((channel, index) => (
-                <div key={index} className="flex justify-between">
-                  <span>{channel.channel}</span>
-                  <span>{channel.newUsers}</span>
-                </div>
-              ))}
-            </div>
+            <HorizontalBarChart
+              data={acquisitionData.channelGroupData.slice(0,10).map((c:any)=>({label:c.channel,value:c.newUsers}))}
+              valueFormatter={(v)=>v.toLocaleString()+'명'}
+            />
           </div>
-          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-4 h-48 hover:shadow-lg transition-shadow">
+          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
             <h4 className="text-sm font-semibold text-gray-900 mb-2">Google Ads 캠페인</h4>
-            <div className="space-y-1 text-xs">
-              {acquisitionData.sessionData.slice(0, 5).map((campaign, index) => (
-                <div key={index} className="flex justify-between">
-                  <span>{campaign.campaign}</span>
-                  <span>{campaign.sessions}</span>
-                </div>
-              ))}
-            </div>
+            <HorizontalBarChart
+              data={acquisitionData.sessionData.slice(0,10).map((c:any)=>({label:c.campaign,value:c.sessions}))}
+              valueFormatter={(v)=>v.toLocaleString()+'회'}
+            />
           </div>
-          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-4 h-48 hover:shadow-lg transition-shadow">
+          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
             <h4 className="text-sm font-semibold text-gray-900 mb-2">상위 지역 유입</h4>
-            <div className="space-y-1 text-xs">
-              {acquisitionData.realtimeData.topCountries.slice(0, 5).map((country, index) => (
-                <div key={index} className="flex justify-between">
-                  <span>{country.country}</span>
-                  <span>{country.users}</span>
-                </div>
-              ))}
-            </div>
+            <HorizontalBarChart
+              data={acquisitionData.realtimeData.topCountries.slice(0,10).map((c:any)=>({label:c.country,value:c.users}))}
+              valueFormatter={(v)=>v.toLocaleString()+'명'}
+            />
           </div>
         </div>
       </div>
