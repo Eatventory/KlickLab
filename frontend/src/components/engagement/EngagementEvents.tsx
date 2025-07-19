@@ -71,19 +71,40 @@ const EngagementEvents: React.FC<EngagementEventsProps> = ({ eventCounts }) => {
             ]}
             areas={[{ key: 'sum_selected_events', name: '합계', color: "#2596be" }]}
             height={400}
-            tooltipRenderer={(item) => {
+            tooltipRenderer={(item, hoveredLineKey) => {
               const keys = [...selectedKeys, 'sum_selected_events'];
               const sortedKeys = keys
                 .filter((key) => item[key] !== undefined)
                 .sort((a, b) => (item[b] ?? 0) - (item[a] ?? 0));
+              const colors = ['#3b82f6', '#10b981', '#f97316', '#6366f1', '#ef4444', '#2596be'];
               return (
                 <div className="text-sm">
                   <div className="text-gray-500">{item.date}</div>
-                  {sortedKeys.map((key) => (
-                    <div key={key}>
-                      <strong>{key === 'sum_selected_events' ? '합계' : key}</strong>: {item[key].toLocaleString()}
-                    </div>
-                  ))}
+                  {sortedKeys.map((key) => {
+                    const colorIndex =
+                      key === 'sum_selected_events' ? colors.length - 1 : selectedKeys.indexOf(key);
+                    const color = colors[colorIndex] || '#999';
+            
+                    return (
+                      <div
+                        className="flex items-center"
+                        key={key}
+                        style={{ opacity: hoveredLineKey && hoveredLineKey !== key ? 0.3 : 1 }}
+                      >
+                        <span className="w-2 h-0.5" style={{ backgroundColor: color }} />
+                        <span
+                          className="w-2.5 h-2.5 rounded-full border border-white mr-1"
+                          style={{ backgroundColor: color }}
+                        />
+                        <span className="text-xs text-gray-700 mr-1">
+                          {key === 'sum_selected_events' ? '합계' : key}
+                        </span>
+                        <span className="ml-auto font-bold text-right text-gray-900">
+                          {item[key].toLocaleString()}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               );
             }}

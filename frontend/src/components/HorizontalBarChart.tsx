@@ -81,7 +81,7 @@ const HorizontalBarChart: React.FC<HorizontalBarChartProps> = ({ data, tooltipRe
 
   return (
     <div className="flex flex-col">
-      {data.map((item, index) => {
+      {data.map((item) => {
         const percentage = maxValue > 0 ? (item.value / maxValue) * 100 : 0;
 
         return (

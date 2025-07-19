@@ -192,10 +192,14 @@ const EngagementOverview: React.FC<Props> = ({
               { key: 'dailyUsers', name: '1일' },
             ]}
             showLegend={true}
-            tooltipRenderer={(item) => (
+            tooltipRenderer={(item, hoveredLineKey) => (
               <div className="text-sm space-y-1 min-w-[120px]">
                 <div className="text-gray-500">{item.date}</div>
-                <div className="flex items-center">
+            
+                <div
+                  className="flex items-center"
+                  style={{ opacity: hoveredLineKey && hoveredLineKey !== 'monthlyUsers' ? 0.3 : 1 }}
+                >
                   <span className="w-2 h-0.5 bg-[#3b82f6]" />
                   <span className="w-2.5 h-2.5 rounded-full bg-[#3b82f6] border border-white mr-1" />
                   <span className="text-xs text-gray-700">30일</span>
@@ -203,7 +207,11 @@ const EngagementOverview: React.FC<Props> = ({
                     {item.monthlyUsers.toLocaleString()}
                   </span>
                 </div>
-                <div className="flex items-center">
+            
+                <div
+                  className="flex items-center"
+                  style={{ opacity: hoveredLineKey && hoveredLineKey !== 'weeklyUsers' ? 0.3 : 1 }}
+                >
                   <span className="w-2 h-0.5 bg-[#22c55e]" />
                   <span className="w-2.5 h-2.5 rounded-full bg-[#22c55e] border border-white mr-1" />
                   <span className="text-xs text-gray-700">7일</span>
@@ -211,7 +219,11 @@ const EngagementOverview: React.FC<Props> = ({
                     {item.weeklyUsers.toLocaleString()}
                   </span>
                 </div>
-                <div className="flex items-center">
+            
+                <div
+                  className="flex items-center"
+                  style={{ opacity: hoveredLineKey && hoveredLineKey !== 'dailyUsers' ? 0.3 : 1 }}
+                >
                   <span className="w-2 h-0.5 bg-[#f97316]" />
                   <span className="w-2.5 h-2.5 rounded-full bg-[#f97316] border border-white mr-1" />
                   <span className="text-xs text-gray-700">1일</span>

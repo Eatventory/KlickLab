@@ -25,7 +25,7 @@ interface HorizontalLineChartProps {
   }[];
   height?: number;
   showLegend?: boolean;
-  tooltipRenderer?: (item: any) => React.ReactNode;
+  tooltipRenderer?: (item: any, hoveredLineKey?: string | null) => React.ReactNode;
   legendTooltipRenderer?: (item: any, key: string) => React.ReactNode;
 }
 
@@ -40,6 +40,7 @@ const HorizontalLineChart: React.FC<HorizontalLineChartProps> = ({
   height = 200,
   showLegend = false,
 }) => {
+  const [hoveredLineKey, setHoveredLineKey] = useState<string | null>(null);
   const [hoveredItem, setHoveredItem] = useState<any | null>(null);
   const [hoveredLegendItem, setHoveredLegendItem] = useState<{ item: any; key: string } | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
@@ -110,38 +111,47 @@ const HorizontalLineChart: React.FC<HorizontalLineChartProps> = ({
               content={() => null}
               cursor={{ stroke: '#6b7280', strokeWidth: 1, strokeDasharray: '3 3' }}
             />
-            {areas?.map((area, idx) => (
-              <Area
-                key={`area-${area.key}`}
-                type="monotone"
-                dataKey={area.key}
-                stroke="none"
-                fill={area.color || defaultColors[idx % defaultColors.length]}
-                fillOpacity={0.2}
-                isAnimationActive={true}
-                animationDuration={600}
-              />
-            ))}
-            {lines.map((line, idx) => (
-              <Line
-                key={line.key}
-                type="monotone"
-                dataKey={line.key}
-                name={line.name}
-                stroke={line.color || defaultColors[idx % defaultColors.length]}
-                strokeWidth={2}
-                strokeDasharray={line.dash || "0"}
-                dot={{
-                  r: 4,
-                  stroke: line.color || defaultColors[idx % defaultColors.length],
-                  strokeWidth: 2,
-                  fill: '#fff',
-                }}
-                activeDot={{ r: 4 }}
-                isAnimationActive={true}
-                animationDuration={600}
-              />
-            ))}
+            {areas?.map((area, idx) => {
+              const isHovered = hoveredLineKey === null || hoveredLineKey === area.key;
+              return (
+                <Area
+                  key={`area-${area.key}`}
+                  type="monotone"
+                  dataKey={area.key}
+                  stroke="none"
+                  fill={area.color || defaultColors[idx % defaultColors.length]}
+                  fillOpacity={isHovered ? 0.2 : 0.05}
+                  isAnimationActive={true}
+                  animationDuration={600}
+                />
+              );
+            })}
+            {lines.map((line, idx) => {
+              const isHovered = hoveredLineKey === null || hoveredLineKey === line.key;
+              return (
+                <Line
+                  key={line.key}
+                  type="monotone"
+                  dataKey={line.key}
+                  name={line.name}
+                  stroke={line.color || defaultColors[idx % defaultColors.length]}
+                  strokeWidth={3}
+                  strokeDasharray={line.dash || "0"}
+                  opacity={isHovered ? 1 : 0.2}
+                  dot={{
+                    r: 4,
+                    stroke: line.color || defaultColors[idx % defaultColors.length],
+                    strokeWidth: 2,
+                    fill: '#fff',
+                  }}
+                  activeDot={{ r: 4 }}
+                  isAnimationActive={true}
+                  animationDuration={600}
+                  onMouseEnter={() => setHoveredLineKey(line.key)}
+                  onMouseLeave={() => setHoveredLineKey(null)}
+                />
+              );
+            })}
           </ComposedChart>
         </ResponsiveContainer>
       </div>
@@ -188,7 +198,7 @@ const HorizontalLineChart: React.FC<HorizontalLineChartProps> = ({
             pointerEvents: 'none',
           }}
         >
-          {tooltipRenderer(hoveredItem)}
+          {tooltipRenderer(hoveredItem, hoveredLineKey)}
         </div>
       )}
 
@@ -198,11 +208,11 @@ const HorizontalLineChart: React.FC<HorizontalLineChartProps> = ({
           className="fixed z-50 bg-white border border-gray-200 rounded-md shadow-lg text-sm text-gray-800 px-3 py-2 whitespace-nowrap"
           style={{
             top:
-              chartBottomOffset + tooltipPos.y + tooltipSize.height + 12 > window.innerHeight
+              tooltipPos.y + tooltipSize.height + 12 > window.innerHeight
                 ? tooltipPos.y - tooltipSize.height - 12
                 : tooltipPos.y + 12,
             left:
-              chartLeftOffset + tooltipPos.x + tooltipSize.width + 12 > window.innerWidth
+              tooltipPos.x + tooltipSize.width + 12 > window.innerWidth
                 ? tooltipPos.x - tooltipSize.width - 12
                 : tooltipPos.x + 12,
             pointerEvents: 'none',
