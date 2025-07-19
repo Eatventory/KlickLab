@@ -30,7 +30,7 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
   valueKeys,
   children,
 }) => {
-  const [selectedKeys, setSelectedKeys] = useState<string[]>(['sum_selected_events']);
+  const [selectedKeys, setSelectedKeys] = useState<string[]>(['SUM']);
   const [searchText, setSearchText] = useState('');
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -44,12 +44,12 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
   useEffect(() => {
     if (!isManualSelection) {
       setSelectedKeys((prev) => {
-        const hasSum = prev.includes('sum_selected_events');
+        const hasSum = prev.includes('SUM');
         const topN = [...data]
           .sort((a, b) => (b.values[autoSelectBy!] || 0) - (a.values[autoSelectBy!] || 0))
           .slice(0, autoSelectTopN)
           .map(d => d.key);
-        return [...(hasSum ? ['sum_selected_events'] : ['sum_selected_events']), ...topN];
+        return [...(hasSum ? ['SUM'] : ['SUM']), ...topN];
       });
     }
   }, [autoSelectTopN, autoSelectBy, data, isManualSelection]);
@@ -101,7 +101,7 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
 
   const lineDefs = useMemo(() => (
     selectedKeys
-      .filter(k => k !== 'sum_selected_events')
+      .filter(k => k !== 'SUM')
       .map(key => ({ key, name: key }))
   ), [selectedKeys]);
 
@@ -109,10 +109,10 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
     setIsManualSelection(true);
     setSelectedKeys(prev => {
       const isSelected = prev.includes(key);
-      if (key === 'sum_selected_events') {
+      if (key === 'SUM') {
         return isSelected ? prev.filter(k => k !== key) : [...prev, key];
       }
-      const selectedWithoutSum = prev.filter(k => k !== 'sum_selected_events');
+      const selectedWithoutSum = prev.filter(k => k !== 'SUM');
       if (!isSelected && selectedWithoutSum.length >= maxSelectable) return prev;
       return isSelected ? prev.filter(k => k !== key) : [...prev, key];
     });
@@ -131,9 +131,9 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
     setIsManualSelection(true);
     const topKeys = filteredData.slice(0, maxSelectable).map(row => row.key);
     setSelectedKeys(prev => {
-      const hasSum = prev.includes('sum_selected_events');
+      const hasSum = prev.includes('SUM');
       const isAllSelected = topKeys.every(k => prev.includes(k));
-      return isAllSelected ? (hasSum ? ['sum_selected_events'] : []) : [...(hasSum ? ['sum_selected_events'] : []), ...topKeys];
+      return isAllSelected ? (hasSum ? ['SUM'] : []) : [...(hasSum ? ['SUM'] : []), ...topKeys];
     });
   };
 
@@ -261,8 +261,8 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
               <td className="p-2">
                 <input
                   type="checkbox"
-                  checked={selectedKeys.includes('sum_selected_events')}
-                  onChange={() => toggleSelect('sum_selected_events')}
+                  checked={selectedKeys.includes('SUM')}
+                  onChange={() => toggleSelect('SUM')}
                 />
               </td>
               <td className="p-2" />
@@ -277,7 +277,7 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
                   <input
                     type="checkbox"
                     checked={selectedKeys.includes(row.key)}
-                    disabled={!selectedKeys.includes(row.key) && selectedKeys.filter(k => k !== 'sum_selected_events').length >= maxSelectable}
+                    disabled={!selectedKeys.includes(row.key) && selectedKeys.filter(k => k !== 'SUM').length >= maxSelectable}
                     onChange={() => toggleSelect(row.key)}
                   />
                 </td>

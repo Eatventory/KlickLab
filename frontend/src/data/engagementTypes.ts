@@ -52,3 +52,12 @@ export interface EventCountsData {
   userCount: number;
   avgEventPerUser: number;
 }
+
+export interface PageStatsData {
+  pagePath: string;
+  pageViews: number;
+  activeUsers: number;
+  pageviewsPerUser: number;
+  avgEngagementTimeSec: number;
+  totalEvents: number;
+}

@@ -6,8 +6,10 @@ import Collapse from '../ui/Collapse';
 import DateRangeSelector from '../ui/DateRangeSelector';
 import EngagementOverview from './EngagementOverview';
 import EngagementEvents from './EngagementEvents';
+import EngagementPages from './EngagementPages';
 
 // import { eventCounts } from '../../data/eventCountsMock';
+import { pageStats } from '../../data/pageStatsMock';
 
 import type {
   PageTimeData,
@@ -19,6 +21,7 @@ import type {
   SessionsPerUsersData,
   UsersOverTimeData,
   EventCountsData,
+  PageStatsData,
 } from '../../data/engagementTypes';
 
 const engagementTaps: string[] = ["참여도 개요", "이벤트 보고서", "페이지 및 화면 보고서", "방문 페이지 보고서"];
@@ -33,6 +36,7 @@ export const EngagementDashboard: React.FC = () => {
   const [sessionsPerUsers, setSessionsPerUsers] = useState<SessionsPerUsersData[]>([]);
   const [usersOverTime, setUsersOverTime] = useState<UsersOverTimeData[]>([]);
   const [eventCounts, setEventCounts] = useState<EventCountsData[]>([]);
+  // const [pageStats, setPageStats] = useState<PageStatsData[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
@@ -59,7 +63,7 @@ export const EngagementDashboard: React.FC = () => {
       const endStr = dayjs(end).format('YYYY-MM-DD');
       const query = `startDate=${startStr}&endDate=${endStr}`;
 
-      const [resOverview, resPageTimes, resPageViewCounts, resBounceRates, resViewCounts, resClickCounts, resUOTime, resEventCounts] = await Promise.all([
+      const [resOverview, resPageTimes, resPageViewCounts, resBounceRates, resViewCounts, resClickCounts, resUOTime, resEventCounts, resPageStats] = await Promise.all([
         fetch(`/api/engagement/overview?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`/api/engagement/page-times?${query}&limit=5`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`/api/engagement/page-views?${query}&limit=5`, { headers: { Authorization: `Bearer ${token}` } }),
@@ -68,6 +72,7 @@ export const EngagementDashboard: React.FC = () => {
         fetch(`/api/engagement/click-counts?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`/api/engagement/users-over-time?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`/api/engagement/event-counts?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/engagement/page-stats?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
       if (!resOverview.ok) throw new Error('Engagement Overview 데이터를 불러오지 못했습니다.');
@@ -78,8 +83,9 @@ export const EngagementDashboard: React.FC = () => {
       if (!resClickCounts.ok) throw new Error('Click Counts 데이터를 불러오지 못했습니다.');
       if (!resUOTime.ok) throw new Error('Users Over Time 데이터를 불러오지 못했습니다.');
       if (!resEventCounts.ok) throw new Error('Event Counts 데이터를 불러오지 못했습니다.');
+      if (!resPageStats.ok) throw new Error('Page Stats 데이터를 불러오지 못했습니다.');
 
-      const [dataOverview, dataPageTimes, dataPageViewCounts, dataBounceRates, dataViewCounts, dataClickCounts, dataUOTime, dataEventCounts] = await Promise.all([
+      const [dataOverview, dataPageTimes, dataPageViewCounts, dataBounceRates, dataViewCounts, dataClickCounts, dataUOTime, dataEventCounts, dataPageStats] = await Promise.all([
         resOverview.json(),
         resPageTimes.json(),
         resPageViewCounts.json(),
@@ -88,6 +94,7 @@ export const EngagementDashboard: React.FC = () => {
         resClickCounts.json(),
         resUOTime.json(),
         resEventCounts.json(),
+        resPageStats.json(),
       ]);
 
       setAvgSessionSecs(dataOverview.data.avgSessionSeconds);
@@ -99,6 +106,7 @@ export const EngagementDashboard: React.FC = () => {
       setClickCounts(dataClickCounts);
       setUsersOverTime(dataUOTime);
       setEventCounts(dataEventCounts);
+      // setPageStats(dataPageStats);
     } catch (err: any) {
       console.error(err);
       setError(err.message || '알 수 없는 오류');
@@ -180,7 +188,7 @@ export const EngagementDashboard: React.FC = () => {
           setOpenCollapse((prev) => (prev === engagementTaps[2] ? null : engagementTaps[2]))
         }
       >
-        <span>TBD</span>
+        <EngagementPages pageStats={pageStats} />
       </Collapse>
 
       <Collapse

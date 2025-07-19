@@ -206,4 +206,46 @@ router.get('/event-counts', authMiddleware, async (req, res) => {
   }
 });
 
+router.get('/page-stats', authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+  const { startDate, endDate } = req.query;
+  if (!startDate || !endDate) return res.status(400).json({ error: 'Missing startDate or endDate' });
+
+  const query = `
+    SELECT
+      dpa.page_path,
+      sumMerge(dpa.pageview_count_state) AS page_views,
+      uniqMerge(dpa.unique_users_state) AS active_users,
+      round(page_views / active_users, 2) AS pageviews_per_user,
+      round(sumMerge(dpa.total_time_state) / active_users, 2) AS avg_engagement_time_sec,
+      sumMerge(dea.event_count_state) AS total_events
+    FROM daily_page_agg AS dpa
+    LEFT JOIN daily_event_agg AS dea
+      ON dpa.summary_date = dea.summary_date AND dpa.sdk_key = dea.sdk_key
+    WHERE dpa.sdk_key = '${sdk_key}'
+      AND dpa.summary_date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
+    GROUP BY dpa.page_path
+    ORDER BY page_views DESC
+  `;
+
+  try {
+    const dataRes = await clickhouse.query({
+      query: query,
+      format: 'JSONEachRow'
+    });
+    const data = await dataRes.json();
+    res.status(200).json(data.map(item => ({
+      pagePath: item.page_path,
+      pageViews: Number(item.page_views),
+      activeUsers: Number(item.active_users),
+      pageviewsPerUser: Number(item.pageviews_per_user),
+      avgEngagementTimeSec: Number(item.avg_engagement_time_sec),
+      totalEvents: Number(item.total_events),
+    })));
+  } catch (err) {
+    console.error("Page Stats API ERROR:", err);
+    res.status(500).json({ error: "Failed to get page stats data" });
+  }
+});
+
 module.exports = router;
