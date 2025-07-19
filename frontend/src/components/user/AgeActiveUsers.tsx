@@ -28,7 +28,7 @@ interface AgeActiveUsersProps {
 }
 
 // 연령대 순서 및 라벨 매핑
-const ageOrder = ['10s', '20s', '30s', '40s', '50s', '60s'];
+const ageOrder = ['10s', '20s', '30s', '40s', '50s', '60s+'];
 
 const ageLabels: Record<string, string> = {
   '10s': '10대',
@@ -36,7 +36,7 @@ const ageLabels: Record<string, string> = {
   '30s': '30대',
   '40s': '40대',
   '50s': '50대',
-  '60s': '60+'
+  '60s+': '60+'
 };
 
 const ageLabelsSummary: Record<string, string> = {
@@ -45,7 +45,7 @@ const ageLabelsSummary: Record<string, string> = {
   '30s': '30대',
   '40s': '40대',
   '50s': '50대',
-  '60s': '60대 이상'
+  '60s+': '60대 이상'
 };
 
 export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({ 
