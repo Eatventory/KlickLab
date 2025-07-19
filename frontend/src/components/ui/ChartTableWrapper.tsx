@@ -17,7 +17,8 @@ export interface ChartTableWrapperProps {
   children: (
     selectedKeys: string[],
     chartData: Record<string, any>[] ,
-    lineDefs: { key: string; name: string }[]
+    lineDefs: { key: string; name: string }[],
+    unit: 'daily' | 'weekly' | 'monthly'
   ) => React.ReactNode;
   onSortChange?: (key: string, order: 'asc' | 'desc') => void;
 }
@@ -38,6 +39,7 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const [isManualSelection, setIsManualSelection] = useState(false);
+  const [unit, setUnit] = useState<'daily' | 'weekly' | 'monthly'>('daily');
 
   useEffect(() => {
     if (autoSelectBy) setSortKey(autoSelectBy);
@@ -144,7 +146,18 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
 
   return (
     <div>
-      {children(selectedKeys, chartData, lineDefs)}
+      <div className="flex justify-end mb-2">
+        <select
+          className="border border-gray-300 rounded px-2 py-1 text-sm bg-white"
+          value={unit}
+          onChange={(e) => setUnit(e.target.value as 'daily' | 'weekly' | 'monthly')}
+        >
+          <option value="daily">일</option>
+          <option value="weekly">주</option>
+          <option value="monthly">월</option>
+        </select>
+      </div>
+      {children(selectedKeys, chartData, lineDefs, unit)}
       <div className="w-full border-t flex justify-between mt-6">
         <div className='mx-1 py-1 w-1/2 flex hover:bg-gray-100 hover:rounded-sm'>
           <Search className='m-2 text-gray-500'/>

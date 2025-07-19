@@ -23,7 +23,7 @@ const EngagementPages: React.FC<EngagementPagesProps> = ({ pageStats }) => {
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6" id="engagementPages">
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex items-center gap-2">
         <h2 className="text-lg font-semibold text-gray-900">
           시간 경과에 따른 페이지 경로별 {labels[getKeyIndex(sortKey)]}
         </h2>
@@ -65,7 +65,7 @@ const EngagementPages: React.FC<EngagementPagesProps> = ({ pageStats }) => {
         title="페이지 경로"
         onSortChange={(KEY) => { setSortKey(KEY); }}
       >
-        {(selectedKeys) => (
+        {(selectedKeys, chartData, lineDefs, unit) => (
           <HorizontalLineChart
             data={(() => {
               const uniqueDates = [...new Set(pageStats.map(d => d.date))].sort();
@@ -104,6 +104,7 @@ const EngagementPages: React.FC<EngagementPagesProps> = ({ pageStats }) => {
                 : []
             }
             height={400}
+            unit={unit}
             showLegendBottom={true}
             tooltipRenderer={(item, hoveredLineKey) => {
               const sortedKeys = selectedKeys
