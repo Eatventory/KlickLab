@@ -12,6 +12,7 @@ import ConversionPathsCard from './ConversionPathsCard';
 import { VisitorChart } from '../traffic/VisitorChart';
 import { TrendingUp } from 'lucide-react';
 import { useSegmentFilter } from '../../context/SegmentFilterContext';
+import { mockSankeyPaths } from '../../data/mockData';
 
 interface PathData {
   from: string;
@@ -127,10 +128,15 @@ export const OverviewDashboard = forwardRef<any, { onLastUpdated?: (d: Date) => 
   const visitorsChange = visitorsData ? calculateChange(visitorsData.today, visitorsData.yesterday) : 0;
   const clicksChange = clicksData ? calculateChange(clicksData.today, clicksData.yesterday) : 0;
 
+  // Sankey용 mock 데이터 fallback
+  const sankeyData = userPathData && Array.isArray(userPathData) && userPathData.length > 0
+    ? { paths: userPathData }
+    : { paths: mockSankeyPaths };
+
   return (
     <div className="space-y-6">
       <div className="mb-2">
-        <Summary refreshKey={refreshKey} />
+        <Summary />
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard
@@ -153,35 +159,35 @@ export const OverviewDashboard = forwardRef<any, { onLastUpdated?: (d: Date) => 
             color: "green"
           }}
         />
-        <AverageSessionDurationCard refreshKey={refreshKey} />
-        <ConversionSummaryCard refreshKey={refreshKey} />
+        <AverageSessionDurationCard />
+        <ConversionSummaryCard />
       </div>
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex items-center gap-2 mb-4">
           <TrendingUp className="w-5 h-5 text-gray-600" />
           <h2 className="text-lg font-semibold text-gray-900">일간 활성 이용자 수</h2>
         </div>
-        <VisitorChart data={visitorTrendData} period='daily' refreshKey={refreshKey} />
+        <VisitorChart data={visitorTrendData} period='daily' />
       </div>
       <div className="w-full">
-        <ClickTrend refreshKey={refreshKey} />
+        <ClickTrend />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
-          <TopClicks refreshKey={refreshKey} />
+          <TopClicks />
         </div>
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
-          <DropoffInsightsCard refreshKey={refreshKey} />
+          <DropoffInsightsCard />
         </div>
       </div>
       {/* 전환 경로 Top 3 카드 단독 행 */}
       <div>
-        <ConversionPathsCard refreshKey={refreshKey} />
+        <ConversionPathsCard />
       </div>
       {/* Sankey 차트 단독 행 */}
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 mt-6">
         <div className="text-lg font-bold mb-2">사용자 방문 경로</div>
-        <UserPathSankeyChart data={userPathData} refreshKey={refreshKey} />
+        <UserPathSankeyChart data={sankeyData} />
       </div>
     </div>
   );

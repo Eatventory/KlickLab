@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { UserPathSankeyChart } from './UserPathSankeyChart';
 import { Users, Route, PieChart, RefreshCw } from 'lucide-react';
 import { UserSegmentPieChart } from './UserSegmentPieChart';
 import { OsBrowserPieChart } from './OsBrowserPieChart';
@@ -377,7 +376,7 @@ export const UserDashboard: React.FC = () => {
           <Route className="w-5 h-5 text-gray-600" />
           <h2 className="text-lg font-semibold text-gray-900">사용자 클릭 흐름 분석</h2>
         </div>
-        <UserPathSankeyChart data={userPathData} />
+        {/* UserPathSankeyChart 사용 부분 전체 삭제 */}
       </div>
 
       {/* 기존 필터 */}

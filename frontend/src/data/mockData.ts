@@ -744,4 +744,11 @@ export type {
   DeviceData,
   ClickRankingData,
   DashboardData
-}; 
+};
+
+// ===== Sankey(사키) 다이어그램용 mock 경로 데이터 =====
+export const mockSankeyPaths = [
+  ["session_start", "page_view", "add_to_cart", "purchase"],
+  ["session_start", "page_view", "scroll", "leave"],
+  ["session_start", "page_view", "view_promotion", "view_item_list", "select_item"]
+]; 

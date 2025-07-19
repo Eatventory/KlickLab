@@ -1,373 +1,360 @@
-import React, { useState, useEffect } from 'react';
-import { getPageLabel } from '../../utils/getPageLabel';
+import React, { useRef, useEffect, useState } from "react";
+import * as d3 from "d3";
+import { sankey as d3Sankey, sankeyLinkHorizontal } from "d3-sankey";
+import { mockSankeyPaths } from '../../data/mockData';
 
-interface PathData {
-  from: string;
-  to: string;
-  value: number;
+const MOCK_PATHS = [
+  ["session_start", "page_view", "view_promotion", "view_item_list", "scroll", "select_item"],
+  ["session_start", "page_view", "view_promotion", "view_item_list", "session_start", "page_view"],
+  ["session_start", "page_view", "scroll", "leave"],
+  ["session_start", "page_view", "add_to_cart", "purchase"],
+  ["session_start", "page_view", "add_to_cart", "view_item_list", "purchase"],
+  ["session_start", "page_view", "scroll", "add_to_cart", "purchase"],
+  ["session_start", "page_view", "scroll", "leave"],
+  ["session_start", "page_view", "add_to_cart", "scroll", "leave"],
+  ["session_start", "page_view", "view_promotion", "view_item_list", "select_item", "purchase"],
+];
+
+const TOP_N = 7;
+
+function getTopNodesWithEtc(nodes, N, depth) {
+  if (nodes.length <= N) return nodes;
+  const top = nodes.slice(0, N);
+  const etc = {
+    id: `etc-${depth}`,
+    name: `외 ${nodes.length - N}개`,
+    isEtc: true,
+    count: nodes.slice(N).reduce((sum, n) => sum + n.count, 0),
+    children: nodes.slice(N),
+    depth,
+  };
+  return [...top, etc];
 }
 
-interface Props {
-  data?: PathData[];
-}
-
-function computeNodeDepths(paths?: PathData[]): Map<string, number> {
-  const safePaths = Array.isArray(paths) ? paths : [];
-  const nodeDepths = new Map<string, number>();
-  const allFrom = new Set(safePaths.map(p => p.from));
-  const allTo = new Set(safePaths.map(p => p.to));
-  // const roots = Array.from(allFrom).filter(f => !allTo.has(f));
-  let roots = Array.from(allFrom).filter(f => !allTo.has(f));
-  if (roots.length === 0 && allFrom.size > 0) {
-    // fallback: 가장 많이 등장한 from을 루트로 설정
-    const freqMap = new Map<string, number>();
-    for (const p of safePaths) {
-      freqMap.set(p.from, (freqMap.get(p.from) || 0) + p.value);
+function createGASankeyDataWithEtc(paths, selectedPath, expandedGroups) {
+  // 1. 경로 필터링 (드릴다운)
+  const filtered = paths.filter(path => {
+    for (let i = 0; i < selectedPath.length; i++) {
+      if (path[i] !== selectedPath[i]) return false;
     }
-    const [mostCommonFrom] = Array.from(freqMap.entries()).sort((a, b) => b[1] - a[1])[0] || [];
-    if (mostCommonFrom) roots = [mostCommonFrom];
-  }
-  const queue: { name: string; depth: number }[] = roots.map(r => ({ name: r, depth: 0 }));
-  while (queue.length > 0) {
-    const { name, depth } = queue.shift()!;
-    if (nodeDepths.has(name)) continue;
-    nodeDepths.set(name, depth);
-    safePaths.filter(p => p.from === name).forEach(p => {
-      queue.push({ name: p.to, depth: depth + 1 });
-    });
-  }
-  safePaths.forEach(p => {
-    if (!nodeDepths.has(p.to)) nodeDepths.set(p.to, 0);
-    if (!nodeDepths.has(p.from)) nodeDepths.set(p.from, 0);
+    return true;
   });
-  return nodeDepths;
-}
-
-interface UserPathSankeyChartProps {
-  data?: any[];
-  refreshKey?: number;
-  loading?: boolean;
-}
-
-export const UserPathSankeyChart: React.FC<UserPathSankeyChartProps> = ({ data: propData, refreshKey, loading }) => {
-  const [data, setData] = useState<any[]>(propData || []);
-  const [selectedSegment, setSelectedSegment] = useState<string>('');
-  const [topPercent, setTopPercent] = useState<number>(90);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetchUserPath(selectedSegment, topPercent);
-  }, [refreshKey, selectedSegment, topPercent]);
-
-  // propData가 없고 refreshKey가 있을 때만 자체 API 호출
-  useEffect(() => {
-    if (!propData && refreshKey !== undefined) {
-      const fetchUserPath = async () => {
-        try {
-          setIsLoading(true);
-          setError(null);
-          
-          const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
-          if (!token) throw new Error("No token");
-          
-          const url = selectedSegment 
-            ? `/api/stats/userpath-summary?segment=${selectedSegment}&threshold=${topPercent}`
-            : `/api/stats/userpath-summary?threshold=${topPercent}`;
-            
-          const response = await fetch(url, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          if (!response.ok) {
-            throw new Error('데이터를 불러올 수 없습니다.');
+  // 2. 단계별 노드 집계 (id: depth-parentId-name)
+  const nodeMap = new Map(); // key: nodeId, value: node
+  const linkArr = [];
+  filtered.forEach((path, pathIdx) => {
+    let parentId = "root";
+    for (let i = 0; i < path.length; i++) {
+      const name = path[i];
+      const nodeId = `${i}-${parentId}-${name}`;
+      if (!nodeMap.has(nodeId)) {
+        nodeMap.set(nodeId, { id: nodeId, name, count: 0, depth: i, parentId });
+      }
+      nodeMap.get(nodeId).count++;
+      if (i > 0) {
+        linkArr.push({ source: `${i-1}-${i===1?"root":path[i-2]}-${path[i-1]}`, target: nodeId, value: 1 });
+      }
+      parentId = name;
+    }
+  });
+  // 3. 단계별 상위 N개 + 외 N개 처리
+  const depthMap = new Map();
+  for (const node of nodeMap.values()) {
+    if (!depthMap.has(node.depth)) depthMap.set(node.depth, []);
+    depthMap.get(node.depth).push(node);
+  }
+  const nodes = [];
+  const nodeOrder = [];
+  for (let [depth, arr] of depthMap.entries()) {
+    arr.sort((a, b) => b.count - a.count);
+    let groupKey = `${depth}`;
+    if (expandedGroups[groupKey]) {
+      nodes.push(...arr);
+      nodeOrder.push(...arr.map(n => n.id));
+    } else {
+      const topEtc = getTopNodesWithEtc(arr, TOP_N, depth);
+      nodes.push(...topEtc);
+      nodeOrder.push(...topEtc.map(n => n.id));
+    }
+  }
+  // 4. '외 N개' 확장 시 children을 nodes에 추가
+  Object.keys(expandedGroups).forEach(depthKey => {
+    if (expandedGroups[depthKey]) {
+      const depth = parseInt(depthKey, 10);
+      const etcNode = nodes.find(n => n.id === `etc-${depth}`);
+      if (etcNode && etcNode.children) {
+        etcNode.children.forEach(child => {
+          if (!nodes.some(n => n.id === child.id)) {
+            nodes.push(child);
+            nodeOrder.push(child.id);
           }
-          
-          const result = await response.json();
-          setData(result.data || []);
-        } catch (error) {
-          console.error('Sankey API Error:', error);
-          setError(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
-          setData([]);
-        } finally {
-          setIsLoading(false);
+        });
+      }
+    }
+  });
+  // 5. 링크 생성 (source/target이 nodes에 반드시 존재)
+  const nodeIdSet = new Set(nodeOrder);
+  const links = [];
+  for (const l of linkArr) {
+    if (nodeIdSet.has(l.source) && nodeIdSet.has(l.target)) {
+      let link = links.find(x => x.source === l.source && x.target === l.target);
+      if (!link) {
+        links.push({ source: l.source, target: l.target, value: 1 });
+      } else {
+        link.value++;
+      }
+    }
+  }
+  return { nodes, links };
+}
+
+function createDrilldownSankeyData(paths, selectedPaths) {
+  // 여러 트리 경로를 동시에 펼침
+  const nodeMap = new Map();
+  const links = [];
+  selectedPaths.forEach(selectedPath => {
+    const filtered = paths.filter(path => {
+      let parentId = "root";
+      for (let i = 0; i < selectedPath.length; i++) {
+        const nodeId = `${i}-${parentId}-${path[i]}`;
+        if (selectedPath[i] !== nodeId) return false;
+        parentId = path[i];
+      }
+      return true;
+    });
+    const maxDepth = selectedPath.length + 1;
+    filtered.forEach(path => {
+      let parentId = "root";
+      for (let i = 0; i < Math.min(path.length, maxDepth); i++) {
+        const name = path[i];
+        const nodeId = `${i}-${parentId}-${name}`;
+        if (!nodeMap.has(nodeId)) {
+          nodeMap.set(nodeId, { id: nodeId, name, depth: i, parentId, ancestorIds: selectedPath.slice(0, i) });
         }
-      };
-      fetchUserPath();
-    }
-  }, [refreshKey, propData, selectedSegment, topPercent]);
-
-  const handleSegmentChange = async (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const newSegment = event.target.value;
-    setSelectedSegment(newSegment);
-    await fetchUserPath(newSegment, topPercent);
-  };
-  
-  const fetchUserPath = async (segment: string, threshold: number) => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
-      if (!token) throw new Error("No token");
-  
-      const url = segment
-        ? `/api/stats/userpath-summary?segment=${segment}&threshold=${threshold}`
-        : `/api/stats/userpath-summary?threshold=${threshold}`;
-  
-      const response = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-  
-      if (!response.ok) throw new Error('데이터를 불러올 수 없습니다.');
-  
-      const result = await response.json();
-      setData(result.data || []);
-    } catch (error) {
-      console.error('Sankey API Error:', error);
-      setError(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
-      setData([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const getSegmentTitle = () => {
-    switch (selectedSegment) {
-      case 'converted':
-        return '전환 완료 사용자 경로';
-      case 'abandoned_cart':
-        return '장바구니 이탈 사용자 경로';
-      default:
-        return '전체 사용자 경로';
-    }
-  };
-
-  const safeData = Array.isArray(data) ? data : [];
-  const mapped = (safeData || [])
-    .filter(p => p.from !== p.to)
-    .map(p => ({
-      from: getPageLabel(p.from),
-      to: getPageLabel(p.to),
-      value: Number(p.value)
-    }));
-  const filteredData = mapped;
-  const [hoverLinkIdx, setHoverLinkIdx] = useState<number | null>(null);
-  const nodeDepths = computeNodeDepths(filteredData);
-  const nodeMap = new Map<string, { name: string; depth: number; totalIn: number; totalOut: number }>();
-  filteredData.forEach(path => {
-    if (!nodeMap.has(path.from)) nodeMap.set(path.from, { name: path.from, depth: nodeDepths.get(path.from)!, totalIn: 0, totalOut: 0 });
-    if (!nodeMap.has(path.to)) nodeMap.set(path.to, { name: path.to, depth: nodeDepths.get(path.to)!, totalIn: 0, totalOut: 0 });
-    nodeMap.get(path.from)!.totalOut += path.value;
-    nodeMap.get(path.to)!.totalIn += path.value;
-  });
-  const depthGroups: { [depth: number]: string[] } = {};
-  nodeMap.forEach(node => {
-    if (!depthGroups[node.depth]) depthGroups[node.depth] = [];
-    depthGroups[node.depth].push(node.name);
-  });
-  const depths = Object.keys(depthGroups).map(Number).sort((a, b) => a - b);
-  const chartWidth = 780;
-  const chartHeight = 338;
-  const nodeWidth = 143;
-  const nodeHeight = 65;
-  const nodeGapY = 23;
-  const nodeGapX = (chartWidth - nodeWidth) / (depths.length - 1 || 1);
-  const nodePositions = new Map<string, { x: number; y: number }>();
-  depths.forEach((depth, dIdx) => {
-    const group = depthGroups[depth];
-    const totalHeight = group.length * nodeHeight + (group.length - 1) * nodeGapY;
-    const startY = (chartHeight - totalHeight) / 2;
-    group.forEach((name, nIdx) => {
-      nodePositions.set(name, {
-        x: dIdx * nodeGapX,
-        y: startY + nIdx * (nodeHeight + nodeGapY)
-      });
+        if (i > 0) {
+          const prevId = `${i-1}-${i===1?"root":path[i-2]}-${path[i-1]}`;
+          links.push({ source: prevId, target: nodeId, value: 1 });
+        }
+        parentId = name;
+      }
     });
   });
-  const maxValue = filteredData.length > 0 ? Math.max(...filteredData.map(d => d.value)) : 0;
-  const totalValue = filteredData.reduce((sum, d) => sum + d.value, 0);
+  // 노드/링크 value 집계
+  const nodes = Array.from(nodeMap.values());
+  const linkMap = new Map();
+  links.forEach(l => {
+    const key = `${l.source}->${l.target}`;
+    if (!linkMap.has(key)) linkMap.set(key, { ...l, value: 1 });
+    else linkMap.get(key).value++;
+  });
+  return { nodes, links: Array.from(linkMap.values()) };
+}
 
-  let tooltip: null | {
-    x: number;
-    y: number;
-    from: string;
-    to: string;
-    value: number;
-    percent: string;
-  } = null;
-  if (hoverLinkIdx !== null && filteredData[hoverLinkIdx]) {
-    const path = filteredData[hoverLinkIdx];
-    const from = nodePositions.get(path.from)!;
-    const to = nodePositions.get(path.to)!;
-    const x1 = from.x + nodeWidth;
-    const y1 = from.y + nodeHeight / 2;
-    const x2 = to.x;
-    const y2 = to.y + nodeHeight / 2;
-    const mx = (x1 + x2) / 2;
-    const my = (y1 + y2) / 2;
-    tooltip = {
-      x: mx,
-      y: my,
-      from: path.from,
-      to: path.to,
-      value: path.value,
-      percent: ((path.value / totalValue) * 100).toFixed(1) + '%'
-    };
+const UserPathSankeyChart = ({ data }) => {
+  console.log('UserPathSankeyChart data:', data);
+  console.log('UserPathSankeyChart data.paths:', data?.paths);
+  // data가 없거나, paths가 없거나, paths가 2차원 배열이 아니면 mockSankeyPaths 강제 사용
+  let rawPaths = (data && Array.isArray(data.paths) && Array.isArray(data.paths[0])) ? data.paths : mockSankeyPaths;
+  let filteredPaths = rawPaths.filter(path => path[0] === "session_start");
+  // 빈 데이터일 때 최소 2단계 dummy 경로 추가
+  if (filteredPaths.length === 0) {
+    filteredPaths = [["session_start", "page_view"]];
   }
+  // 1단계 노드 id 추출 함수 (mockSankeyPaths에도 대응)
+  const getInitialSelectedPaths = React.useCallback(() => {
+    const ids = [];
+    filteredPaths.forEach(path => {
+      if (path.length > 1) {
+        let parentId = "root";
+        const nodeId = `1-${parentId}-${path[1]}`;
+        if (!ids.some(arr => arr[0] === nodeId)) ids.push([nodeId]);
+      }
+    });
+    // 만약 ids가 비어있으면 전체 경로를 다 보여주도록 [[]]가 아니라 모든 경로의 id를 추가
+    if (!ids.length && filteredPaths.length > 0) {
+      return filteredPaths.map(path => {
+        let parentId = "root";
+        return path.slice(1).map((name, i) => {
+          const nodeId = `${i+1}-${parentId}-${name}`;
+          parentId = name;
+          return nodeId;
+        });
+      });
+    }
+    return ids.length ? ids : [[]];
+  }, [filteredPaths]);
+  // selectedPaths 상태
+  const [selectedPaths, setSelectedPaths] = useState(getInitialSelectedPaths);
+  // selectedPaths가 비거나, nodes/links가 없으면 전체 경로를 다 보여주도록 예외처리
+  const sankeyData = React.useMemo(() => {
+    let data = createDrilldownSankeyData(filteredPaths, selectedPaths);
+    if ((!data.nodes.length || !data.links.length)) {
+      // 전체 경로를 다 보여주도록 selectedPaths를 모든 경로로 강제
+      const allPaths = filteredPaths.map(path => {
+        let parentId = "root";
+        return path.slice(1).map((name, i) => {
+          const nodeId = `${i+1}-${parentId}-${name}`;
+          parentId = name;
+          return nodeId;
+        });
+      });
+      data = createDrilldownSankeyData(filteredPaths, allPaths);
+    }
+    return data;
+  }, [filteredPaths, selectedPaths, getInitialSelectedPaths]);
+
+  // 노드 클릭 시 해당 노드까지의 경로를 selectedPaths에 추가(중복 방지)
+  const handleNodeClick = (node) => {
+    const path = [...(node.ancestorIds || []), node.id];
+    if (!selectedPaths.some(p => JSON.stringify(p) === JSON.stringify(path))) {
+      setSelectedPaths([...selectedPaths, path]);
+    }
+  };
+  // 이전 단계로 돌아가기(모든 트리 pop)
+  const handleBack = () => {
+    if (selectedPaths.length > 1) setSelectedPaths(selectedPaths.slice(0, -1));
+  };
+
+  // 안전하게 maxDepth 계산
+  const maxDepth = sankeyData.nodes.length > 0
+    ? Math.max(...sankeyData.nodes.map(n => n.depth))
+    : 0;
 
   return (
-    <div className="w-full">
-      {/* 세그먼트 선택 UI */}
-      <div className="flex justify-end items-center mb-4 gap-2">
-        <select
-          value={topPercent}
-          onChange={(e) => setTopPercent(Number(e.target.value))}
-          className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        >
-          <option value={100}>전체</option>
-          <option value={95}>상위 95%</option>
-          <option value={90}>상위 90%</option>
-          <option value={80}>상위 80%</option>
-          <option value={70}>상위 70%</option>
-        </select>
-        <select
-          value={selectedSegment}
-          onChange={handleSegmentChange}
-          className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        >
-          <option value="">전체 사용자</option>
-          <option value="converted">전환 완료 사용자</option>
-          <option value="abandoned_cart">장바구니 이탈 사용자</option>
-        </select>
-      </div>
-
-      {/* 로딩 상태 */}
-      {isLoading && (
-        <div className="flex justify-center items-center h-64">
-          <div className="text-gray-500">데이터를 불러오는 중...</div>
-        </div>
-      )}
-
-      {/* 에러 상태 */}
-      {error && (
-        <div className="flex justify-center items-center h-64">
-          <div className="text-red-500 text-center">
-            <div className="text-sm">{error}</div>
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <h2 style={{ fontWeight: 700, fontSize: 20, marginBottom: 24 }}>사용자 경로(사키) 다이어그램</h2>
+      <div style={{ display: "flex", flexDirection: "row", marginBottom: 8 }}>
+        {Array.from({ length: maxDepth + 1 }).map((_, i) => (
+          <div key={i} style={{ width: 120, textAlign: "center", fontWeight: 600, color: "#888" }}>
+            {i === 0 ? "시작점" : `${i}단계`}
           </div>
+        ))}
         </div>
+      {selectedPaths.length > 1 && (
+        <button onClick={handleBack} style={{ marginBottom: 12, fontSize: 14 }}>◀ 이전 단계로</button>
       )}
-
-      {/* 데이터 없음 상태 */}
-      {!isLoading && !error && filteredData.length === 0 && (
-        <div className="flex justify-center items-center h-64">
-          <div className="text-gray-500 text-center">
-            <div className="text-sm">표시할 경로 데이터가 없습니다.</div>
+      {(!sankeyData.nodes.length || !sankeyData.links.length)
+        ? <div style={{ color: '#888', padding: 24 }}>경로 데이터가 없습니다.</div>
+        : <SankeyChart data={sankeyData} onNodeClick={handleNodeClick} />
+      }
           </div>
-        </div>
-      )}
+  );
+};
 
-      {/* Sankey 차트 */}
-      {!isLoading && !error && filteredData.length > 0 && (
-        <div className="flex justify-center">
-          <svg width={chartWidth} height={chartHeight} style={{ position: 'relative', zIndex: 0 }}>
-            <defs>
-              <linearGradient id="nodeGradient" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor="#e0edff" />
-                <stop offset="100%" stopColor="#c7d2fe" />
-              </linearGradient>
-              <filter id="nodeShadow" x="-20%" y="-20%" width="140%" height="140%">
-                <feDropShadow dx="0" dy="2" stdDeviation="4" floodColor="#2563eb22" />
-              </filter>
-            </defs>
-            {filteredData.map((path, idx) => {
-              const from = nodePositions.get(path.from);
-              const to = nodePositions.get(path.to);
-              if (!from || !to) return null;
-              const strokeWidth = (path.value / maxValue) * 32 + 4.5;
-              const opacity = hoverLinkIdx === null
-                ? (path.value / maxValue) * 0.5 + 0.3
-                : (hoverLinkIdx === idx ? 0.95 : 0.15);
-              const color = hoverLinkIdx === idx ? '#2563eb' : '#bdbdbd';
-              
-              const x1 = from.x + nodeWidth - 5;
-              const y1 = from.y + nodeHeight / 2;
-              const x2 = to.x + 5;
-              const y2 = to.y + nodeHeight / 2;
-              const mx = (x1 + x2) / 2;
+const SankeyChart = ({ data, width = 800, height = 500, onNodeClick }) => {
+  const svgRef = useRef();
+  const [tooltip, setTooltip] = useState(null);
+  const [hoverNode, setHoverNode] = useState(null);
+  const [highlightPath, setHighlightPath] = useState([]);
+
+  useEffect(() => {
+    if (!data) return;
+    const svg = d3.select(svgRef.current);
+    svg.selectAll("*").remove();
+    const sankeyGenerator = d3Sankey()
+      .nodeId(d => d.id)
+      .nodeWidth(20)
+      .nodePadding(10)
+      .extent([
+        [0, 0],
+        [width, height],  
+      ]);
+    const { nodes, links } = sankeyGenerator(data);
+    // ancestor path 강조 계산
+    let pathLinks = [];
+    if (hoverNode) {
+      let current = hoverNode;
+      while (current && current.targetLinks && current.targetLinks.length > 0) {
+        const parentLink = current.targetLinks[0];
+        pathLinks.unshift(parentLink);
+        current = parentLink.source;
+      }
+    }
+    setHighlightPath(pathLinks);
+    // Draw links
+    svg
+      .append("g")
+      .attr("fill", "none")
+      .selectAll("path")
+      .data(links)
+      .join("path")
+      .attr("d", sankeyLinkHorizontal())
+      .attr("stroke", d =>
+        highlightPath.includes(d) ? "#90caf9" : "#b0bec5"
+      )
+      .attr("stroke-opacity", d =>
+        highlightPath.includes(d) ? 0.7 : 0.4
+      )
+      .attr("stroke-width", d => Math.max(1, d.width))
+      .style("pointer-events", "none");
+    // Draw nodes
+    svg
+      .append("g")
+      .selectAll("rect")
+      .data(nodes)
+      .join("rect")
+      .attr("x", d => d.x0)
+      .attr("y", d => d.y0)
+      .attr("height", d => d.y1 - d.y0)
+      .attr("width", d => d.x1 - d.x0)
+      .attr("fill", d =>
+        hoverNode
+          ? d === hoverNode
+            ? "#1976d2"
+            : highlightPath.some(l => l.source === d || l.target === d)
+              ? "#90caf9"
+              : "#666"
+          : "#666"
+      )
+      .on("mouseover", function (e, d) {
+        setHoverNode(d);
+        setTooltip({ x: e.pageX, y: e.pageY, text: `${d.name}` });
+      })
+      .on("mouseout", function () {
+        setHoverNode(null);
+        setTooltip(null);
+      })
+      .on("click", function (e, d) {
+        if (onNodeClick) onNodeClick(d);
+      });
+    // Add labels (항상 오른쪽)
+    svg
+      .append("g")
+      .selectAll("text")
+      .data(nodes)
+      .join("text")
+      .attr("x", d => d.x1 + 8)
+      .attr("y", d => (d.y0 + d.y1) / 2)
+      .attr("dy", "0.35em")
+      .attr("text-anchor", "start")
+      .text(d => d.name)
+      .attr("fill", "#000");
+  }, [data, onNodeClick, hoverNode]);
               
               return (
-                <path
-                  key={idx}
-                  d={`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`}
-                  stroke={color}
-                  strokeWidth={hoverLinkIdx === idx ? strokeWidth + 7.8 : strokeWidth}
-                  strokeLinecap="round"
-                  fill="none"
-                  opacity={opacity}
-                  style={{ transition: 'all 0.2s', cursor: 'pointer' }}
-                  onMouseEnter={() => setHoverLinkIdx(idx)}
-                  onMouseLeave={() => setHoverLinkIdx(null)}
-                />
-              );
-            })}
-            {Array.from(nodeMap.values()).map((node) => {
-              const pos = nodePositions.get(node.name)!;
-              const isStart = node.depth === 0;
-              const isEnd = node.totalOut === 0;
-              const isActive = hoverLinkIdx !== null && filteredData[hoverLinkIdx] && (filteredData[hoverLinkIdx].from === node.name || filteredData[hoverLinkIdx].to === node.name);
-              return (
-                <g key={node.name} transform={`translate(${pos.x},${pos.y})`} style={{ zIndex: isActive ? 2 : 1 }}>
-                  <rect
-                    width={nodeWidth}
-                    height={nodeHeight}
-                    rx={nodeHeight / 2}
-                    fill={isActive ? '#e0edff' : '#f3f4f6'}
-                    stroke={isActive ? '#2563eb' : '#d1d5db'}
-                    strokeWidth={isActive ? 3.5 : 1.5}
-                    filter="url(#nodeShadow)"
-                    style={{ transition: 'all 0.2s', cursor: 'pointer' }}
-                  />
-                  <circle
-                    cx={23.4}
-                    cy={nodeHeight / 2}
-                    r={9.1}
-                    fill={isStart ? '#3b82f6' : isEnd ? '#22c55e' : '#bdbdbd'}
-                  />
-                  <text x={46.8} y={nodeHeight / 2 - 2} fontSize={15} fontWeight="bold" fill={isActive ? '#2563eb' : '#222'} style={{ letterSpacing: 0.5 }}>
-                    {node.name}
-                  </text>
-                  <text x={46.8} y={nodeHeight / 2 + 18} fontSize={12} fontWeight="light" fill={isActive ? '#2563eb' : '#222'}>
-                    {isStart ? node.totalOut : node.totalIn}명
-                  </text>
-                </g>
-              );
-            })}
+    <div style={{ position: "relative" }}>
+      <svg ref={svgRef} width={width} height={height} />
             {tooltip && (
-              <g style={{ pointerEvents: 'none' }}>
-                <rect
-                  x={tooltip.x - 78}
-                  y={tooltip.y - 85}
-                  width={170}
-                  height={65}
-                  rx={12}
-                  fill="white"
-                  stroke="#e5e7eb"
-                  strokeWidth={1}
-                  filter="drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))"
-                />
-                <text x={tooltip.x} y={tooltip.y - 65} textAnchor="middle" fontSize={14} fontWeight="bold" fill="#1f2937">
-                  {tooltip.from} → {tooltip.to}
-                </text>
-                <text x={tooltip.x} y={tooltip.y - 45} textAnchor="middle" fontSize={16} fontWeight="bold" fill="#2563eb">
-                  {tooltip.value}명
-                </text>
-                <text x={tooltip.x} y={tooltip.y - 25} textAnchor="middle" fontSize={12} fill="#6b7280">
-                  전체의 {tooltip.percent}
-                </text>
-              </g>
-            )}
-          </svg>
+        <div
+          style={{
+            position: "absolute",
+            left: tooltip.x + 10,
+            top: tooltip.y + 10,
+            background: "rgba(0,0,0,0.7)",
+            color: "white",
+            padding: "6px 10px",
+            borderRadius: "4px",
+            fontSize: "12px",
+            pointerEvents: "none",
+            zIndex: 10,
+          }}
+        >
+          {tooltip.text}
         </div>
       )}
     </div>
   );
 }; 
+
+export default UserPathSankeyChart;
+export { UserPathSankeyChart }; 
