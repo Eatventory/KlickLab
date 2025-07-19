@@ -62,3 +62,12 @@ export interface PageStatsData {
   avgEngagementTimeSec: number;
   totalEvents: number;
 }
+
+export interface VisitStatsData {
+  date: string;
+  pagePath: string;
+  sessions: number;
+  activeUsers: number;
+  newVisitors: number;
+  avgSessionSeconds: number;
+}

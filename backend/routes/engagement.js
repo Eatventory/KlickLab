@@ -12,7 +12,8 @@ const {
   getPageTimesQuery,
   getBounceRateQuery,
   getPageViewsQuery,
-  getPageStatsQuery
+  getPageStatsQuery,
+  getVisitStatsQuery,
 } = require('../utils/engagementUtils');
 
 /* 참여도 개요 */
@@ -182,7 +183,7 @@ router.get('/users-over-time', authMiddleware, async (req, res) => {
   }
 });
 
-/* 시간 경과에 따른 이벤트 이름별 이벤트 수 */
+/* 시간 경과에 따른 이벤트 수 */
 router.get('/event-counts', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   const { startDate, endDate } = req.query;
@@ -230,6 +231,34 @@ router.get('/page-stats', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error("Page Stats API ERROR:", err);
     res.status(500).json({ error: "Failed to get page stats data" });
+  }
+});
+
+/* 시간 경과에 따른 방문 페이지 */
+router.get('/visit-stats', authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+  const { startDate, endDate } = req.query;
+  if (!startDate || !endDate) {
+    return res.status(400).json({ error: 'Missing startDate or endDate' });
+  }
+
+  try {
+    const dataRes = await clickhouse.query({
+      query: getVisitStatsQuery(startDate, endDate, sdk_key),
+      format: 'JSONEachRow'
+    });
+    const data = await dataRes.json();
+    res.status(200).json(data.map(item => ({
+      date: item.date,
+      pagePath: item.page_path,
+      sessions: Number(item.sessions),
+      activeUsers: Number(item.active_users),
+      newVisitors: Number(item.new_visitors),
+      avgSessionSeconds: Number(item.avg_session_seconds),
+    })));
+  } catch (err) {
+    console.error("Visit Stats API ERROR:", err);
+    res.status(500).json({ error: "Failed to get visit stats data" });
   }
 });
 

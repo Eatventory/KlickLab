@@ -220,7 +220,7 @@ function getEventCountsQuery(startDate, endDate, sdk_key) {
           sumMerge(event_count_state) AS event_count,
           uniqMerge(unique_users_state) AS user_count,
           round(sumMerge(event_count_state) / uniqMerge(unique_users_state), 2) AS avg_event_per_user
-        FROM klicklab.daily_event_agg
+        FROM daily_event_agg
         WHERE sdk_key = '${sdk_key}'
           AND summary_date BETWEEN start AND end
         GROUP BY summary_date, event_name
@@ -345,6 +345,25 @@ function getPageStatsQuery(startDate, endDate, sdk_key) {
   `;
 }
 
+function getVisitStatsQuery(startDate, endDate, sdk_key) {
+  return `
+    SELECT
+      dpa.summary_date AS date,
+      dpa.page_path,
+      argMax(dm.visitors, dm.date) AS sessions,
+      uniqMerge(dpa.unique_users_state) AS active_users,
+      argMax(dm.new_visitors, dm.date) AS new_visitors,
+      round(sumMerge(dpa.total_time_state) / active_users, 2) AS avg_session_seconds
+    FROM daily_page_agg dpa
+    LEFT JOIN daily_metrics dm
+      ON dpa.summary_date = dm.date AND dpa.sdk_key = '${sdk_key}'
+    WHERE dpa.sdk_key = '${sdk_key}'
+      AND dpa.summary_date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
+    GROUP BY dpa.summary_date, dpa.page_path
+    ORDER BY dpa.summary_date ASC, sessions DESC
+  `;
+}
+
 module.exports = {
   getAvgSessionQuery,
   getSessionsPerUserQuery,
@@ -355,5 +374,6 @@ module.exports = {
   getPageTimesQuery,
   getBounceRateQuery,
   getPageViewsQuery,
-  getPageStatsQuery
+  getPageStatsQuery,
+  getVisitStatsQuery,
 };
