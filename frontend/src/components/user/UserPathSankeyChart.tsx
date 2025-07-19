@@ -121,17 +121,10 @@ interface UserPathSankeyChartProps {
 }
 const UserPathSankeyChart = ({ data }: UserPathSankeyChartProps) => {
   const svgRef = useRef();
-  // 디버깅을 위한 임시 로그
-  console.log('=== UserPathSankeyChart Debug ===');
-  console.log('1. Input data:', data);
   
   // data가 없거나, paths가 없거나, paths가 2차원 배열이 아니면 mockSankeyPaths 강제 사용
   let rawPaths = (data && Array.isArray(data.paths) && Array.isArray(data.paths[0])) ? data.paths : [];
   let filteredPaths = rawPaths.filter(path => path[0] === "session_start");
-  
-  console.log('4. rawPaths length:', rawPaths.length);
-  console.log('5. filteredPaths length:', filteredPaths.length);
-  console.log('6. filteredPaths first 3:', filteredPaths.slice(0, 3));
   
   // 빈 데이터일 때 최소 2단계 dummy 경로 추가
   if (filteredPaths.length === 0) {
@@ -165,8 +158,7 @@ const UserPathSankeyChart = ({ data }: UserPathSankeyChartProps) => {
 
   // 개별 노드 드릴다운 Sankey 데이터 생성 함수 - 경로 집계 처리
   const createIndividualDrilldownSankeyData = (paths, expandedNodeIds) => {
-    console.log('7. createIndividualDrilldownSankeyData called with paths length:', paths.length);
-    console.log('8. expandedNodeIds:', Array.from(expandedNodeIds));
+
     
     const nodeMap = new Map();
     const linkMap = new Map();
@@ -178,8 +170,7 @@ const UserPathSankeyChart = ({ data }: UserPathSankeyChartProps) => {
       pathCountMap.set(pathKey, (pathCountMap.get(pathKey) || 0) + 1);
     });
     
-    console.log('9. pathCountMap size:', pathCountMap.size);
-    console.log('10. pathCountMap entries:', Array.from(pathCountMap.entries()).slice(0, 3));
+    
     
     // 2. 집계된 경로들을 처리 - 클릭한 노드까지만 표시
     pathCountMap.forEach((count, pathKey) => {
@@ -263,10 +254,7 @@ const UserPathSankeyChart = ({ data }: UserPathSankeyChartProps) => {
       links: Array.from(linkMap.values())
     };
     
-    console.log('11. Final result - nodes count:', result.nodes.length);
-    console.log('12. Final result - links count:', result.links.length);
-    console.log('13. Final result - nodes:', result.nodes.slice(0, 3));
-    console.log('14. Final result - links:', result.links.slice(0, 3));
+
     
     return result;
   };
@@ -281,7 +269,7 @@ const UserPathSankeyChart = ({ data }: UserPathSankeyChartProps) => {
   const fixedNodePadding = 20;
 
   // 디버깅 로그 제거 (무한 루프 방지)
-  // console.log('Generated sankeyData:', sankeyData);
+
 
   // 개별 노드 클릭 핸들러
   const handleNodeClick = (node) => {
