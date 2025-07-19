@@ -1,80 +1,89 @@
 import React, { useState } from 'react';
 import HorizontalLineChart from '../HorizontalLineChart';
 import ChartTableWrapper from '../ui/ChartTableWrapper';
-import type { EventCountsData } from '../../data/engagementTypes';
+import type { PageStatsData } from '../../data/engagementTypes';
 
-interface EngagementEventsProps {
-  eventCounts: EventCountsData[];
+interface EngagementPagesProps {
+  pageStats: PageStatsData[];
 }
 
-const keys = ['eventCount', 'userCount', 'avgEventPerUser'];
-const labels = ['이벤트 수', '총 사용자', '사용자당 평균 이벤트 수'];
+const keys = ['pageViews', 'activeUsers', 'pageviewsPerUser', 'avgEngagementTimeSec', 'totalEvents'];
+const labels = ['조회수', '활성 사용자', '사용자당 조회수', '평균 참여 시간', '이벤트 수'];
 const valueKeys = [
   { key: keys[0], label: labels[0], showPercent: true },
   { key: keys[1], label: labels[1], showPercent: true },
-  { key: keys[2], label: labels[2] },
+  { key: keys[2], label: labels[2], showPercent: true },
+  { key: keys[3], label: labels[3] },
+  { key: keys[4], label: labels[4], showPercent: true },
 ];
 const getKeyIndex = (k: string) => keys.indexOf(k) >= 0 ? keys.indexOf(k) : 0;
 
-const EngagementEvents: React.FC<EngagementEventsProps> = ({ eventCounts }) => {
+const EngagementPages: React.FC<EngagementPagesProps> = ({ pageStats }) => {
   const [sortKey, setSortKey] = useState<string>(keys[0]);
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6" id="engagementEvents">
+    <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6" id="engagementPages">
       <div className="flex items-center gap-2">
         <h2 className="text-lg font-semibold text-gray-900">
-          시간 경과에 따른 이벤트 이름별 {labels[getKeyIndex(sortKey)]}
+          시간 경과에 따른 페이지 경로별 {labels[getKeyIndex(sortKey)]}
         </h2>
       </div>
+
       <ChartTableWrapper
         data={(() => {
-          const map: Record<string, { eventCount: number; userCount: number }> = {};
-          eventCounts
-            .filter(({ eventName }) => eventName !== '')
-            .forEach(({ eventName, eventCount, userCount }) => {
-            if (!map[eventName]) {
-              map[eventName] = { eventCount: 0, userCount: 0 };
-            }
-            map[eventName].eventCount += eventCount;
-            map[eventName].userCount += userCount;
-          });
-          return Object.entries(map).map(([eventName, { eventCount, userCount }]) => {
-            const avg = userCount ? eventCount / userCount : 0;
+          const map: Record<string, { pageViews: number; activeUsers: number; totalEvents: number; totalEngagementTime: number }> = {};
+          pageStats
+            .filter(({ pagePath }) => pagePath !== '')
+            .forEach(({ pagePath, pageViews, activeUsers, avgEngagementTimeSec, totalEvents }) => {
+              if (!map[pagePath]) {
+                map[pagePath] = { pageViews: 0, activeUsers: 0, totalEvents: 0, totalEngagementTime: 0 };
+              }
+              map[pagePath].pageViews += pageViews;
+              map[pagePath].activeUsers += activeUsers;
+              map[pagePath].totalEvents += totalEvents;
+              map[pagePath].totalEngagementTime += avgEngagementTimeSec * activeUsers;
+            });
+
+          return Object.entries(map).map(([pagePath, { pageViews, activeUsers, totalEvents, totalEngagementTime }]) => {
+            const pageviewsPerUser = activeUsers ? pageViews / activeUsers : 0;
+            const avgEngagementTimeSec = activeUsers ? totalEngagementTime / activeUsers : 0;
             return {
-              key: eventName,
-              label: eventName,
+              key: pagePath,
+              label: pagePath,
               values: {
-                eventCount,
-                userCount,
-                avgEventPerUser: avg,
+                pageViews,
+                activeUsers,
+                pageviewsPerUser,
+                avgEngagementTimeSec,
+                totalEvents,
               },
             };
           });
         })()}
         valueKeys={valueKeys}
         autoSelectBy={keys[0]}
-        title="이벤트 이름"
-        onSortChange={(KEY) => {
-          setSortKey(KEY);
-        }}
+        title="페이지 경로"
+        onSortChange={(KEY) => { setSortKey(KEY); }}
       >
         {(selectedKeys, chartData, lineDefs, unit) => (
           <HorizontalLineChart
             data={(() => {
-              const uniqueDates = [...new Set(eventCounts.map(d => d.date))].sort();
+              const uniqueDates = [...new Set(pageStats.map(d => d.date))].sort();
               return uniqueDates.map(date => {
                 const row: Record<string, any> = { date };
                 let sum = 0;
-                selectedKeys.forEach(event => {
-                  const match = eventCounts.find(d => d.date === date && d.eventName === event);
+                selectedKeys.forEach(path => {
+                  const match = pageStats.find(d => d.date === date && d.pagePath === path);
                   const val = match
                     ? {
-                        [keys[0]]: match.eventCount,
-                        [keys[1]]: match.userCount,
-                        [keys[2]]: match.avgEventPerUser ?? 0,
+                        [keys[0]]: match.pageViews,
+                        [keys[1]]: match.activeUsers,
+                        [keys[2]]: match.pageViews,
+                        [keys[3]]: match.avgEngagementTimeSec,
+                        [keys[4]]: match.totalEvents ?? 0,
                       }[sortKey] ?? 0
                     : 0;
-                  row[event] = val;
+                  row[path] = val;
                   sum += val;
                 });
                 row['SUM'] = sum;
@@ -99,21 +108,22 @@ const EngagementEvents: React.FC<EngagementEventsProps> = ({ eventCounts }) => {
             showLegendBottom={true}
             tooltipRenderer={(item, hoveredLineKey) => {
               const sortedKeys = selectedKeys
-                .filter((key) => item[key] !== undefined)
+                .filter(key => item[key] !== undefined)
                 .sort((a, b) => {
                   if (a === 'SUM') return -1;
                   if (b === 'SUM') return 1;
                   return (item[b] ?? 0) - (item[a] ?? 0);
                 });
               const colors = ['#3b82f6', '#10b981', '#f97316', '#6366f1', '#ef4444', '#2596be'];
+
               return (
                 <div className="text-sm">
                   <div className="text-gray-500">{item.date}</div>
-                  {sortedKeys.map((key) => {
-                    const colorIndex =
-                      key === 'SUM' ? colors.length - 1 : selectedKeys.indexOf(key);
+                  {sortedKeys.map(key => {
+                    const colorIndex = key === 'SUM'
+                      ? colors.length - 1
+                      : selectedKeys.indexOf(key);
                     const color = colors[colorIndex] || '#999';
-            
                     return (
                       <div
                         className="flex items-center"
@@ -144,4 +154,4 @@ const EngagementEvents: React.FC<EngagementEventsProps> = ({ eventCounts }) => {
   );
 };
 
-export default EngagementEvents;
+export default EngagementPages;

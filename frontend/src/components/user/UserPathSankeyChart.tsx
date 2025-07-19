@@ -186,8 +186,7 @@ const UserPathSankeyChart = ({ data, type = 'event' }: UserPathSankeyChartProps)
       pathCountMap.set(pathKey, (pathCountMap.get(pathKey) || 0) + 1);
     });
     
-    console.log('9. pathCountMap size:', pathCountMap.size);
-    console.log('10. pathCountMap entries:', Array.from(pathCountMap.entries()).slice(0, 3));
+    
     
     // 2. 집계된 경로들을 처리 - 클릭한 노드까지만 표시
     pathCountMap.forEach((count, pathKey) => {
@@ -271,10 +270,7 @@ const UserPathSankeyChart = ({ data, type = 'event' }: UserPathSankeyChartProps)
       links: Array.from(linkMap.values())
     };
     
-    console.log('11. Final result - nodes count:', result.nodes.length);
-    console.log('12. Final result - links count:', result.links.length);
-    console.log('13. Final result - nodes:', result.nodes.slice(0, 3));
-    console.log('14. Final result - links:', result.links.slice(0, 3));
+
     
     return result;
   };
@@ -289,7 +285,7 @@ const UserPathSankeyChart = ({ data, type = 'event' }: UserPathSankeyChartProps)
   const fixedNodePadding = 20;
 
   // 디버깅 로그 제거 (무한 루프 방지)
-  // console.log('Generated sankeyData:', sankeyData);
+
 
   // 개별 노드 클릭 핸들러
   const handleNodeClick = (node: any) => {

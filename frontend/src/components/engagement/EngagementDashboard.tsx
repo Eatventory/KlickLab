@@ -6,6 +6,12 @@ import Collapse from '../ui/Collapse';
 import DateRangeSelector from '../ui/DateRangeSelector';
 import EngagementOverview from './EngagementOverview';
 import EngagementEvents from './EngagementEvents';
+import EngagementPages from './EngagementPages';
+import EngagementVisits from './EngagementVisits';
+
+// import { eventCounts } from '../../data/engagementMock';
+// import { pageStats } from '../../data/engagementMock';
+// import { visitStats } from '../../data/engagementMock';
 
 import type {
   PageTimeData,
@@ -16,10 +22,13 @@ import type {
   AvgSessionSecsData,
   SessionsPerUsersData,
   UsersOverTimeData,
+  RevisitData,
   EventCountsData,
+  PageStatsData,
+  VisitStatsData,
 } from '../../data/engagementTypes';
 
-const engagementTaps: string[] = ["참여도 개요", "이벤트 보고서", "페이지 및 화면 보고서", "방문 페이지 보고서"];
+const engagementTaps: string[] = ['참여도 개요', '이벤트 보고서', '페이지 및 화면 보고서', '방문 페이지 보고서'];
 
 export const EngagementDashboard: React.FC = () => {
   const [pageTimes, setPageTimes] = useState<PageTimeData[]>([]);
@@ -30,7 +39,11 @@ export const EngagementDashboard: React.FC = () => {
   const [avgSessionSecs, setAvgSessionSecs] = useState<AvgSessionSecsData[]>([]);
   const [sessionsPerUsers, setSessionsPerUsers] = useState<SessionsPerUsersData[]>([]);
   const [usersOverTime, setUsersOverTime] = useState<UsersOverTimeData[]>([]);
+  const [revisit, setRevisit] = useState<RevisitData[]>([]);
+
   const [eventCounts, setEventCounts] = useState<EventCountsData[]>([]);
+  const [pageStats, setPageStats] = useState<PageStatsData[]>([]);
+  const [visitStats, setVisitStats] = useState<VisitStatsData[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
@@ -38,7 +51,9 @@ export const EngagementDashboard: React.FC = () => {
   const [selectedMetric, setSelectedMetric] = useState<'viewCounts' | 'clickCounts'>('viewCounts');
   const [selectedMetric2, setSelectedMetric2] = useState<'avgSessionSecs' | 'sessionsPerUsers'>('avgSessionSecs');
 
-  const [openCollapse, setOpenCollapse] = useState<string | null>(engagementTaps[0]);
+  const [openCollapse, setOpenCollapse] = useState<string>(engagementTaps[0]);
+  const [fetchedTabs, setFetchedTabs] = useState<{ [key: string]: boolean }>({});
+  const [fetchCache, setFetchCache] = useState<{[tab: string]: { start: string; end: string }}>({});
 
   const [dateRange, setDateRange] = useState([
     { startDate: addDays(new Date(), -29), endDate: new Date(), key: 'selection' }
@@ -46,57 +61,76 @@ export const EngagementDashboard: React.FC = () => {
   const [tempRange, setTempRange] = useState(dateRange);
   const [showPicker, setShowPicker] = useState(false);
 
-  const fetchData = async (start: Date, end: Date) => {
+  const fetchTabData = async (
+    tab: string,
+    start: Date,
+    end: Date,
+    force = false // 강제 fetch 여부
+  ) => {
+    const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+    if (!token) return;
+
+    const startStr = dayjs(start).format('YYYY-MM-DD');
+    const endStr = dayjs(end).format('YYYY-MM-DD');
+    if (!force && fetchCache[tab]?.start === startStr && fetchCache[tab]?.end === endStr) {
+      console.log(`[SKIP] ${tab} - 캐시 hit`);
+      return;
+    }
+
+    const query = `startDate=${startStr}&endDate=${endStr}`;
     try {
-      const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
-      if (!token) throw new Error("No token");
-      if (isFirstLoad) setLoading(true);
-      setError(null);
+      setLoading(true);
+      switch (tab) {
+        case engagementTaps[0]: {
+          const [resOverview, resPageTimes, resPageViewCounts, resBounceRates,resViewCounts, resClickCounts, resUOTime, resRevisit] = await Promise.all([
+            fetch(`/api/engagement/overview?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
+            fetch(`/api/engagement/page-times?${query}&limit=5`, { headers: { Authorization: `Bearer ${token}` } }),
+            fetch(`/api/engagement/page-views?${query}&limit=5`, { headers: { Authorization: `Bearer ${token}` } }),
+            fetch(`/api/engagement/bounce-rate?${query}&limit=5`, { headers: { Authorization: `Bearer ${token}` } }),
+            fetch(`/api/engagement/view-counts?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
+            fetch(`/api/engagement/click-counts?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
+            fetch(`/api/engagement/users-over-time?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
+            fetch(`/api/engagement/revisit?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
+          ]);
+          const [dataOverview, dataPageTimes, dataPageViewCounts, dataBounceRates, dataViewCounts, dataClickCounts, dataUOTime, dataRevisit] = await Promise.all([
+            resOverview.json(), resPageTimes.json(), resPageViewCounts.json(), resBounceRates.json(),
+            resViewCounts.json(), resClickCounts.json(), resUOTime.json(), resRevisit.json(),
+          ]);
+          setAvgSessionSecs(dataOverview.data.avgSessionSeconds);
+          setSessionsPerUsers(dataOverview.data.sessionsPerUser);
+          setPageTimes(dataPageTimes);
+          setPageViewCounts(dataPageViewCounts);
+          setBounceRates(dataBounceRates);
+          setViewCounts(dataViewCounts);
+          setClickCounts(dataClickCounts);
+          setUsersOverTime(dataUOTime);
+          setRevisit(dataRevisit);
+          break;
+        }
+        case engagementTaps[1]: {
+          const res = await fetch(`/api/engagement/event-counts?${query}`, { headers: { Authorization: `Bearer ${token}` } });
+          const data = await res.json();
+          setEventCounts(data);
+          break;
+        }
+        case engagementTaps[2]: {
+          const res = await fetch(`/api/engagement/page-stats?${query}`, { headers: { Authorization: `Bearer ${token}` } });
+          const data = await res.json();
+          setPageStats(data);
+          break;
+        }
+        case engagementTaps[3]: {
+          const res = await fetch(`/api/engagement/visit-stats?${query}`, { headers: { Authorization: `Bearer ${token}` } });
+          const data = await res.json();
+          setVisitStats(data);
+          break;
+        }
+      }
 
-      const startStr = dayjs(start).format('YYYY-MM-DD');
-      const endStr = dayjs(end).format('YYYY-MM-DD');
-      const query = `startDate=${startStr}&endDate=${endStr}`;
-
-      const [resOverview, resPageTimes, resPageViewCounts, resBounceRates, resViewCounts, resClickCounts, resUOTime, resEventCounts] = await Promise.all([
-        fetch(`/api/engagement/overview?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`/api/engagement/page-times?${query}&limit=5`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`/api/engagement/page-views?${query}&limit=5`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`/api/engagement/bounce-rate?${query}&limit=5`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`/api/engagement/view-counts?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`/api/engagement/click-counts?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`/api/engagement/users-over-time?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`/api/engagement/event-counts?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
-      ]);
-
-      if (!resOverview.ok) throw new Error('Engagement Overview 데이터를 불러오지 못했습니다.');
-      if (!resPageTimes.ok) throw new Error('Page Times 데이터를 불러오지 못했습니다.');
-      if (!resPageViewCounts.ok) throw new Error('Page Views 데이터를 불러오지 못했습니다.');
-      if (!resBounceRates.ok) throw new Error('Bounce 데이터를 불러오지 못했습니다.');
-      if (!resViewCounts.ok) throw new Error('View Counts 데이터를 불러오지 못했습니다.');
-      if (!resClickCounts.ok) throw new Error('Click Counts 데이터를 불러오지 못했습니다.');
-      if (!resUOTime.ok) throw new Error('Users Over Time 데이터를 불러오지 못했습니다.');
-      if (!resEventCounts.ok) throw new Error('Event Counts 데이터를 불러오지 못했습니다.');
-
-      const [dataOverview, dataPageTimes, dataPageViewCounts, dataBounceRates, dataViewCounts, dataClickCounts, dataUOTime, dataEventCounts] = await Promise.all([
-        resOverview.json(),
-        resPageTimes.json(),
-        resPageViewCounts.json(),
-        resBounceRates.json(),
-        resViewCounts.json(),
-        resClickCounts.json(),
-        resUOTime.json(),
-        resEventCounts.json(),
-      ]);
-
-      setAvgSessionSecs(dataOverview.data.avgSessionSeconds);
-      setSessionsPerUsers(dataOverview.data.sessionsPerUser);
-      setPageTimes(dataPageTimes);
-      setPageViewCounts(dataPageViewCounts);
-      setBounceRates(dataBounceRates);
-      setViewCounts(dataViewCounts);
-      setClickCounts(dataClickCounts);
-      setUsersOverTime(dataUOTime);
-      setEventCounts(dataEventCounts);
+      setFetchCache((prev) => ({
+        ...prev,
+        [tab]: { start: startStr, end: endStr },
+      }));
     } catch (err: any) {
       console.error(err);
       setError(err.message || '알 수 없는 오류');
@@ -108,22 +142,24 @@ export const EngagementDashboard: React.FC = () => {
 
   useEffect(() => {
     const { startDate, endDate } = dateRange[0];
-    if (startDate && endDate) {
-      fetchData(startDate, endDate);
+    if (!startDate || !endDate || !openCollapse) return;
+    if (!fetchedTabs[openCollapse]) {
+      fetchTabData(openCollapse, startDate, endDate);
+      setFetchedTabs((prev) => ({ ...prev, [openCollapse]: true }));
     }
-
     const interval = setInterval(() => {
-      const { startDate, endDate } = dateRange[0];
-      if (startDate && endDate) {
-        fetchData(startDate, endDate);
+      const now = new Date();
+      const minute = now.getMinutes();
+      if (minute % 10 === 0) { // 매 10분마다 fetch 실행
+        fetchTabData(openCollapse, startDate, endDate);
       }
-    }, 60000); // 1분마다 갱신
+    }, 60000);
     return () => clearInterval(interval);
-  }, []);
+  }, [openCollapse, dateRange]);
 
   return (
     <>
-      <div className="w-full flex justify-end border-b-2 border-dashed">
+      <div className='w-full flex justify-end border-b-2 border-dashed'>
         <DateRangeSelector
           dateRange={dateRange}
           tempRange={tempRange}
@@ -133,7 +169,7 @@ export const EngagementDashboard: React.FC = () => {
           setShowPicker={setShowPicker}
           onApply={(start, end) => {
             setDateRange([{ startDate: start, endDate: end, key: 'selection' }]);
-            fetchData(start, end);
+            fetchTabData(openCollapse, start, end, true);
           }}
         />
       </div>
@@ -141,7 +177,7 @@ export const EngagementDashboard: React.FC = () => {
       <Collapse
         title={engagementTaps[0]}
         isOpen={openCollapse === engagementTaps[0]}
-        onToggle={() => setOpenCollapse(prev => prev === engagementTaps[0] ? null : engagementTaps[0])}
+        onToggle={() => setOpenCollapse(prev => prev === engagementTaps[0] ? '' : engagementTaps[0])}
       >
         <EngagementOverview
           avgSessionSecs={avgSessionSecs}
@@ -152,6 +188,7 @@ export const EngagementDashboard: React.FC = () => {
           viewCounts={viewCounts}
           clickCounts={clickCounts}
           usersOverTime={usersOverTime}
+          revisit={revisit}
           selectedMetric={selectedMetric}
           selectedMetric2={selectedMetric2}
           setSelectedMetric={setSelectedMetric}
@@ -165,7 +202,7 @@ export const EngagementDashboard: React.FC = () => {
         title={engagementTaps[1]}
         isOpen={openCollapse === engagementTaps[1]}
         onToggle={() =>
-          setOpenCollapse((prev) => (prev === engagementTaps[1] ? null : engagementTaps[1]))
+          setOpenCollapse((prev) => (prev === engagementTaps[1] ? '' : engagementTaps[1]))
         }
       >
         <EngagementEvents eventCounts={eventCounts} />
@@ -175,20 +212,20 @@ export const EngagementDashboard: React.FC = () => {
         title={engagementTaps[2]}
         isOpen={openCollapse === engagementTaps[2]}
         onToggle={() =>
-          setOpenCollapse((prev) => (prev === engagementTaps[2] ? null : engagementTaps[2]))
+          setOpenCollapse((prev) => (prev === engagementTaps[2] ? '' : engagementTaps[2]))
         }
       >
-        <span>TBD</span>
+        <EngagementPages pageStats={pageStats} />
       </Collapse>
 
       <Collapse
         title={engagementTaps[3]}
         isOpen={openCollapse === engagementTaps[3]}
         onToggle={() =>
-          setOpenCollapse((prev) => (prev === engagementTaps[3] ? null : engagementTaps[3]))
+          setOpenCollapse((prev) => (prev === engagementTaps[3] ? '' : engagementTaps[3]))
         }
       >
-        <span>TBD</span>
+        <EngagementVisits visitStats={visitStats} />
       </Collapse>
     </>
   );

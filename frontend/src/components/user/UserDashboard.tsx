@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { addDays } from 'date-fns';
 import dayjs from 'dayjs';
 import { UserSegmentSummary } from './UserSegmentSummary';
@@ -7,15 +7,16 @@ import { GenderActiveUsers } from './GenderActiveUsers';
 import { AgeActiveUsers } from './AgeActiveUsers';
 import { DevicePlatformChart } from './DevicePlatformChart';
 import DateRangeSelector from '../ui/DateRangeSelector';
-import Collapse from '../ui/Collapse';
-import { Users, RefreshCw } from 'lucide-react';
 
-const userTabs: string[] = ["사용자 개요"];
+interface ApiData {
+  segment_type: string;
+  segment_value: string;
+  dist_type?: string;
+  dist_value?: string;
+  user_count: number;
+}
 
 export const UserDashboard: React.FC = () => {
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [openCollapse, setOpenCollapse] = useState<string | null>(userTabs[0]);
-  
   // 날짜 범위 상태
   const [dateRange, setDateRange] = useState([
     { startDate: addDays(new Date(), -6), endDate: new Date(), key: 'selection' }
@@ -24,9 +25,17 @@ export const UserDashboard: React.FC = () => {
   const [showPicker, setShowPicker] = useState(false);
 
   // 공통 API 데이터 상태
-  const [apiData, setApiData] = useState<any[]>([]);
+  const [apiData, setApiData] = useState<ApiData[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // 날짜 쿼리 문자열 메모화
+  const dateQuery = useMemo(() => {
+    if (!dateRange?.[0]) return '';
+    const startStr = dayjs(dateRange[0].startDate).format('YYYY-MM-DD');
+    const endStr = dayjs(dateRange[0].endDate).format('YYYY-MM-DD');
+    return `?startDate=${startStr}&endDate=${endStr}`;
+  }, [dateRange]);
 
   // 공통 API 호출 함수
   const fetchUserData = useCallback(async () => {
@@ -37,15 +46,6 @@ export const UserDashboard: React.FC = () => {
       const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
       if (!token) throw new Error("No token");
 
-      let dateQuery = '';
-      if (dateRange && dateRange.length > 0) {
-        const startStr = dayjs(dateRange[0].startDate).format('YYYY-MM-DD');
-        const endStr = dayjs(dateRange[0].endDate).format('YYYY-MM-DD');
-        dateQuery = `?startDate=${startStr}&endDate=${endStr}`;
-      }
-
-      console.log('[UserDashboard] 공통 API 호출:', dateQuery);
-
       const response = await fetch(`/api/users/realtime-analytics${dateQuery}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -53,139 +53,126 @@ export const UserDashboard: React.FC = () => {
       if (!response.ok) throw new Error('Failed to fetch data');
       
       const result = await response.json();
-      console.log('[UserDashboard] 공통 API 응답:', result);
       
-      // 데이터 소스 정보 업데이트
-      if (result.meta?.dataSource) {
-        handleDataSourceUpdate(result.meta.dataSource);
-      }
-      
-      // 안전한 데이터 접근
-      const dataArray = result.data || result || [];
-      setApiData(dataArray);
-      
+      // 안전한 데이터 접근 및 타입 확인
+      const data = Array.isArray(result.data) ? result.data : [];
+      setApiData(data);
+
     } catch (error) {
-      console.error('[UserDashboard] API 호출 실패:', error);
       setError(error instanceof Error ? error.message : 'Unknown error');
       setApiData([]);
     } finally {
       setLoading(false);
     }
-  }, [dateRange]);
+  }, [dateQuery]);
 
-  // 데이터 세그먼트별 분류
-  const segmentedData = React.useMemo(() => {
-    return {
-      userAge: apiData.filter(row => row.segment_type === 'user_age'),
-      userGender: apiData.filter(row => row.segment_type === 'user_gender'),
-      deviceType: apiData.filter(row => row.segment_type === 'device_type'),
-      country: apiData.filter(row => row.segment_type === 'country')
-    };
-  }, [apiData]);
-
-  // 컴포넌트 마운트 및 날짜 변경 시 API 호출
+  // 날짜 범위 변경 시 데이터 새로고침
   useEffect(() => {
     fetchUserData();
-  }, [fetchUserData, refreshKey]);
+  }, [fetchUserData]);
 
-  const handleRefresh = () => {
-    setRefreshKey(prev => prev + 1);
-  };
+  // 날짜 범위 업데이트 핸들러들
+  const handleDateRangeChange = useCallback((range: { startDate: Date; endDate: Date }[]) => {
+    const rangeWithKey = range.map(r => ({ ...r, key: 'selection' }));
+    setDateRange(rangeWithKey);
+  }, []);
 
-  const handleDateRangeApply = (start: Date, end: Date) => {
-    // 새로운 날짜 범위를 설정
-    const newDateRange = [{ startDate: start, endDate: end, key: 'selection' }];
-    setDateRange(newDateRange);
-    setTempRange(newDateRange);
-    
-    // refreshKey를 업데이트하여 컴포넌트 갱신
-    setRefreshKey(prev => prev + 1);
-  };
+  const handleTempRangeChange = useCallback((range: { startDate: Date; endDate: Date }[]) => {
+    const rangeWithKey = range.map(r => ({ ...r, key: 'selection' }));
+    setTempRange(rangeWithKey);
+  }, []);
 
-  // 데이터 소스 정보 업데이트 콜백 (빈 함수)
-  const handleDataSourceUpdate = (dataSource: string) => {
-    // UI에서 표시하지 않으므로 빈 함수로 유지
-  };
+  const handleDateRangeApply = useCallback((start: Date, end: Date) => {
+    const newRange = [{ startDate: start, endDate: end, key: 'selection' }];
+    setDateRange(newRange);
+    setShowPicker(false);
+  }, []);
 
-  // DateRangeSelector용 wrapper 함수들
-  const handleSetDateRange = (range: { startDate: Date; endDate: Date; }[]) => {
-    setDateRange(range.map(r => ({ ...r, key: 'selection' })));
-  };
+  const handleShowPickerToggle = useCallback((val: boolean) => {
+    setShowPicker(val);
+  }, []);
 
-  const handleSetTempRange = (range: { startDate: Date; endDate: Date; }[]) => {
-    setTempRange(range.map(r => ({ ...r, key: 'selection' })));
-  };
+  // 데이터 필터링 메모화
+  const filteredData = useMemo(() => ({
+    gender: apiData.filter(item => item.segment_type === 'user_gender'),
+    age: apiData.filter(item => item.segment_type === 'user_age'),
+    region: apiData.filter(item => item.segment_type === 'country'),
+    device: apiData.filter(item => item.segment_type === 'device_type')
+  }), [apiData]);
 
   return (
     <>
-      <div className="w-full flex justify-end border-b-2 border-dashed">
-        <DateRangeSelector
-          dateRange={dateRange}
-          tempRange={tempRange}
-          showPicker={showPicker}
-          setDateRange={handleSetDateRange}
-          setTempRange={handleSetTempRange}
-          setShowPicker={setShowPicker}
-          onApply={handleDateRangeApply}
-        />
-      </div>
-
-      <Collapse
-        title={userTabs[0]}
-        isOpen={openCollapse === userTabs[0]}
-        onToggle={() => setOpenCollapse(prev => prev === userTabs[0] ? null : userTabs[0])}
-      >
-        {/* 사용자 세그먼트 분석 요약 */}
-        <div className="mb-6">
-          <UserSegmentSummary 
-            refreshKey={refreshKey}
-            dateRange={dateRange[0]}
+              <div className="w-full flex justify-end border-b-2 border-dashed mb-6">
+          <DateRangeSelector
+            dateRange={dateRange}
+            tempRange={tempRange}
+            showPicker={showPicker}
+            setDateRange={handleDateRangeChange}
+            setTempRange={handleTempRangeChange}
+            setShowPicker={handleShowPickerToggle}
+            onApply={handleDateRangeApply}
           />
         </div>
 
-        {/* 사용자 분석 */}
-        <div className="mb-6 space-y-6">
-          {/* 상단 차트들 (지역별 + 성별 + 기기플랫폼) */}
-          <div className="flex gap-6">
+      {/* 사용자 분석 */}
+      <div className="mb-6 px-6">
+        {/* 메인 차트 영역 (좌측 컬럼 + 우측 컬럼) */}
+        <div className="flex gap-6">
+          {/* 좌측 컬럼: 지역별 + 연령별 */}
+          <div className="flex-1 flex flex-col gap-6">
             {/* 지역별 활성 사용자 */}
-            <div className="flex-1 h-[530px]">
+            <div className="h-[530px] overflow-hidden">
               <RegionalActiveUsers 
                 dateRange={dateRange[0]} 
-                onDataSourceUpdate={handleDataSourceUpdate}
-                data={segmentedData.country}
+                onDataSourceUpdate={() => {}} // This prop is no longer needed
+                data={filteredData.region}
                 loading={loading}
               />
             </div>
             
-            {/* 성별 별 활성 사용자 */}
-            <div className="flex-none w-[400px] h-[530px]">
-              <GenderActiveUsers 
-                dateRange={dateRange[0]} 
-                data={segmentedData.userGender}
-                loading={loading}
-              />
-            </div>
-            
-            {/* 기기 및 플랫폼 분석 */}
-            <div className="flex-none w-[400px] h-[530px]">
-              <DevicePlatformChart 
+            {/* 연령별 활성 사용자 */}
+            <div className="h-[270px] overflow-hidden">
+              <AgeActiveUsers 
                 dateRange={dateRange[0]}
-                data={segmentedData.deviceType}
+                data={filteredData.age}
                 loading={loading}
               />
             </div>
           </div>
           
-          {/* 연령별 활성 사용자 (전체 width) */}
-          <div className="w-[940px] h-[280px]">
-            <AgeActiveUsers 
-              dateRange={dateRange[0]}
-              data={segmentedData.userAge}
-              loading={loading}
-            />
+          {/* 우측 컬럼: UserSegmentSummary + (성별, 기기플랫폼) */}
+          <div className="flex-none w-[824px] flex flex-col gap-6">
+            {/* 사용자 세그먼트 분석 요약 */}
+            <div>
+              <UserSegmentSummary 
+                refreshKey={0} // refreshKey is no longer needed
+                dateRange={dateRange[0]}
+              />
+            </div>
+            
+            {/* 성별 + 기기플랫폼 가로 배치 */}
+            <div className="flex gap-6 flex-1">
+              {/* 성별 별 활성 사용자 */}
+              <div className="flex-none w-[400px] h-[530px]">
+                <GenderActiveUsers 
+                  dateRange={dateRange[0]} 
+                  data={filteredData.gender}
+                  loading={loading}
+                />
+              </div>
+              
+              {/* 기기 및 플랫폼 분석 */}
+              <div className="flex-none w-[400px] h-[530px]">
+                <DevicePlatformChart 
+                  dateRange={dateRange[0]}
+                  data={filteredData.device}
+                  loading={loading}
+                />
+              </div>
+            </div>
           </div>
         </div>
-      </Collapse>      
+      </div>      
     </>
   );
 }; 
