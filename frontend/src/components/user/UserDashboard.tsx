@@ -7,14 +7,9 @@ import { GenderActiveUsers } from './GenderActiveUsers';
 import { AgeActiveUsers } from './AgeActiveUsers';
 import { DevicePlatformChart } from './DevicePlatformChart';
 import DateRangeSelector from '../ui/DateRangeSelector';
-import Collapse from '../ui/Collapse';
-import { Users, RefreshCw } from 'lucide-react';
-
-const userTabs: string[] = ["사용자 개요"];
 
 export const UserDashboard: React.FC = () => {
   const [refreshKey, setRefreshKey] = useState(0);
-  const [openCollapse, setOpenCollapse] = useState<string | null>(userTabs[0]);
   
   // 날짜 범위 상태
   const [dateRange, setDateRange] = useState([
@@ -118,7 +113,7 @@ export const UserDashboard: React.FC = () => {
 
   return (
     <>
-      <div className="w-full flex justify-end border-b-2 border-dashed">
+      <div className="w-full flex justify-end border-b-2 border-dashed mb-4">
         <DateRangeSelector
           dateRange={dateRange}
           tempRange={tempRange}
@@ -130,25 +125,14 @@ export const UserDashboard: React.FC = () => {
         />
       </div>
 
-      <Collapse
-        title={userTabs[0]}
-        isOpen={openCollapse === userTabs[0]}
-        onToggle={() => setOpenCollapse(prev => prev === userTabs[0] ? null : userTabs[0])}
-      >
-        {/* 사용자 세그먼트 분석 요약 */}
-        <div className="mb-6">
-          <UserSegmentSummary 
-            refreshKey={refreshKey}
-            dateRange={dateRange[0]}
-          />
-        </div>
-
-        {/* 사용자 분석 */}
-        <div className="mb-6 space-y-6">
-          {/* 상단 차트들 (지역별 + 성별 + 기기플랫폼) */}
-          <div className="flex gap-6">
+      {/* 사용자 분석 */}
+      <div className="mb-6 px-6">
+        {/* 메인 차트 영역 (좌측 컬럼 + 우측 컬럼) */}
+        <div className="flex gap-6">
+          {/* 좌측 컬럼: 지역별 + 연령별 */}
+          <div className="flex-1 flex flex-col gap-6">
             {/* 지역별 활성 사용자 */}
-            <div className="flex-1 h-[530px]">
+            <div className="h-[530px] overflow-hidden">
               <RegionalActiveUsers 
                 dateRange={dateRange[0]} 
                 onDataSourceUpdate={handleDataSourceUpdate}
@@ -157,35 +141,49 @@ export const UserDashboard: React.FC = () => {
               />
             </div>
             
-            {/* 성별 별 활성 사용자 */}
-            <div className="flex-none w-[400px] h-[530px]">
-              <GenderActiveUsers 
-                dateRange={dateRange[0]} 
-                data={segmentedData.userGender}
-                loading={loading}
-              />
-            </div>
-            
-            {/* 기기 및 플랫폼 분석 */}
-            <div className="flex-none w-[400px] h-[530px]">
-              <DevicePlatformChart 
+            {/* 연령별 활성 사용자 */}
+            <div className="h-[280px] overflow-hidden">
+              <AgeActiveUsers 
                 dateRange={dateRange[0]}
-                data={segmentedData.deviceType}
+                data={segmentedData.userAge}
                 loading={loading}
               />
             </div>
           </div>
           
-          {/* 연령별 활성 사용자 (전체 width) */}
-          <div className="w-[940px] h-[280px]">
-            <AgeActiveUsers 
-              dateRange={dateRange[0]}
-              data={segmentedData.userAge}
-              loading={loading}
-            />
+          {/* 우측 컬럼: UserSegmentSummary + (성별, 기기플랫폼) */}
+          <div className="flex-none w-[824px] flex flex-col gap-6">
+            {/* 사용자 세그먼트 분석 요약 */}
+            <div>
+              <UserSegmentSummary 
+                refreshKey={refreshKey}
+                dateRange={dateRange[0]}
+              />
+            </div>
+            
+            {/* 성별 + 기기플랫폼 가로 배치 */}
+            <div className="flex gap-6 flex-1">
+              {/* 성별 별 활성 사용자 */}
+              <div className="flex-none w-[400px] h-[530px]">
+                <GenderActiveUsers 
+                  dateRange={dateRange[0]} 
+                  data={segmentedData.userGender}
+                  loading={loading}
+                />
+              </div>
+              
+              {/* 기기 및 플랫폼 분석 */}
+              <div className="flex-none w-[400px] h-[530px]">
+                <DevicePlatformChart 
+                  dateRange={dateRange[0]}
+                  data={segmentedData.deviceType}
+                  loading={loading}
+                />
+              </div>
+            </div>
           </div>
         </div>
-      </Collapse>      
+      </div>      
     </>
   );
 }; 
