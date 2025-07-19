@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { AlertTriangle } from 'lucide-react';
 
 interface BarChartItem {
@@ -9,7 +9,7 @@ interface BarChartItem {
 
 interface HorizontalBarChartProps {
   data: BarChartItem[];
-  tooltipRenderer?: (item: BarChartItem, startDate: string, endDate: string) => React.ReactNode;
+  tooltipRenderer?: (item: BarChartItem) => React.ReactNode;
   isLoading?: boolean;
   valueFormatter?: (value: number, raw?: any) => string;
 }
@@ -35,12 +35,19 @@ const AnimatedBar: React.FC<{ percentage: number }> = ({ percentage }) => {
 const HorizontalBarChart: React.FC<HorizontalBarChartProps> = ({ data, tooltipRenderer, isLoading, valueFormatter }) => {
   const [hoveredItem, setHoveredItem] = useState<BarChartItem | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
+  const tooltipRef = useRef<HTMLDivElement | null>(null);
+  const [tooltipSize, setTooltipSize] = useState({ width: 0, height: 0 });
 
-  const now = new Date();
-  const endDate = now.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
-  const startDate = new Date(now.setDate(now.getDate() - 7)).toLocaleDateString('ko-KR', {
-    year: 'numeric', month: 'long', day: 'numeric'
-  });
+  useLayoutEffect(() => {
+    if (tooltipRef.current) {
+      const { width, height } = tooltipRef.current.getBoundingClientRect();
+      setTooltipSize({ width, height });
+    }
+  }, [hoveredItem]);
+
+  const adjustedX = tooltipPosition.x + tooltipSize.width + 12 > window.innerWidth
+    ? tooltipPosition.x - tooltipSize.width - 12
+    : tooltipPosition.x + 12;
 
   const maxValue = Math.max(...data.map(d => d.value));
 
@@ -98,14 +105,15 @@ const HorizontalBarChart: React.FC<HorizontalBarChartProps> = ({ data, tooltipRe
 
             {hoveredItem?.label === item.label && tooltipRenderer && (
               <div
+                ref={tooltipRef}
                 className="fixed z-50 bg-white border border-gray-200 rounded-md shadow-lg text-sm text-gray-800 px-3 py-2 whitespace-nowrap"
                 style={{
                   top: tooltipPosition.y,
-                  left: tooltipPosition.x,
+                  left: adjustedX,
                   pointerEvents: 'none',
                 }}
               >
-                {tooltipRenderer(item, startDate, endDate)}
+                {tooltipRenderer(item)}
               </div>
             )}
           </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useLayoutEffect } from 'react';
 import {
   ComposedChart,
   Line,
@@ -43,6 +43,31 @@ const HorizontalLineChart: React.FC<HorizontalLineChartProps> = ({
   const [hoveredItem, setHoveredItem] = useState<any | null>(null);
   const [hoveredLegendItem, setHoveredLegendItem] = useState<{ item: any; key: string } | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+  const tooltipRef = useRef<HTMLDivElement | null>(null);
+  const [tooltipSize, setTooltipSize] = useState({ width: 0, height: 0 });
+
+  useLayoutEffect(() => {
+    if (tooltipRef.current) {
+      const { width, height } = tooltipRef.current.getBoundingClientRect();
+      setTooltipSize({ width, height });
+    }
+  }, [hoveredItem]);
+
+  const chartRef = useRef<HTMLDivElement | null>(null);
+  const [chartLeftOffset, setChartLeftOffset] = useState(0);
+
+  useLayoutEffect(() => {
+    if (chartRef.current) {
+      const rect = chartRef.current.getBoundingClientRect();
+      setChartLeftOffset(rect.left);
+    }
+  }, []);
+
+  const absoluteX = chartLeftOffset + tooltipPos.x;
+
+  const adjustedX = absoluteX + tooltipSize.width + 12 > window.innerWidth
+    ? tooltipPos.x - tooltipSize.width - 12
+    : tooltipPos.x + 12;
 
   const latestItem = data[data.length - 1];
 
@@ -53,7 +78,7 @@ const HorizontalLineChart: React.FC<HorizontalLineChartProps> = ({
   }
 
   return (
-    <div className="relative flex w-full" style={{ height: height }}>
+    <div ref={chartRef} className="relative flex w-full" style={{ height: height }}>
       <div className="flex-1 h-full">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart
@@ -77,7 +102,7 @@ const HorizontalLineChart: React.FC<HorizontalLineChartProps> = ({
             <CartesianGrid stroke="#e5e7eb" strokeDasharray="1 1" vertical={false} />
             <Tooltip
               content={() => null}
-              cursor={{ stroke: '#e5e7eb', strokeWidth: 1, strokeDasharray: '3 3' }}
+              cursor={{ stroke: '#6b7280', strokeWidth: 1, strokeDasharray: '3 3' }}
             />
             {areas?.map((area, idx) => (
               <Area
@@ -149,8 +174,13 @@ const HorizontalLineChart: React.FC<HorizontalLineChartProps> = ({
 
       {tooltipRenderer && hoveredItem && (
         <div
+          ref={tooltipRef}
           className="absolute z-50 bg-white border border-gray-200 rounded-md shadow-lg text-sm text-gray-800 px-3 py-2 whitespace-nowrap"
-          style={{ top: tooltipPos.y, left: tooltipPos.x, pointerEvents: 'none' }}
+          style={{
+            top: tooltipPos.y,
+            left: adjustedX,
+            pointerEvents: 'none',
+          }}
         >
           {tooltipRenderer(hoveredItem)}
         </div>
@@ -158,8 +188,16 @@ const HorizontalLineChart: React.FC<HorizontalLineChartProps> = ({
 
       {legendTooltipRenderer && hoveredLegendItem && (
         <div
+          ref={tooltipRef}
           className="fixed z-50 bg-white border border-gray-200 rounded-md shadow-lg text-sm text-gray-800 px-3 py-2 whitespace-nowrap"
-          style={{ top: tooltipPos.y, left: tooltipPos.x, pointerEvents: 'none' }}
+          style={{
+            top: tooltipPos.y,
+            left:
+              chartLeftOffset + tooltipPos.x + tooltipSize.width + 12 > window.innerWidth
+                ? tooltipPos.x - tooltipSize.width - 12
+                : tooltipPos.x + 12,
+            pointerEvents: 'none',
+          }}
         >
           {legendTooltipRenderer(hoveredLegendItem.item, hoveredLegendItem.key)}
         </div>
