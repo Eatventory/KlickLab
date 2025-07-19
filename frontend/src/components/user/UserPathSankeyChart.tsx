@@ -1,7 +1,6 @@
 import React, { useRef, useEffect, useState } from "react";
 import * as d3 from "d3";
 import { sankey as d3Sankey, sankeyLinkHorizontal } from "d3-sankey";
-import { mockSankeyPaths } from "../../data/mockData";
 // TreeSankey import 제거
 
 const TOP_N = 7;
@@ -125,11 +124,9 @@ const UserPathSankeyChart = ({ data }: UserPathSankeyChartProps) => {
   // 디버깅을 위한 임시 로그
   console.log('=== UserPathSankeyChart Debug ===');
   console.log('1. Input data:', data);
-  console.log('2. mockSankeyPaths length:', mockSankeyPaths.length);
-  console.log('3. mockSankeyPaths first 3:', mockSankeyPaths.slice(0, 3));
   
   // data가 없거나, paths가 없거나, paths가 2차원 배열이 아니면 mockSankeyPaths 강제 사용
-  let rawPaths = (data && Array.isArray(data.paths) && Array.isArray(data.paths[0])) ? data.paths : mockSankeyPaths;
+  let rawPaths = (data && Array.isArray(data.paths) && Array.isArray(data.paths[0])) ? data.paths : [];
   let filteredPaths = rawPaths.filter(path => path[0] === "session_start");
   
   console.log('4. rawPaths length:', rawPaths.length);

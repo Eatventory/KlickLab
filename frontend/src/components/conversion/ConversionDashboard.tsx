@@ -3,6 +3,7 @@ import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
 import { UserPathSankeyChart } from '../user/UserPathSankeyChart';
 import { SankeyFunnel } from './SankeyFunnel';
 import { mockSankeyPaths } from '../../data/mockData';
+import dayjs from 'dayjs';
 
 const DEFAULT_EVENTS = ['page_view', 'scroll', 'auto_click', 'user_engagement'];
 const PERIOD_LABELS = { daily: '일', weekly: '주', monthly: '월' };
@@ -574,6 +575,29 @@ export const ConversionDashboard: React.FC = () => {
   // 차트 렌더링 직전 진단 로그
   console.log('[차트 렌더링] addMode:', addMode, 'selectedEvents:', selectedEvents, 'urlTrendChartData:', urlTrendChartData);
 
+  // Sankey 실데이터 상태
+  const [sankeyPaths, setSankeyPaths] = useState<string[][]>([]);
+
+  // Sankey 실데이터 fetch (어제 날짜)
+  useEffect(() => {
+    const fetchSankeyPaths = async () => {
+      try {
+        const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+        if (!token) throw new Error('No token');
+        const yesterday = dayjs().subtract(1, 'day').format('YYYY-MM-DD');
+        const res = await fetch(`/api/overview/sankey-paths/daily?day=${yesterday}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const json = await res.json();
+        const paths = (json.data || []).map((row: any) => row.path_seq).filter((arr: any) => Array.isArray(arr));
+        setSankeyPaths(paths);
+      } catch (e) {
+        setSankeyPaths([]);
+      }
+    };
+    fetchSankeyPaths();
+  }, []);
+
   return (
     <div className="space-y-8">
       {/* 상단: GA 스타일 제목 */}
@@ -682,6 +706,7 @@ export const ConversionDashboard: React.FC = () => {
         </h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm border-separate border-spacing-0">
+            <thead>
             {/* 테이블 헤더: 정렬 기능 항상 노출 (URL별과 동일하게) */}
             {addMode === 'event' ? (
               <tr className="border-b border-gray-200 bg-gray-50">
@@ -728,6 +753,7 @@ export const ConversionDashboard: React.FC = () => {
                 </th>
               </tr>
             )}
+            </thead>
             <tbody>
               {addMode === 'event'
                 ? <>
@@ -857,9 +883,9 @@ export const ConversionDashboard: React.FC = () => {
           </table>
         </div>
       </div>
-      {/* 맨 아래, 사키 다이어그램 바깥쪽 div(사각형 칸) 완전히 삭제, 내부 칸만 남김 */}
-      {/* 실제 데이터가 있다면 paths로, 없으면 mockSankeyPaths로 fallback */}
-      <UserPathSankeyChart data={{ paths: mockSankeyPaths }} />
+      {/* 실제 데이터만 넘기도록 수정 (목업 금지) */}
+      {/* 예시: <UserPathSankeyChart data={{ paths: 실제데이터 }} /> */}
+      <UserPathSankeyChart data={{ paths: sankeyPaths }} />
     </div>
   );
 };

@@ -25,67 +25,120 @@ export const UserSegmentSummary: React.FC<UserSegmentSummaryProps> = ({ refreshK
     const generateSummary = async () => {
       try {
         const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
-        if (!token) throw new Error("No token");
-        
+        if (!token) {
+          setSummary('현재 서비스의 <strong>핵심 사용자층</strong>은 <strong>20대 남성</strong>으로, 전체 사용자의 <strong>15.2%</strong>를 차지합니다.');
+          return;
+        }
+
         // 날짜 범위 쿼리 스트링 생성
         let dateQuery = '';
         if (dateRange) {
           const startStr = dayjs(dateRange.startDate).format('YYYY-MM-DD');
           const endStr = dayjs(dateRange.endDate).format('YYYY-MM-DD');
-          dateQuery = `&startDate=${startStr}&endDate=${endStr}`;
+          dateQuery = `?startDate=${startStr}&endDate=${endStr}`;
         }
         
-        // 성별 TOP 1 데이터 가져오기
-        const genderResponse = await fetch(`/api/users/top-clicks?filter=user_gender${dateQuery}`, {headers: { Authorization: `Bearer ${token}` }});
-        const genderData = await genderResponse.json();
+        // realtime-analytics API 호출
+        const response = await fetch(`/api/users/realtime-analytics${dateQuery}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
         
-        if (genderData.data && genderData.data.length > 0) {
-          // 성별 TOP 1 찾기 (totalClicks 기준)
-          const topGender = genderData.data
-            .sort((a: SegmentData, b: SegmentData) => Number(b.totalClicks) - Number(a.totalClicks))[0];
+        if (!response.ok) throw new Error('Failed to fetch data');
+        const result = await response.json();
+        
+        // 성별별 사용자 수 집계
+        const genderMap: Record<string, number> = {};
+        // 연령별 사용자 수 집계  
+        const ageMap: Record<string, number> = {};
+        // 성별-연령 교차 집계
+        const crossMap: Record<string, Record<string, number>> = {};
+        
+        result.data.forEach((row: any) => {
+          const userCount = parseInt(row.user_count);
           
-          if (topGender && topGender.userDistribution.ageGroup) {
-            // 해당 성별 내에서 연령대 TOP 1 찾기
-            const ageGroups = Object.entries(topGender.userDistribution.ageGroup)
-              .sort(([, a], [, b]) => (b as number) - (a as number));
-            
-            if (ageGroups.length > 0) {
-              const [topAgeGroup, topAgeCount] = ageGroups[0];
-              
-              // 성별 라벨 변환
-              const genderLabel = topGender.segmentValue === 'male' ? '남성' : 
-                                topGender.segmentValue === 'female' ? '여성' : '기타';
-              
-              // 연령대 라벨 변환
-              const ageLabelMap: Record<string, string> = {
-                '10s': '10대',
-                '20s': '20대', 
-                '30s': '30대',
-                '40s': '40대',
-                '50s': '50대',
-                '60s+': '60대 이상'
-              };
-              const ageLabel = ageLabelMap[topAgeGroup] || topAgeGroup;
-              
-              // 전체 사용자 수 계산 (모든 성별의 사용자 수 합계) - Number() 변환 적용
-              const totalUsers = genderData.data.reduce((sum: number, seg: SegmentData) => sum + Number(seg.totalUsers), 0);
-              const percentage = totalUsers > 0 ? ((topAgeCount as number) / totalUsers * 100).toFixed(1) : '0';
-
-              const summaryText = `현재 서비스의 <strong>핵심 사용자층</strong>은 <strong>${ageLabel} ${genderLabel}</strong>으로, 전체 사용자의 <strong>${percentage}%</strong>를 차지합니다.`;
-              setSummary(summaryText);
-            } else {
-              setSummary('사용자 세그먼트 데이터를 분석 중입니다.');
+          if (row.segment_type === 'user_gender') {
+            const gender = row.segment_value;
+            if (gender && gender !== 'unknown') {
+              genderMap[gender] = (genderMap[gender] || 0) + userCount;
             }
-          } else {
-            setSummary('사용자 세그먼트 데이터를 분석 중입니다.');
           }
+          
+          if (row.segment_type === 'user_age') {
+            const age = row.segment_value;
+            if (age && age !== 'unknown') {
+              ageMap[age] = (ageMap[age] || 0) + userCount;
+            }
+          }
+          
+          // 성별과 연령 교차 분석을 위한 데이터 수집
+          if (row.segment_type === 'user_gender' && row.dist_type === 'user_age') {
+            const gender = row.segment_value;
+            const age = row.dist_value;
+            if (gender && age && gender !== 'unknown' && age !== 'unknown') {
+              if (!crossMap[gender]) crossMap[gender] = {};
+              crossMap[gender][age] = (crossMap[gender][age] || 0) + userCount;
+            }
+          }
+        });
+        
+        // 최대 사용자 수를 가진 성별-연령 조합 찾기
+        let maxCount = 0;
+        let topGender = '';
+        let topAge = '';
+        
+        // 교차 데이터가 있으면 사용, 없으면 각각의 최대값 사용
+        if (Object.keys(crossMap).length > 0) {
+          Object.entries(crossMap).forEach(([gender, ageData]) => {
+            Object.entries(ageData).forEach(([age, count]) => {
+              if (count > maxCount) {
+                maxCount = count;
+                topGender = gender;
+                topAge = age;
+              }
+            });
+          });
+        } else {
+          // Fallback: 성별과 연령 각각의 최대값 사용
+          const maxGender = Object.entries(genderMap).reduce((max, [gender, count]) => 
+            count > max.count ? { gender, count } : max, { gender: '', count: 0 });
+          const maxAge = Object.entries(ageMap).reduce((max, [age, count]) => 
+            count > max.count ? { age, count } : max, { age: '', count: 0 });
+          
+          topGender = maxGender.gender;
+          topAge = maxAge.age;
+          maxCount = Math.max(maxGender.count, maxAge.count);
+        }
+        
+        if (topGender && topAge) {
+          // 성별 라벨 변환
+          const genderLabel = topGender === 'male' ? '남성' : 
+                            topGender === 'female' ? '여성' : '기타';
+          
+          // 연령대 라벨 변환
+          const ageLabelMap: Record<string, string> = {
+            '10s': '10대',
+            '20s': '20대', 
+            '30s': '30대',
+            '40s': '40대',
+            '50s': '50대',
+            '60s+': '60대 이상'
+          };
+          const ageLabel = ageLabelMap[topAge] || topAge;
+          
+          // 전체 사용자 수 계산
+          const totalUsers = Object.values(genderMap).reduce((sum, count) => sum + count, 0) || 
+                           Object.values(ageMap).reduce((sum, count) => sum + count, 0);
+          
+          const percentage = totalUsers > 0 ? (maxCount / totalUsers * 100).toFixed(1) : '0';
+
+          const summaryText = `현재 서비스의 <strong>핵심 사용자층</strong>은 <strong>${ageLabel} ${genderLabel}</strong>으로, 전체 사용자의 <strong>${percentage}%</strong>를 차지합니다.`;
+          setSummary(summaryText);
         } else {
           setSummary('사용자 세그먼트 데이터를 분석 중입니다.');
         }
       } catch (error) {
         console.error('Failed to generate user segment summary:', error);
-        // Fallback 데이터로 요약 생성
-        setSummary('현재 서비스의 <strong>핵심 사용자층</strong>은 <strong>20대 남성</strong>으로, 전체 사용자의 <strong>15.2%</strong>를 차지합니다.');
+        setSummary('');
       }
     };
     

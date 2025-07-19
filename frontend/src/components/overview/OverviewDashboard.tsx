@@ -12,6 +12,7 @@ import { VisitorChart } from '../traffic/VisitorChart';
 import { TrendingUp } from 'lucide-react';
 import { useSegmentFilter } from '../../context/SegmentFilterContext';
 import { mockSankeyPaths } from '../../data/mockData';
+import dayjs from 'dayjs';
 
 interface PathData {
   from: string;
@@ -111,33 +112,6 @@ export const OverviewDashboard = React.forwardRef(
       lastUpdated,
     }));
 
-    // Sankey용 데이터 변환 및 fallback - 임시로 mockSankeyPaths 강제 사용
-    const sankeyData = React.useMemo(() => {
-      // 임시로 mockSankeyPaths 강제 사용 (API 데이터 무시)
-      return { paths: mockSankeyPaths };
-      
-      // 기존 코드 (주석 처리)
-      /*
-      // 실제 데이터가 있으면 사용, 없으면 mock 데이터 사용
-      if (userPathData && Array.isArray(userPathData) && userPathData.length > 0) {
-        // 실제 사용자 경로 데이터를 시뮬레이션
-        const simulatedPaths: string[][] = [];
-        userPathData.forEach(path => {
-          // 빈 값 필터링
-          if (path.from && path.to && path.from.trim() !== '' && path.to.trim() !== '') {
-            // 각 경로를 여러 번 반복하여 더 많은 데이터 생성
-            const repeatCount = Math.max(1, Math.floor(path.value / 10));
-            for (let i = 0; i < repeatCount; i++) {
-              simulatedPaths.push([path.from, path.to]);
-            }
-          }
-        });
-        return { paths: simulatedPaths };
-      }
-      return { paths: mockSankeyPaths };
-      */
-    }, [userPathData]);
-
     useEffect(() => {
       fetchStats();
     }, [JSON.stringify(globalFilter.conditions)]); // 전역 필터 변경 시 실행
@@ -209,18 +183,13 @@ export const OverviewDashboard = React.forwardRef(
           <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
             <TopClicks />
           </div>
-          <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+          {/* <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
             <DropoffInsightsCard />
-          </div>
+          </div> */}
         </div>
         {/* 전환 경로 Top 3 카드 단독 행 */}
         <div>
           <ConversionPathsCard />
-        </div>
-        {/* Sankey 차트 단독 행 */}
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 mt-6">
-          <div className="text-lg font-bold mb-2">사용자 방문 경로</div>
-          <UserPathSankeyChart data={sankeyData} />
         </div>
       </div>
     );
