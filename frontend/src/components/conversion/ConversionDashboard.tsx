@@ -610,6 +610,93 @@ export const ConversionDashboard: React.FC = () => {
     fetchSankeyPaths();
   }, []);
 
+  // Sankey 드롭다운 상태
+  const [dropdownType, setDropdownType] = useState<'event'|'url'>('event');
+  const [eventOptions, setEventOptions] = useState<string[]>([]);
+  const [urlOptions, setUrlOptions] = useState<string[]>([]);
+  const [selectedValue, setSelectedValue] = useState<string>('');
+
+  // 이벤트 목록 fetch
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+        const res = await fetch('/api/overview/event-summary?events=page_view', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const json = await res.json();
+        if (Array.isArray(json.data)) {
+          setEventOptions(Array.from(new Set(json.data.map((row: any) => row.event).filter(Boolean))));
+        }
+      } catch {}
+    };
+    fetchEvents();
+  }, []);
+  // URL 목록 fetch
+  useEffect(() => {
+    const fetchUrls = async () => {
+      try {
+        const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+        const res = await fetch('/api/overview/pageview-urls', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const json = await res.json();
+        if (Array.isArray(json.data)) {
+          setUrlOptions(json.data.filter((u: string) => typeof u === 'string' && u.length > 0));
+        }
+      } catch {}
+    };
+    fetchUrls();
+  }, []);
+
+  // Sankey 데이터 fetch (선택값 반영)
+  useEffect(() => {
+    function cleanPath(path: string[]): string[] {
+      // 빈 값/공백 제거, 연속 중복 제거(선택)
+      let arr = path.filter(p => typeof p === 'string' && p.trim() !== '');
+      arr = arr.filter((p, i) => i === 0 || p !== arr[i - 1]);
+      return arr;
+    }
+    const fetchSankeyPaths = async () => {
+      setSankeyLoading(true);
+      setSankeyError(null);
+      try {
+        const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+        // event: event_path, url: url_path
+        const pathField = dropdownType === 'url' ? 'url_path' : 'event_path';
+        let query = `?type=${dropdownType}`;
+        const res = await fetch(`/api/stats/sankey-paths${query}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('API 오류');
+        const json = await res.json();
+        if (Array.isArray(json.data)) {
+          const paths = json.data
+            .map((row: any) => Array.isArray(row[pathField]) ? cleanPath(row[pathField]) : null)
+            .filter((p: string[] | null) => Array.isArray(p) && p.length > 1);
+          setSankeyPaths(paths.length > 0 ? paths : null);
+        } else {
+          setSankeyPaths(null);
+        }
+      } catch (err) {
+        setSankeyError('경로 데이터를 불러오지 못했습니다.');
+        setSankeyPaths(null);
+      } finally {
+        setSankeyLoading(false);
+      }
+    };
+    fetchSankeyPaths();
+  }, [dropdownType]);
+
+  // 드롭다운 핸들러
+  const handleDropdownTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setDropdownType(e.target.value as 'event'|'url');
+    setSelectedValue('');
+  };
+  const handleValueChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedValue(e.target.value);
+  };
+
   return (
     <div className="space-y-8">
       {/* 상단: GA 스타일 제목 */}
@@ -895,9 +982,24 @@ export const ConversionDashboard: React.FC = () => {
       </div>
       {/* 맨 아래, 사키 다이어그램 바깥쪽 div(사각형 칸) 완전히 삭제, 내부 칸만 남김 */}
       {/* 실제 데이터가 있다면 paths로, 없으면 mockSankeyPaths로 fallback */}
-      <UserPathSankeyChart data={{ paths: sankeyPaths && sankeyPaths.length > 0 ? sankeyPaths : mockSankeyPaths }} />
-      {sankeyLoading && <div style={{ color: '#888', padding: 12 }}>경로 데이터를 불러오는 중...</div>}
-      {sankeyError && <div style={{ color: 'red', padding: 12 }}>{sankeyError}</div>}
+      {/* 사용자 경로 다이어그램 섹션 */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sankey-container" style={{height: '100%', minHeight: 600, maxHeight: '90vh'}}>
+        <div className="flex items-center justify-between mb-6">
+          <h2 style={{ fontWeight: 700, fontSize: 20 }}>사용자 경로 다이어그램</h2>
+          <select
+            value={dropdownType}
+            onChange={handleDropdownTypeChange}
+            className="border rounded px-2 py-1 text-sm bg-white"
+            style={{ minWidth: 120 }}
+          >
+            <option value="event">이벤트</option>
+            <option value="url">URL</option>
+          </select>
+        </div>
+        <UserPathSankeyChart data={{ paths: sankeyPaths && sankeyPaths.length > 0 ? sankeyPaths : mockSankeyPaths }} type={dropdownType} />
+        {sankeyLoading && <div style={{ color: '#888', padding: 12 }}>경로 데이터를 불러오는 중...</div>}
+        {sankeyError && <div style={{ color: 'red', padding: 12 }}>{sankeyError}</div>}
+      </div>
     </div>
   );
 };

@@ -544,8 +544,10 @@ router.get(
 // sankey_paths_daily에서 event_path만 뽑아오는 API
 router.get("/sankey-paths", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
+  const { type } = req.query;
+  const selectField = type === "url" ? "url_path" : "event_path";
   const query = `
-    SELECT event_path
+    SELECT ${selectField}
     FROM klicklab.sankey_paths_daily
     WHERE day = today()
       AND sdk_key = '${sdk_key}'
