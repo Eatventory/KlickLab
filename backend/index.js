@@ -69,6 +69,10 @@ app.use("/api/sdk", sdkRouter);
 const ButtonEventRouter = require("./routes/buttonConfigs");
 app.use("/api/buttonConfigs", ButtonEventRouter);
 
+/* 전환 이벤트 라우팅*/
+const conversionEventsRouter = require('./routes/conversionEvents');
+app.use('/api/conversion-events', conversionEventsRouter);
+
 /* ▼ 메트릭 연결 */
 const metricsPort = 9091; // 메트릭 전용 포트
 const client = require("prom-client");
