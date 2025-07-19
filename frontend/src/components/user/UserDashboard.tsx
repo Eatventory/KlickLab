@@ -113,7 +113,7 @@ export const UserDashboard: React.FC = () => {
 
   return (
     <>
-      <div className="w-full flex justify-end border-b-2 border-dashed mb-4">
+      <div className="w-full flex justify-end border-b-2 border-dashed mb-6">
         <DateRangeSelector
           dateRange={dateRange}
           tempRange={tempRange}
@@ -142,7 +142,7 @@ export const UserDashboard: React.FC = () => {
             </div>
             
             {/* 연령별 활성 사용자 */}
-            <div className="h-[280px] overflow-hidden">
+            <div className="h-[270px] overflow-hidden">
               <AgeActiveUsers 
                 dateRange={dateRange[0]}
                 data={segmentedData.userAge}
