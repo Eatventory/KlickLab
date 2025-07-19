@@ -40,16 +40,17 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
   }, [autoSelectBy]);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
+  const [isManualSelection, setIsManualSelection] = useState(false);
 
   useEffect(() => {
-    if (autoSelectTopN && autoSelectBy && selectedKeys.length === 0) {
+    if (autoSelectTopN && autoSelectBy && selectedKeys.length === 0 && !isManualSelection) {
       const sorted = [...data]
         .sort((a, b) => (b.values[autoSelectBy] || 0) - (a.values[autoSelectBy] || 0))
         .slice(0, autoSelectTopN)
         .map(d => d.key);
       setSelectedKeys(sorted);
     }
-  }, [autoSelectTopN, autoSelectBy, data]);
+  }, [autoSelectTopN, autoSelectBy, data, isManualSelection]);
 
   const filteredData = useMemo(() => {
     const filtered = data.filter(row =>
@@ -106,6 +107,7 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
   ], [selectedKeys]);
 
   const toggleSelect = (key: string) => {
+    setIsManualSelection(true);
     setSelectedKeys(prev =>
       prev.includes(key)
         ? prev.filter(k => k !== key)
@@ -138,6 +140,7 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
             placeholder="검색"
             value={searchText}
             onChange={e => {
+              setIsManualSelection(true);
               setSearchText(e.target.value);
               setCurrentPage(1);
             }}
@@ -255,6 +258,7 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
             <tr className="bg-gray-100 font-semibold border-t">
             <td className="p-2">
               <input
+                id="masterCheckbox"
                 type="checkbox"
                 checked={selectedKeys.length > 0}
                 onChange={(e) => {
@@ -264,9 +268,9 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
                       .map((row) => row.key);
                     setSelectedKeys(top5);
                   } else {
-                    // 전체 해제
                     setSelectedKeys([]);
                   }
+                  setIsManualSelection(true);
                 }}
               />
             </td>
