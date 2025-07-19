@@ -68,6 +68,23 @@ const CustomXAxisTick = ({ x, y, payload }: any) => (
   </g>
 );
 
+// 커스텀 범례
+const CustomLegend = ({ payload }: any) => {
+  return (
+    <div className="flex flex-wrap gap-4 mt-2 justify-center">
+      {payload?.map((entry: any, index: number) => (
+        <div key={index} className="flex items-center gap-2 text-xs">
+          <div 
+            className="w-3 h-3 rounded-sm" 
+            style={{ backgroundColor: entry.color }}
+          />
+          <span className="text-gray-500">{entry.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 export const ChannelGroupStackedChart: React.FC<ChannelGroupStackedChartProps> = ({
   data,
   refreshKey,
@@ -144,18 +161,20 @@ export const ChannelGroupStackedChart: React.FC<ChannelGroupStackedChartProps> =
   }
 
   return (
-    <div className="w-full h-full flex items-center justify-center" style={{ height: '270px' }}>
+    <div className="w-full h-full">
       <ResponsiveContainer width="100%" height="100%">
                   <BarChart
             data={safeData}
             layout="vertical"
-            margin={{ top: 18, right: 30, left: 54, bottom: 18 }}
-            barCategoryGap="25%"
+            margin={{ top: 5, right: 10, left: 20, bottom: 80 }}
+            barCategoryGap="15%"
           >
           <XAxis
             type="number"
             domain={[0, 100]}
             tick={<CustomXAxisTick />}
+            tickCount={6}
+            dy={20}
           />
           <YAxis
             type="category"
@@ -163,7 +182,7 @@ export const ChannelGroupStackedChart: React.FC<ChannelGroupStackedChartProps> =
             tick={<CustomYAxisTick />}
           />
           <Tooltip content={<CustomTooltip />} />
-          <Legend verticalAlign="top" />
+          <Legend content={<CustomLegend />} />
 
                      {/* Mobile */}
            <Bar
@@ -171,16 +190,19 @@ export const ChannelGroupStackedChart: React.FC<ChannelGroupStackedChartProps> =
              stackId="a"
              fill={DEVICE_COLORS.mobile}
              stroke={DEVICE_COLORS.mobile}
-             strokeWidth={1.5}
-             minPointSize={4}
-             barSize={15}
+             strokeWidth={2}
+             minPointSize={5}
+             barSize={17}
           >
-            <LabelList
-              dataKey="mobile"
-              position="insideRight"
-              formatter={(value: any) => (value > 0 ? `${value.toFixed(1)}%` : '')}
-              className="text-white text-xs"
-            />
+          {/* 
+          <LabelList
+            dataKey="mobile"
+            position="insideRight"
+            formatter={(value: any) => (value > 0 ? `${value.toFixed(1)}%` : '')}
+            className="text-white text-xs font-semibold"
+            fill="#FFFFFF"
+          />
+          */}
           </Bar>
 
                      {/* Desktop */}
@@ -189,16 +211,19 @@ export const ChannelGroupStackedChart: React.FC<ChannelGroupStackedChartProps> =
              stackId="a"
              fill={DEVICE_COLORS.desktop}
              stroke={DEVICE_COLORS.desktop}
-             strokeWidth={1.5}
-             minPointSize={4}
+             strokeWidth={2}
+             minPointSize={5}
              barSize={15}
           >
-            <LabelList
-              dataKey="desktop"
-              position="insideRight"
-              formatter={(value: any) => (value > 0 ? `${value.toFixed(1)}%` : '')}
-              className="text-white text-xs"
-            />
+          {/* 
+          <LabelList
+            dataKey="desktop"
+            position="insideRight"
+            formatter={(value: any) => (value > 0 ? `${value.toFixed(1)}%` : '')}
+            className="text-white text-xs font-semibold"
+            fill="#FFFFFF"
+          />
+          */}
           </Bar>
         </BarChart>
       </ResponsiveContainer>

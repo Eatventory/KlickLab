@@ -315,7 +315,7 @@ export const AcquisitionDashboard: React.FC = () => {
         {/* 2행: 상위 유입채널 + 신규 사용자 채널 + 유입 채널별 디바이스 비율 + 유입 플랫폼 분석 */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
           {/* 상위 유입채널 */}
-          <div className="md:col-span-2 bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+          <div className="md:col-span-2 bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
             <h3 className="text-sm font-semibold text-gray-900 mb-2">상위 유입 채널</h3>
             <HorizontalBarChart
               data={acquisitionData.topChannelData.map((d:any, index: number)=>({label:d.channel,value:d.users, key: `${d.channel}-${index}`}))}
@@ -324,7 +324,7 @@ export const AcquisitionDashboard: React.FC = () => {
           </div>
 
           {/* 신규 사용자 채널 */}
-          <div className="md:col-span-2 bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+          <div className="md:col-span-2 bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
             <h4 className="text-sm font-semibold text-gray-900 mb-2">신규 사용자 채널</h4>
             <HorizontalBarChart
               data={(() => {
@@ -352,7 +352,7 @@ export const AcquisitionDashboard: React.FC = () => {
           </div>
 
           {/* 유입 채널별 디바이스 비율 */}
-          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-4 h-[450px] hover:shadow-lg transition-shadow">
+          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-4 h-[350px] hover:shadow-lg transition-shadow">
             <h3 className="text-sm font-semibold text-gray-900 mb-2">유입 채널별 디바이스 비율</h3>
             <ChannelGroupStackedChart 
               data={acquisitionData.channelGroupData} 
@@ -361,7 +361,7 @@ export const AcquisitionDashboard: React.FC = () => {
           </div>
 
           {/* 유입 플랫폼 분석 */}
-          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-4 h-[450px] hover:shadow-lg transition-shadow">
+          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-4 h-[270px] hover:shadow-lg transition-shadow">
             <h3 className="text-sm font-semibold text-gray-900 mb-2">유입 플랫폼 분석</h3>
             <DeviceBrowserDonutChart 
               deviceData={acquisitionData.deviceData} 
