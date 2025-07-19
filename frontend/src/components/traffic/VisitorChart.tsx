@@ -147,15 +147,14 @@ export const VisitorChart: React.FC<VisitorChartProps> = ({ data, period = 'dail
   }
 
   return (
-    <div className="card h-64 p-4">
+    <div className="card p-2">
       <div className="mb-4">
         <h3 className="text-lg font-semibold text-gray-900">방문자 추이</h3>
-        <p className="text-sm text-gray-600">{getPeriodDescription()}</p>
+        <p className="text-sm text-gray-600">최근 7일간의 방문자 변화</p>
       </div>
-      
-      <div className="h-80">
-        <ResponsiveContainer width="100%" height="90%">
-          <LineChart data={displayData} margin={{ top: 5, right: 30, left: 20, bottom: 30 }}>
+      <div className="h-52">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={displayData} margin={{ top: 5, right: 0, left: 0, bottom: 10 }} className='p-1'>
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
             <XAxis 
               dataKey="date" 

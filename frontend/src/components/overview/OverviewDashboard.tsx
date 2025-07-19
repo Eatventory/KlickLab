@@ -131,7 +131,7 @@ export const OverviewDashboard = forwardRef<any, {}>((props, ref) => {
       {/* GA 스타일 상단 2분할 */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
         {/* 왼쪽: KPI + 선그래프 */}
-        <div className="md:col-span-2 bg-white rounded-lg shadow p-8 flex flex-col justify-between overflow-hidden">
+        <div className="md:col-span-2 bg-white rounded-lg shadow p-8 flex flex-col justify-between">
           {/* KPI 카드 4개 */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
             {kpiData.map((kpi, idx) => (
@@ -151,12 +151,12 @@ export const OverviewDashboard = forwardRef<any, {}>((props, ref) => {
             ))}
           </div>
           {/* 선그래프 (트렌드) */}
-          <div className="w-full" style={{ height: 280, marginBottom: 8 }}>
+          <div className="w-full" flex-1 mb-4>
             <VisitorChart data={visitorTrendData} period="daily" />
           </div>
         </div>
         {/* 오른쪽: 실시간 사용자 + 막대그래프 */}
-        <div className="bg-white rounded-lg shadow p-8 flex flex-col justify-between overflow-hidden">
+        <div className="bg-white rounded-lg shadow p-8 flex flex-col justify-start">
           <div>
             <div className="text-base font-semibold text-gray-700 mb-1">지난 30분 동안의 활성 사용자</div>
             <div className="text-3xl font-extrabold text-blue-700 mb-4">{realtimeUserCount}</div>
@@ -164,23 +164,30 @@ export const OverviewDashboard = forwardRef<any, {}>((props, ref) => {
             <div className="h-28 mb-6 overflow-hidden">
               <div className="flex items-end h-full gap-0.5">
                 {realtimeUserTrend.map((d, i) => (
-                  <div key={i} style={{ height: `${d.users * 2}px` }} className="w-1 bg-blue-400 rounded-t" />
+                  <div key={i} style={{ height: `${d.users * 2}px` }} className="flex-1 bg-blue-400 rounded-t" />
                 ))}
               </div>
             </div>
-            <div className="text-xs text-gray-400 text-right mb-4">분당 활성 사용자</div>
+            <div className="text-xs text-gray-400 text-left mb-4">분당 활성 사용자</div>
           </div>
           {/* 유입경로별 막대그래프 */}
           <div className="mt-8">
-            {realtimeSourceData.map((src, i) => (
-              <div key={src.source} className="flex items-center mb-2">
-                <span className="w-16 text-xs text-gray-600">{src.source}</span>
-                <div className="flex-1 mx-2 h-2 bg-blue-100 rounded">
-                  <div style={{ width: `${src.users * 15}%` }} className="h-2 bg-blue-500 rounded" />
+            {/* 최대값 계산 */}
+            {(() => {
+              const maxUser = Math.max(...realtimeSourceData.map(s => s.users), 1);
+              return realtimeSourceData.map((src, i) => (
+                <div key={src.source} className="flex items-center mb-2">
+                  <span className="w-16 text-xs text-gray-600">{src.source}</span>
+                  <div className="flex-1 h-2 bg-blue-100 rounded w-full">
+                    <div
+                      style={{ width: `${(src.users / maxUser) * 100}%` }}
+                      className="h-2 bg-blue-500 rounded"
+                    />
+                  </div>
+                  <span className="text-xs text-gray-700 font-semibold ml-2">{src.users}</span>
                 </div>
-                <span className="text-xs text-gray-700 font-semibold">{src.users}</span>
-              </div>
-            ))}
+              ));
+            })()}
           </div>
         </div>
       </div>
