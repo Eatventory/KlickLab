@@ -226,7 +226,6 @@ export const RegionalActiveUsers: React.FC<RegionalActiveUsersProps> = ({ dateRa
       
       setRegionData(finalRegionData);
     } catch (error) {
-      console.error('Failed to fetch regional data:', error);
       setRegionData([]);
     } finally {
       setLoading(false);

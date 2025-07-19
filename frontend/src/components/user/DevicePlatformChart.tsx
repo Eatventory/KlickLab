@@ -254,7 +254,6 @@ export const DevicePlatformChart: React.FC<DevicePlatformChartProps> = ({ dateRa
 
       setPlatformData(formattedData);
     } catch (error) {
-      console.error('Failed to fetch device platform data:', error);
       setPlatformData([]);
     } finally {
       setLoading(false);

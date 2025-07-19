@@ -43,12 +43,6 @@ const CHART_CONFIG = {
 } as const;
 
 export const GenderActiveUsers: React.FC<GenderActiveUsersProps> = ({ dateRange, data, loading: externalLoading }) => {
-  console.log('[GenderActiveUsers] Props 확인:', { 
-    hasData: !!data, 
-    dataLength: data?.length, 
-    externalLoading,
-    dataPreview: data?.slice(0, 3)
-  });
   const [selectedGender, setSelectedGender] = useState<string | null>(null);
   const [hoveredGender, setHoveredGender] = useState<string | null>(null);
   const [mousePosition, setMousePosition] = useState<MousePosition>({ x: 0, y: 0 });
@@ -62,7 +56,6 @@ export const GenderActiveUsers: React.FC<GenderActiveUsersProps> = ({ dateRange,
   // 외부 데이터 처리 useEffect
   useEffect(() => {
     if (data && Array.isArray(data)) {
-      console.log('[GenderActiveUsers] 외부 데이터 사용:', data);
       processGenderData(data);
       setLoading(false);
     } else {
@@ -78,17 +71,13 @@ export const GenderActiveUsers: React.FC<GenderActiveUsersProps> = ({ dateRange,
     dataArray.forEach((row: any) => {
       if (row.segment_type === 'user_gender' && row.segment_value && row.segment_value !== 'unknown') {
         const gender = row.segment_value;
-        console.log('[GenderActiveUsers] 성별 데이터 처리:', gender, row.user_count, row);
         if (!genderMap[gender]) genderMap[gender] = 0;
         genderMap[gender] += parseInt(row.user_count);
       }
     });
 
-    console.log('[GenderActiveUsers] 최종 genderMap:', genderMap);
-
     // 총 사용자 수 계산
     const totalUsers = Object.values(genderMap).reduce((sum, count) => sum + count, 0);
-    console.log('[GenderActiveUsers] 총 사용자 수:', totalUsers);
 
     // 데이터 변환 (차트 회전 고려: FEMALE 먼저, MALE 나중에)
     const formattedData: GenderData[] = [];
@@ -115,7 +104,6 @@ export const GenderActiveUsers: React.FC<GenderActiveUsersProps> = ({ dateRange,
       });
     }
 
-    console.log('[GenderActiveUsers] 최종 formattedData 순서:', formattedData);
     setGenderData(formattedData);
   };
 
@@ -132,8 +120,6 @@ export const GenderActiveUsers: React.FC<GenderActiveUsersProps> = ({ dateRange,
         dateQuery = `?startDate=${startStr}&endDate=${endStr}`;
       }
 
-      console.log('[GenderActiveUsers] 요청 시작:', dateQuery);
-
       const response = await fetch(`/api/users/realtime-analytics${dateQuery}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -141,40 +127,25 @@ export const GenderActiveUsers: React.FC<GenderActiveUsersProps> = ({ dateRange,
       if (!response.ok) throw new Error('Failed to fetch data');
       
       const result = await response.json();
-      console.log('[GenderActiveUsers] API 응답 전체:', result);
-      
-      // user_gender 세그먼트 데이터 확인
       
       // user_gender 세그먼트 데이터 필터링 및 집계
       const genderMap: Record<string, number> = {};
       
       // 안전한 데이터 접근
       const dataArray = result.data || result || [];
-      console.log('[GenderActiveUsers] 데이터 배열:', dataArray);
-      console.log('[GenderActiveUsers] 데이터 배열 길이:', Array.isArray(dataArray) ? dataArray.length : 'not array');
-      
-      // gender 세그먼트 데이터만 필터링해서 확인
-      const genderSegments = dataArray.filter((row: any) => row.segment_type === 'user_gender');
-      console.log('[GenderActiveUsers] user_gender 세그먼트:', genderSegments);
       
       if (Array.isArray(dataArray)) {
         dataArray.forEach((row: any) => {
           if (row.segment_type === 'user_gender') {
             const gender = row.segment_value;
-            console.log('[GenderActiveUsers] 성별 데이터 처리:', gender, row.user_count, row);
             if (!genderMap[gender]) genderMap[gender] = 0;
             genderMap[gender] += parseInt(row.user_count);
           }
         });
-      } else {
-        console.error('[GenderActiveUsers] 데이터가 배열이 아닙니다:', typeof dataArray, dataArray);
       }
-
-      console.log('[GenderActiveUsers] 최종 genderMap:', genderMap);
 
       // 총 사용자 수 계산
       const totalUsers = Object.values(genderMap).reduce((sum, count) => sum + count, 0);
-      console.log('[GenderActiveUsers] 총 사용자 수:', totalUsers);
 
       // 데이터 변환 (차트 회전 고려: FEMALE 먼저, MALE 나중에)
       const formattedData: GenderData[] = [];
@@ -201,10 +172,8 @@ export const GenderActiveUsers: React.FC<GenderActiveUsersProps> = ({ dateRange,
         });
       }
 
-      console.log('[GenderActiveUsers] 최종 formattedData 순서:', formattedData);
       setGenderData(formattedData);
     } catch (error) {
-      console.error('Failed to fetch gender data:', error);
       setGenderData([]);
     } finally {
       setLoading(false);
@@ -350,7 +319,6 @@ export const GenderActiveUsers: React.FC<GenderActiveUsersProps> = ({ dateRange,
               let cumulativePercentage = 0;
               // 강제로 순서를 뒤집어서 FEMALE이 왼쪽에 나오도록 함
               const reversedData = [...genderData].reverse();
-              console.log('[GenderActiveUsers] SVG 렌더링 순서:', reversedData.map(d => d.name));
               return reversedData.map((gender) => {
                 const startPercentage = cumulativePercentage;
                 const endPercentage = cumulativePercentage + gender.percentage;
