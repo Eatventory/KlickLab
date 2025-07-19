@@ -62,7 +62,7 @@ export const DeviceBrowserDonutChart: React.FC<DeviceBrowserDonutChartProps> = (
       <div className="grid grid-cols-2 gap-4 h-full pt-4">
         {/* 디바이스 차트 */}
         <div className="h-full">
-          <div className="text-center mb-0">
+          <div className="text-center mb-2">
             <h4 className="text-sm font-semibold text-gray-900">디바이스</h4>
           </div>
           <div className="h-44">
@@ -72,8 +72,8 @@ export const DeviceBrowserDonutChart: React.FC<DeviceBrowserDonutChartProps> = (
                   data={deviceData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={30}
-                  outerRadius={60}
+                  innerRadius={36}
+                  outerRadius={72}
                   paddingAngle={2}
                   dataKey="value"
                 >
@@ -90,7 +90,7 @@ export const DeviceBrowserDonutChart: React.FC<DeviceBrowserDonutChartProps> = (
 
         {/* 브라우저 차트 */}
         <div className="h-full">
-          <div className="text-center mb-0">
+          <div className="text-center mb-2">
             <h4 className="text-sm font-semibold text-gray-900">브라우저</h4>
           </div>
           <div className="h-44">
@@ -100,8 +100,8 @@ export const DeviceBrowserDonutChart: React.FC<DeviceBrowserDonutChartProps> = (
                   data={browserData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={30}
-                  outerRadius={60}
+                  innerRadius={36}
+                  outerRadius={72}
                   paddingAngle={2}
                   dataKey="value"
                 >

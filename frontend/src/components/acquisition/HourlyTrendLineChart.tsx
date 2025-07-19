@@ -76,7 +76,7 @@ export const HourlyTrendLineChart: React.FC<HourlyTrendLineChartProps> = ({ data
         <Line
           type="monotone"
           dataKey="new_users"
-          stroke="#10B981"
+          stroke="#F59E0B"
           strokeWidth={2}
           dot={false}
           activeDot={{ r: 5, strokeWidth: 2 }}
@@ -85,7 +85,7 @@ export const HourlyTrendLineChart: React.FC<HourlyTrendLineChartProps> = ({ data
         <Line
           type="monotone"
           dataKey="existing_users"
-          stroke="#F59E0B"
+          stroke="#10B981"
           strokeWidth={2}
           dot={false}
           activeDot={{ r: 5, strokeWidth: 2 }}
