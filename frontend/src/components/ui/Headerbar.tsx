@@ -56,7 +56,7 @@ export default function HeaderBar() {
 
     if (data?.accessToken) {
       const isAuto = isUsingLocalStorage();
-      setToken(data.accessToken, 150 * 60 * 1000, isAuto);
+      setToken(data.accessToken, 15 * 60 * 1000, isAuto);
       setAuthState('loggedIn');
     } else {
       handleLogout();

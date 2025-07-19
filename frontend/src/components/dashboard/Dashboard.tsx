@@ -29,6 +29,11 @@ export const Dashboard: React.FC = () => {
   // 디버깅용 로그
 
 
+
+  // console.log('Current pathname:', location.pathname);
+  // console.log('Current tabPath:', tabPath);
+
+
   const handleTabChange = (tab: string) => {
     navigate(`/dashboard/${tab}`);
   };
@@ -120,7 +125,6 @@ export const Dashboard: React.FC = () => {
           {/* 메인 콘텐츠 영역: 탭별 라우팅 */}
           <main className={"flex-1 transition-all overflow-y-auto h-[calc(100vh-148px)] mt-[148px] bg-gray-50"}>
             <div className="p-0">
-              
               <Routes>
                 <Route path="overview" element={<OverviewDashboard ref={overviewRef} onLastUpdated={handleOverviewUpdate} />} />
                 <Route path="users" element={<UserDashboard />} />
