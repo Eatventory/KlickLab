@@ -11,7 +11,7 @@ import clsx from 'clsx';
 // 타입 정의
 interface StatCardData {
   title: string;
-  value: number;
+  value: number | string;
   change: number;
   changeType: 'increase' | 'decrease' | 'neutral';
   icon: string;
@@ -92,33 +92,35 @@ export const StatCard: React.FC<StatCardProps> = ({ data }) => {
 
   return (
     <div className={clsx(
-      'p-3 rounded-xl border border-gray-200 shadow-sm bg-white aspect-square flex flex-col justify-center',
+      'p-2 rounded-xl border border-gray-200 shadow-sm bg-white flex flex-col justify-center',
       getGradientBg(data.color)
-    )}>
+    )} style={{ minHeight: 90 }}>
       <div className="text-center">
         <div className={clsx(
-          'p-2 rounded-lg shadow-sm mx-auto mb-2 w-fit',
+          'p-1 rounded-lg shadow-sm mx-auto mb-1 w-fit',
           getIconBg(data.color)
         )}>
           <div className={getIconColor(data.color)}>
             {getIcon(data.icon)}
           </div>
         </div>
-        <h3 className="text-sm font-medium text-gray-600 mb-2">{data.title}</h3>
-        <p className="text-2xl font-bold text-gray-900 mb-2">
-          {data.title.includes('방문자') ? `${data.value.toLocaleString()}명` : `${data.value.toLocaleString()}회`}
+        <h3 className="text-xs font-medium text-gray-600 mb-1">{data.title}</h3>
+        <p className="text-xl font-bold text-gray-900 mb-1">
+          {typeof data.value === 'number'
+            ? (data.title.includes('방문자') ? `${data.value.toLocaleString()}명` : `${data.value.toLocaleString()}회`)
+            : data.value}
         </p>
         
         <div className="flex items-center justify-center gap-1">
           <div className={clsx(
-            'p-1 rounded-full',
+            'p-0.5 rounded-full',
             data.changeType === 'increase' ? 'bg-green-100' : 
             data.changeType === 'decrease' ? 'bg-red-100' : 'bg-gray-100'
           )}>
             {getChangeIcon(data.changeType)}
           </div>
           <span className={clsx(
-            'text-sm font-semibold',
+            'text-xs font-semibold',
             getChangeColor(data.changeType)
           )}>
             {data.change > 0 ? '+' : ''}{data.change}%
