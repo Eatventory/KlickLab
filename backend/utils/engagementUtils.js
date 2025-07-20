@@ -397,6 +397,43 @@ function getVisitStatsQuery(startDate, endDate, sdk_key) {
   `;
 }
 
+function getRevisitQuery(startDate, endDate, sdk_key) {
+  return `
+    WITH date_series AS (
+      SELECT toDate('${startDate}') + number AS date
+      FROM numbers(datediff('day', toDate('${startDate}'), toDate('${endDate}')) + 1)
+    ),
+    dau_table AS (
+      SELECT date, visitors AS dau
+      FROM klicklab.daily_metrics
+      WHERE sdk_key = '${sdk_key}' AND date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
+    ),
+    wau_table AS (
+      SELECT date, visitors AS wau
+      FROM klicklab.weekly_metrics
+      WHERE sdk_key = '${sdk_key}'
+    ),
+    mau_table AS (
+      SELECT date, visitors AS mau
+      FROM klicklab.weekly_metrics
+      WHERE sdk_key = '${sdk_key}'
+    )
+    SELECT
+      ds.date AS date,
+      dt.dau,
+      wt.wau,
+      mt.mau,
+      round(dt.dau / wt.wau, 4) AS dau_wau_ratio,
+      round(dt.dau / mt.mau, 4) AS dau_mau_ratio,
+      round(wt.wau / mt.mau, 4) AS wau_mau_ratio
+    FROM date_series ds
+    LEFT JOIN dau_table dt ON ds.date = dt.date
+    LEFT JOIN wau_table wt ON wt.date = toStartOfWeek(ds.date)
+    LEFT JOIN mau_table mt ON mt.date = toStartOfMonth(ds.date)
+    ORDER BY ds.date ASC
+  `;
+}
+
 module.exports = {
   getAvgSessionQuery,
   getSessionsPerUserQuery,
@@ -409,4 +446,5 @@ module.exports = {
   getPageViewsQuery,
   getPageStatsQuery,
   getVisitStatsQuery,
+  getRevisitQuery,
 };
