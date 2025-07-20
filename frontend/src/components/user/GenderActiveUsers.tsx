@@ -123,7 +123,7 @@ export const GenderActiveUsers: React.FC<GenderActiveUsersProps> = ({ dateRange,
       const unknownPercentage = totalUsers > 0 ? Math.round((unknownGenderUsers / totalUsers) * 1000) / 10 : 0;
       const unknownData = {
         id: 'unknown' as GenderId,
-        name: '알 수 없음',
+        name: 'UNKNOWN',
         users: unknownGenderUsers,
         percentage: unknownPercentage,
         color: GENDER_COLORS.unknown
