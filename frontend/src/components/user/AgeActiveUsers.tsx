@@ -67,17 +67,27 @@ export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({
     const ageMap: Record<string, number> = {};
     
     data.forEach((row) => {
-      if (row.segment_type === 'user_age' && row.segment_value) {
+      if (row.segment_type === 'user_age' && row.segment_value && row.segment_value !== 'unknown') {
         const age = row.segment_value;
         if (!ageMap[age]) ageMap[age] = 0;
         ageMap[age] += parseInt(row.user_count.toString());
       }
     });
 
-    // 최대값 계산하여 색상 강도 결정
-    const maxUsersInData = Math.max(...Object.values(ageMap));
+    // 알려진 연령대와 알려지지 않은 연령대 분리
+    const knownAgeUsers = Object.entries(ageMap)
+      .filter(([age]) => ageOrder.includes(age))
+      .reduce((sum, [, count]) => sum + count, 0);
 
-    // 연령대 순서에 따라 데이터 정렬 및 변환
+    const unknownAgeUsers = Object.entries(ageMap)
+      .filter(([age]) => !ageOrder.includes(age))
+      .reduce((sum, [, count]) => sum + count, 0);
+
+    // 알려지지 않은 연령대들 로그 출력
+    const unknownAges = Object.entries(ageMap)
+      .filter(([age]) => !ageOrder.includes(age));
+
+    // 연령대 순서에 따라 데이터 정렬 및 변환 (알려진 연령대만)
     const formattedData: AgeData[] = ageOrder
       .filter(age => ageMap[age] && ageMap[age] > 0)
       .map((age, index) => ({
@@ -86,6 +96,14 @@ export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({
         users: ageMap[age] || 0,
         color: `hsl(220, 70%, ${85 - (index * 10)}%)`
       }));
+
+    // "알 수 없음" 연령대 항상 추가 (데이터가 없어도 0으로 표시)
+    formattedData.push({
+      id: 'unknown',
+      ageRange: '알 수 없음',
+      users: unknownAgeUsers,
+      color: '#9ca3af' // 회색 색상
+    });
 
     return formattedData;
   }, [data]);
@@ -185,7 +203,7 @@ export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({
 
             {/* 바 차트 스켈레톤 영역 */}
             <div className="ml-18 mr-13 flex items-end justify-between mt-4" style={{ height: '160px' }}>
-              {/* 6개 연령대별 바 스켈레톤 */}
+              {/* 연령대별 바 스켈레톤 (기타 포함) */}
               {['10대', '20대', '30대', '40대', '50대', '60+'].map((age, index) => {
                 // 각 바마다 다른 높이로 스켈레톤 생성 (랜덤한 느낌)
                 const heights = ['60%', '85%', '70%', '45%', '35%', '25%'];
