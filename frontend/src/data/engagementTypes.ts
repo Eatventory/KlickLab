@@ -45,10 +45,41 @@ export interface UsersOverTimeData {
   monthlyUsers: number;
 }
 
+
+export interface RevisitData {
+  date: string;
+  dau: number;
+  wau: number;
+  mau: number;
+  dauWauRatio: number;
+  dauMauRatio: number;
+  wauMauRatio: number;
+}
+
 export interface EventCountsData {
   date: string;
   eventName: string;
   eventCount: number;
   userCount: number;
   avgEventPerUser: number;
+
+}
+
+export interface PageStatsData {
+  date: string;
+  pagePath: string;
+  pageViews: number;
+  activeUsers: number;
+  pageviewsPerUser: number;
+  avgEngagementTimeSec: number;
+  totalEvents: number;
+}
+
+export interface VisitStatsData {
+  date: string;
+  pagePath: string;
+  sessions: number;
+  activeUsers: number;
+  newVisitors: number;
+  avgSessionSeconds: number;
 }

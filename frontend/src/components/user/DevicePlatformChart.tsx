@@ -9,6 +9,7 @@ interface PlatformData {
   percentage: number;
   color: string;
   deviceType: 'mobile' | 'desktop';
+
   startAngle?: number;  // 외부 원형에서 시작 각도
   endAngle?: number;    // 외부 원형에서 종료 각도
 }
@@ -25,6 +26,7 @@ interface MousePosition {
   x: number;
   y: number;
 }
+
 
 interface DevicePlatformChartProps {
   dateRange?: { startDate: Date; endDate: Date; key: string };
@@ -78,6 +80,7 @@ const transformApiData = (apiData: Array<{platform: string, users: number, perce
     };
   });
 };
+
 
 export const DevicePlatformChart: React.FC<DevicePlatformChartProps> = ({ dateRange, data, loading: externalLoading }) => {
   const [hoveredSegment, setHoveredSegment] = useState<string | null>(null);
@@ -254,7 +257,6 @@ export const DevicePlatformChart: React.FC<DevicePlatformChartProps> = ({ dateRa
 
       setPlatformData(formattedData);
     } catch (error) {
-      console.error('Failed to fetch device platform data:', error);
       setPlatformData([]);
     } finally {
       setLoading(false);
@@ -280,6 +282,7 @@ export const DevicePlatformChart: React.FC<DevicePlatformChartProps> = ({ dateRa
     {
       id: 'desktop', 
       name: 'Desktop',
+
         users: desktopUsers,
         percentage: totalUsers > 0 ? Math.round((desktopUsers / totalUsers) * 1000) / 10 : 0,
       color: DEVICE_COLORS.desktop
@@ -359,6 +362,7 @@ export const DevicePlatformChart: React.FC<DevicePlatformChartProps> = ({ dateRa
       <div className="mb-8">
         <h3 className="text-lg font-semibold text-gray-900 mb-1">기기 및 플랫폼별 활성 사용자</h3>
       </div>
+
 
       {/* 로딩 상태 */}
       {actualLoading && (
@@ -451,6 +455,7 @@ export const DevicePlatformChart: React.FC<DevicePlatformChartProps> = ({ dateRa
 
                 return (
                   <path
+
                     key={`device-${device.id}`}
                     d={pathData}
                     fill={device.color}
@@ -468,6 +473,7 @@ export const DevicePlatformChart: React.FC<DevicePlatformChartProps> = ({ dateRa
                   />
                 );
               });
+
 
               // 외부 원형 차트 (플랫폼별) - device_type별로 그룹핑
               const platformSegments = (() => {
@@ -500,6 +506,7 @@ export const DevicePlatformChart: React.FC<DevicePlatformChartProps> = ({ dateRa
                 const pathData = createArcPath(centerX, centerY, CHART_CONFIG.platformInnerRadius, CHART_CONFIG.platformOuterRadius, startAngle, endAngle);
                 platformCumulativeAngle = endAngle;
 
+
                     segments.push(
                   <path
                         key={`platform-${platform.id}`}
@@ -519,6 +526,7 @@ export const DevicePlatformChart: React.FC<DevicePlatformChartProps> = ({ dateRa
                   />
                 );
               });
+
                   
                   deviceCumulativeAngle = deviceEndAngle;
                 });
@@ -551,6 +559,7 @@ export const DevicePlatformChart: React.FC<DevicePlatformChartProps> = ({ dateRa
                 if (device.percentage < 15) return null;
 
                 return (
+
                   <g key={`device-${device.id}-text`}>
                     <text 
                       x={textX} 
@@ -577,6 +586,7 @@ export const DevicePlatformChart: React.FC<DevicePlatformChartProps> = ({ dateRa
                   </g>
                 );
               });
+
 
               // 외부 링 텍스트 (플랫폼별) - device_type별로 그룹핑
               const platformTexts = (() => {
@@ -618,6 +628,7 @@ export const DevicePlatformChart: React.FC<DevicePlatformChartProps> = ({ dateRa
                   rotationAngle = midAngle + 270;
                 }
                 
+
                     platformCumulativeAngle = endAngle;
 
                 // 세그먼트가 충분히 클 때만 텍스트 표시
@@ -646,11 +657,13 @@ export const DevicePlatformChart: React.FC<DevicePlatformChartProps> = ({ dateRa
                       transform={`rotate(${rotationAngle}, ${textX}, ${textY})`}
                       dy="0.7em"
                     >
+
                           {actualPercentage.toFixed(1)}%
                     </text>
                   </g>
                 );
               });
+
                   
                   deviceCumulativeAngle = deviceEndAngle;
                 });
@@ -680,6 +693,7 @@ export const DevicePlatformChart: React.FC<DevicePlatformChartProps> = ({ dateRa
             <div className="flex items-center gap-2 cursor-pointer">
               <div 
                 className="w-3 h-3 rounded-full"
+
                     style={{ backgroundColor: deviceData[0]?.color }}
               />
               <div className="text-center">
@@ -713,6 +727,7 @@ export const DevicePlatformChart: React.FC<DevicePlatformChartProps> = ({ dateRa
             <div className="flex items-center gap-2 cursor-pointer">
               <div 
                 className="w-3 h-3 rounded-full"
+
                     style={{ backgroundColor: deviceData[1]?.color }}
               />
               <div className="text-center">
@@ -742,6 +757,7 @@ export const DevicePlatformChart: React.FC<DevicePlatformChartProps> = ({ dateRa
           </div>
         </div>
       </div>
+
         </>
       )}
 
@@ -751,6 +767,7 @@ export const DevicePlatformChart: React.FC<DevicePlatformChartProps> = ({ dateRa
           className="fixed bg-white border border-gray-200 shadow-lg rounded-lg p-3 text-sm z-50 pointer-events-none"
           style={getTooltipStyle()}
         >
+
           <div className="text-xs text-gray-500 mb-1">
             {dateRange ? getRangeLabel(dateRange.startDate, dateRange.endDate) : '전체 기간'}
           </div>

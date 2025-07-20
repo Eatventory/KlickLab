@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useMemo, useCallback } from 'react';
 import { getRangeLabel } from '../../utils/getRangeLabel';
 import dayjs from 'dayjs';
 
+// 타입 정의
 interface AgeData {
   id: string;
   ageRange: string;
@@ -14,90 +16,83 @@ interface MousePosition {
   y: number;
 }
 
-interface AgeActiveUsersProps {
-  dateRange?: { startDate: Date; endDate: Date; key: string };
-  data?: any[];  // 전달받은 user_age 데이터
-  loading?: boolean;  // 로딩 상태
+
+interface ApiDataItem {
+  segment_type: string;
+  segment_value: string;
+  user_count: number;
 }
 
-export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({ dateRange, data, loading: externalLoading }) => {
-  console.log('[AgeActiveUsers] Props 확인:', { 
-    hasData: !!data, 
-    dataLength: data?.length,
-    dataPreview: data?.slice(0, 5)
-  });
+interface AgeActiveUsersProps {
+  dateRange?: { startDate: Date; endDate: Date; key: string };
+  data?: ApiDataItem[];
+  loading?: boolean;
+}
+
+// 연령대 순서 및 라벨 매핑
+const ageOrder = ['10s', '20s', '30s', '40s', '50s', '60s+'];
+
+const ageLabels: Record<string, string> = {
+  '10s': '10대',
+  '20s': '20대', 
+  '30s': '30대',
+  '40s': '40대',
+  '50s': '50대',
+  '60s+': '60+'
+};
+
+const ageLabelsSummary: Record<string, string> = {
+  '10s': '10대',
+  '20s': '20대', 
+  '30s': '30대',
+  '40s': '40대',
+  '50s': '50대',
+  '60s+': '60대 이상'
+};
+
+export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({ 
+  dateRange, 
+  data, 
+  loading: externalLoading = false 
+}) => {
   const [hoveredAge, setHoveredAge] = useState<string | null>(null);
   const [mousePosition, setMousePosition] = useState<MousePosition>({ x: 0, y: 0 });
   const [showTooltip, setShowTooltip] = useState(false);
-  const [ageData, setAgeData] = useState<AgeData[]>([]);
-  const [loading, setLoading] = useState(true);
-  
-  // 실제 로딩 상태는 외부에서 전달받은 것 또는 내부 상태 사용
-  const actualLoading = externalLoading !== undefined ? externalLoading : loading;
 
-  // 연령대 라벨 매핑
-  const ageLabels: Record<string, string> = {
-    '10s': '10대',
-    '20s': '20대', 
-    '30s': '30대',
-    '40s': '40대',
-    '50s': '50대',
-    '60s+': '60+'
-  };
 
-  // 연령대 순서 정의 (10대부터 60대+ 순)
-  const ageOrder = ['10s', '20s', '30s', '40s', '50s', '60s+'];
+  // 연령 데이터 처리 (메모화)
+  const ageData = useMemo(() => {
+    if (!data || !Array.isArray(data)) return [];
 
-  // 외부 데이터 처리 useEffect
-  useEffect(() => {
-    if (data && Array.isArray(data)) {
-      console.log('[AgeActiveUsers] 외부 데이터 사용:', data);
-      processAgeData(data);
-      setLoading(false);
-    } else {
-      fetchAgeData();
-    }
-  }, [dateRange, data]);
-
-  // 연령 데이터 처리 함수 분리
-  const processAgeData = (dataArray: any[]) => {
-    console.log('[AgeActiveUsers] 연령 데이터 처리 시작:', dataArray);
-
-    // 연령별 사용자 집계
     const ageMap: Record<string, number> = {};
     
-    dataArray.forEach((row: any) => {
+    data.forEach((row) => {
       if (row.segment_type === 'user_age' && row.segment_value) {
         const age = row.segment_value;
-        console.log('[AgeActiveUsers] 연령 데이터 처리:', age, row.user_count, row);
         if (!ageMap[age]) ageMap[age] = 0;
-        ageMap[age] += parseInt(row.user_count);
+        ageMap[age] += parseInt(row.user_count.toString());
       }
     });
-
-    console.log('[AgeActiveUsers] 최종 ageMap:', ageMap);
 
     // 최대값 계산하여 색상 강도 결정
     const maxUsersInData = Math.max(...Object.values(ageMap));
 
-    // 연령대 순서에 따라 데이터 정렬 및 변환 (강제 순서 보장)
+    // 연령대 순서에 따라 데이터 정렬 및 변환
     const formattedData: AgeData[] = ageOrder
-      .filter(age => ageMap[age] && ageMap[age] > 0)  // 데이터가 있는 연령대만 포함 (안전한 체크)
+      .filter(age => ageMap[age] && ageMap[age] > 0)
       .map((age, index) => ({
         id: age,
         ageRange: ageLabels[age],
         users: ageMap[age] || 0,
-        color: `hsl(220, 70%, ${85 - (index * 10)}%)`  // 단색 계열, 그라데이션 없음
+        color: `hsl(220, 70%, ${85 - (index * 10)}%)`
       }));
 
-    console.log('[AgeActiveUsers] ageOrder:', ageOrder);
-    console.log('[AgeActiveUsers] ageMap:', ageMap);
-    console.log('[AgeActiveUsers] 최종 formattedData 순서:', formattedData.map(d => `${d.ageRange}: ${d.users}`));
-    setAgeData(formattedData);
-  };
+    return formattedData;
+  }, [data]);
 
-  // 동적 단위 처리 함수
-  const getDisplayUnit = (maxValue: number) => {
+  // 동적 단위 처리 (메모화)
+  const displayUnit = useMemo(() => {
+    const maxValue = Math.max(...ageData.map(d => d.users));
     if (maxValue >= 10000) {
       return { unit: '만', divisor: 10000 };
     } else if (maxValue >= 1000) {
@@ -105,7 +100,31 @@ export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({ dateRange, data,
     } else {
       return { unit: '', divisor: 1 };
     }
-  };
+  }, [ageData]);
+
+  // 최대 높이 계산 (메모화)
+  const maxBarHeight = useMemo(() => {
+    const maxUsers = Math.max(...ageData.map(d => d.users));
+    return maxUsers > 0 ? 180 : 50;
+  }, [ageData]);
+
+  // 이벤트 핸들러들 (메모화)
+  const handleMouseEnter = useCallback((ageId: string, event: React.MouseEvent) => {
+    setHoveredAge(ageId);
+    setShowTooltip(true);
+    setMousePosition({ x: event.clientX, y: event.clientY });
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    setHoveredAge(null);
+    setShowTooltip(false);
+  }, []);
+
+  const handleMouseMove = useCallback((event: React.MouseEvent) => {
+    if (hoveredAge) {
+      setMousePosition({ x: event.clientX, y: event.clientY });
+    }
+  }, [hoveredAge]);
 
   // 값 포맷팅 함수 (소수점 제거, 숫자만 표시)
   const formatValue = (value: number, divisor: number) => {
@@ -116,61 +135,10 @@ export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({ dateRange, data,
 
   // 현재 데이터의 최대값 계산
   const maxUsers = ageData.length > 0 ? Math.max(...ageData.map(item => item.users)) : 0;
-  const { unit, divisor } = getDisplayUnit(maxUsers);
+  const { unit, divisor } = displayUnit;
   
   // 차트 스케일 계산 (최대값의 1.1배로 여유 공간 확보)
   const chartMax = Math.ceil((maxUsers * 1.1) / divisor) * divisor;
-
-  const fetchAgeData = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
-      if (!token) throw new Error("No token");
-
-      let dateQuery = '';
-      if (dateRange) {
-        const startStr = dayjs(dateRange.startDate).format('YYYY-MM-DD');
-        const endStr = dayjs(dateRange.endDate).format('YYYY-MM-DD');
-        dateQuery = `?startDate=${startStr}&endDate=${endStr}`;
-      }
-
-      const response = await fetch(`/api/users/realtime-analytics${dateQuery}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      if (!response.ok) throw new Error('Failed to fetch data');
-      
-      const result = await response.json();
-      
-      // 안전한 데이터 접근
-      const dataArray = result.data || result || [];
-      
-      // 공통 데이터 처리 함수 사용
-      processAgeData(dataArray);
-    } catch (error) {
-      console.error('Failed to fetch age data:', error);
-      setAgeData([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAgeHover = (ageId: string, event: React.MouseEvent) => {
-    setHoveredAge(ageId);
-    setShowTooltip(true);
-    setMousePosition({ x: event.clientX, y: event.clientY });
-  };
-
-  const handleAgeLeave = () => {
-    setHoveredAge(null);
-    setShowTooltip(false);
-  };
-
-  const handleMouseMove = (event: React.MouseEvent) => {
-    if (hoveredAge) {
-      setMousePosition({ x: event.clientX, y: event.clientY });
-    }
-  };
 
   const getAgeData = (ageId: string) => {
     return ageData.find(age => age.id === ageId);
@@ -190,13 +158,14 @@ export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({ dateRange, data,
   };
 
   return (
+
     <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm h-full flex flex-col">
       <div className="mb-2">
         <h3 className="text-lg font-semibold text-gray-900 mb-1">연령 별 활성 사용자</h3>
       </div>
 
       {/* 로딩 상태 */}
-      {actualLoading && (
+      {externalLoading && (
         <div className="flex-1 flex flex-col">
           {/* 바 차트 스켈레톤 */}
           <div className="relative flex-1 flex flex-col justify-start">
@@ -255,14 +224,14 @@ export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({ dateRange, data,
       )}
 
       {/* 데이터 없음 상태 */}
-      {!actualLoading && ageData.length === 0 && (
+      {!externalLoading && ageData.length === 0 && (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-gray-500">표시할 데이터가 없습니다.</div>
         </div>
       )}
 
       {/* 막대 그래프 영역 */}
-      {!actualLoading && ageData.length > 0 && (
+      {!externalLoading && ageData.length > 0 && (
       <div className="relative flex-1 flex flex-col justify-start">
         {/* 배경 그리드 */}
         <div className="absolute left-18 right-13 top-0 bottom-0 flex justify-between pointer-events-none">
@@ -271,6 +240,7 @@ export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({ dateRange, data,
           ))}
         </div>
         
+
         <div className="space-y-2 relative z-10 mt-4">
           {ageData.map((age) => {
             const barWidth = (age.users / chartMax) * 100;
@@ -279,30 +249,35 @@ export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({ dateRange, data,
             return (
               <div key={age.id} className="flex items-center">
                 {/* 연령대 라벨 */}
+
                 <div className="w-14 text-right text-sm font-medium text-gray-700 mr-4 whitespace-nowrap">
                   {age.ageRange}
                 </div>
                 
                 {/* 막대 그래프 */}
                 <div className="flex-1 relative mr-3">
+
                   <div className="w-full bg-slate-100 rounded-full h-5 relative overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all duration-300 cursor-pointer relative"
                       style={{
                         width: `${barWidth}%`,
+
                         backgroundColor: isHovered ? '#4338ca' : age.color,
                         boxShadow: isHovered 
                           ? '0 2px 8px rgba(79, 70, 229, 0.3)' 
                           : '0 1px 3px rgba(79, 70, 229, 0.2)',
                         transform: isHovered ? 'scaleY(1.1)' : 'scaleY(1)',
                       }}
-                      onMouseEnter={(event) => handleAgeHover(age.id, event)}
-                      onMouseLeave={handleAgeLeave}
+
+                                             onMouseEnter={(event) => handleMouseEnter(age.id, event)}
+                       onMouseLeave={handleMouseLeave}
                       onMouseMove={handleMouseMove}
                     />
                   </div>
                 </div>
                 
+
                 {/* 사용자 수 표시 (동적 단위) */}
                 <div className="w-10 text-right text-xs font-medium text-gray-600">
                   {formatValue(age.users, divisor)}{unit}
@@ -310,6 +285,7 @@ export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({ dateRange, data,
               </div>
             );
           })}
+
       </div>
 
       {/* X축 눈금 (동적) - 바 시작점과 끝점에 정확히 정렬 */}
@@ -331,6 +307,7 @@ export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({ dateRange, data,
           className="fixed bg-white border border-gray-200 shadow-lg rounded-lg p-3 text-sm z-50 pointer-events-none"
           style={getTooltipStyle()}
         >
+
           <div className="text-xs text-gray-500 mb-1">
             {dateRange ? getRangeLabel(dateRange.startDate, dateRange.endDate) : '전체 기간'}
           </div>

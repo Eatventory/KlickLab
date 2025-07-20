@@ -11,7 +11,7 @@ const todayStart = formatLocalDateTime(getTodayStart());
 function buildQueryWhereClause (table = "minutes", period = 7) {
   let res = "";
   if (table === "daily") {
-    res = `date >= toDate('${localNow}') - INTERVAL ${period} DAY AND date <= toDate('${localNow}') - INTERVAL 1 DAY`;
+    res = `date >= toDate('${localNow}') - INTERVAL ${period} DAY AND date <= toDate('${localNow}')`;
   } else if (table === "hourly") {
     res = `date_time >= toDateTime('${todayStart}') AND date_time <= toDateTime('${oneHourFloor}')`;
   } else if (table === "minutes") {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Users, TrendingUp } from 'lucide-react';
 import dayjs from 'dayjs';
+import { getRangeLabel } from '../../utils/getRangeLabel';
 
 interface UserSegmentSummaryProps {
   refreshKey?: number;
@@ -26,7 +27,7 @@ export const UserSegmentSummary: React.FC<UserSegmentSummaryProps> = ({ refreshK
       try {
         const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
         if (!token) {
-          setSummary('현재 서비스의 <strong>핵심 사용자층</strong>은 <strong>20대 남성</strong>으로, 전체 사용자의 <strong>15.2%</strong>를 차지합니다.');
+          setSummary('서비스의 <strong>핵심 사용자층</strong>은 <strong>20대 남성</strong>으로, 전체 사용자의 <strong>15.2%</strong>를 차지합니다.');
           return;
         }
 
@@ -50,8 +51,6 @@ export const UserSegmentSummary: React.FC<UserSegmentSummaryProps> = ({ refreshK
         const genderMap: Record<string, number> = {};
         // 연령별 사용자 수 집계  
         const ageMap: Record<string, number> = {};
-        // 성별-연령 교차 집계
-        const crossMap: Record<string, Record<string, number>> = {};
         
         result.data.forEach((row: any) => {
           const userCount = parseInt(row.user_count);
@@ -69,50 +68,29 @@ export const UserSegmentSummary: React.FC<UserSegmentSummaryProps> = ({ refreshK
               ageMap[age] = (ageMap[age] || 0) + userCount;
             }
           }
-          
-          // 성별과 연령 교차 분석을 위한 데이터 수집
-          if (row.segment_type === 'user_gender' && row.dist_type === 'user_age') {
-            const gender = row.segment_value;
-            const age = row.dist_value;
-            if (gender && age && gender !== 'unknown' && age !== 'unknown') {
-              if (!crossMap[gender]) crossMap[gender] = {};
-              crossMap[gender][age] = (crossMap[gender][age] || 0) + userCount;
-            }
-          }
         });
         
-        // 최대 사용자 수를 가진 성별-연령 조합 찾기
-        let maxCount = 0;
-        let topGender = '';
-        let topAge = '';
+        // DateRange 라벨 생성
+        const rangeLabel = dateRange ? getRangeLabel(dateRange.startDate, dateRange.endDate) : '전체 기간';
         
-        // 교차 데이터가 있으면 사용, 없으면 각각의 최대값 사용
-        if (Object.keys(crossMap).length > 0) {
-          Object.entries(crossMap).forEach(([gender, ageData]) => {
-            Object.entries(ageData).forEach(([age, count]) => {
-              if (count > maxCount) {
-                maxCount = count;
-                topGender = gender;
-                topAge = age;
-              }
-            });
-          });
-        } else {
-          // Fallback: 성별과 연령 각각의 최대값 사용
-          const maxGender = Object.entries(genderMap).reduce((max, [gender, count]) => 
-            count > max.count ? { gender, count } : max, { gender: '', count: 0 });
-          const maxAge = Object.entries(ageMap).reduce((max, [age, count]) => 
-            count > max.count ? { age, count } : max, { age: '', count: 0 });
-          
-          topGender = maxGender.gender;
-          topAge = maxAge.age;
-          maxCount = Math.max(maxGender.count, maxAge.count);
-        }
+        // 성별 분석: 1위와 2위 찾기
+        const genderEntries = Object.entries(genderMap).sort(([,a], [,b]) => b - a);
+        const topGender = genderEntries[0];
+        const secondGender = genderEntries[1];
         
-        if (topGender && topAge) {
+        // 연령대 분석: 1위와 비중 계산
+        const ageEntries = Object.entries(ageMap).sort(([,a], [,b]) => b - a);
+        const topAge = ageEntries[0];
+        
+        if (topGender && topAge && secondGender) {
           // 성별 라벨 변환
-          const genderLabel = topGender === 'male' ? '남성' : 
-                            topGender === 'female' ? '여성' : '기타';
+          const genderLabelMap: Record<string, string> = {
+            'male': '남성',
+            'female': '여성'
+          };
+          
+          const topGenderLabel = genderLabelMap[topGender[0]] || '기타';
+          const secondGenderLabel = genderLabelMap[secondGender[0]] || '기타';
           
           // 연령대 라벨 변환
           const ageLabelMap: Record<string, string> = {
@@ -123,15 +101,13 @@ export const UserSegmentSummary: React.FC<UserSegmentSummaryProps> = ({ refreshK
             '50s': '50대',
             '60s+': '60대 이상'
           };
-          const ageLabel = ageLabelMap[topAge] || topAge;
+          const topAgeLabel = ageLabelMap[topAge[0]] || topAge[0];
           
-          // 전체 사용자 수 계산
-          const totalUsers = Object.values(genderMap).reduce((sum, count) => sum + count, 0) || 
-                           Object.values(ageMap).reduce((sum, count) => sum + count, 0);
-          
-          const percentage = totalUsers > 0 ? (maxCount / totalUsers * 100).toFixed(1) : '0';
+          // 전체 연령대 사용자 수 계산 (성별이 아닌 연령대 기준)
+          const totalAgeUsers = Object.values(ageMap).reduce((sum, count) => sum + count, 0);
+          const agePercentage = totalAgeUsers > 0 ? (topAge[1] / totalAgeUsers * 100).toFixed(1) : '0';
 
-          const summaryText = `현재 서비스의 <strong>핵심 사용자층</strong>은 <strong>${ageLabel} ${genderLabel}</strong>으로, 전체 사용자의 <strong>${percentage}%</strong>를 차지합니다.`;
+          const summaryText = `<strong>${rangeLabel}</strong> 서비스는 <strong>${topGenderLabel}</strong>이 <strong>${secondGenderLabel}</strong>보다 많이 사용하고 <strong>${topAgeLabel}(${agePercentage}%)</strong>가 많이 사용합니다.`;
           setSummary(summaryText);
         } else {
           setSummary('사용자 세그먼트 데이터를 분석 중입니다.');

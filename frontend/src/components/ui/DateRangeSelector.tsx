@@ -6,6 +6,7 @@ import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import { getRangeLabel } from '../../utils/getRangeLabel';
 
+
 // 로컬 시간대 기준으로 YYYY-MM-DD 포맷
 const formatLocalDate = (date: Date): string => {
   const year = date.getFullYear();
@@ -103,6 +104,7 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({
         <span className="inline-flex items-center rounded-md bg-gray-200 px-2 py-1 text-xs font-medium text-gray-600">
           {getRangeLabel(dateRange[0].startDate, dateRange[0].endDate)}
         </span>
+
         <span>{formatLocalDate(dateRange[0].startDate)} ~ {formatLocalDate(dateRange[0].endDate)}</span>
       </button>
 
@@ -119,6 +121,7 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({
           />
           <div ref={pickerRef} className="absolute right-6 z-50 mt-2 border border-gray-200 rounded-xl shadow-lg bg-white p-4">
             <DateRangePicker
+
               onChange={(item: any) => setTempRange([item.selection])}
               ranges={tempRange}
               months={1}
