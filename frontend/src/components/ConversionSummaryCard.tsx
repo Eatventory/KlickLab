@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'; // React에서 컴포넌트 생성 및 상태/라이프사이클 훅 불러오기
 import { TrendingUp, TrendingDown, Minus, Target } from 'lucide-react'; // lucide-react 아이콘들 불러오기
 import clsx from 'clsx'; // 조건부 클래스 이름을 쉽게 관리하는 유틸
-import { useConversionEvent } from '../../context/ConversionEventContext';
+import { useConversionEvent } from '../context/ConversionEventContext';
 
 // API 응답 데이터 구조 정의
 interface ConversionSummaryData {

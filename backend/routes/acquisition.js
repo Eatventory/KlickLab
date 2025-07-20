@@ -1,10 +1,18 @@
 const express = require("express");
 const router = express.Router();
 const clickhouse = require("../src/config/clickhouse");
-const authMiddleware = require('../middlewares/authMiddleware');
-const { formatLocalDateTime } = require('../utils/formatLocalDateTime');
-const { getLocalNow, getIsoNow, floorToNearest10Min, getNearestHourFloor, getOneHourAgo, getTodayStart } = require('../utils/timeUtils');
-const { buildQueryWhereClause } = require('../utils/queryUtils');
+const authMiddleware = require("../middlewares/authMiddleware");
+const { formatLocalDateTime } = require("../utils/formatLocalDateTime");
+const {
+  getLocalNow,
+  getIsoNow,
+  floorToNearest10Min,
+  getNearestHourFloor,
+  getOneHourAgo,
+  getTodayStart,
+} = require("../utils/timeUtils");
+const { buildQueryWhereClause } = require("../utils/queryUtils");
+const { getConversionRate } = require("../utils/conversionUtils");
 
 const localNow = getLocalNow();
 const isoNow = getIsoNow();
@@ -14,14 +22,15 @@ const oneHourFloor = formatLocalDateTime(getOneHourAgo());
 const todayStart = formatLocalDateTime(getTodayStart());
 
 // [1] KPI 데이터
-router.get('/overview', authMiddleware, async (req, res) => {
+router.get("/overview", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   const { startDate, endDate } = req.query;
-  
+
   try {
-    const dateCondition = startDate && endDate 
-      ? `date >= toDate('${startDate}') AND date <= toDate('${endDate}')`
-      : buildQueryWhereClause("daily", 7);
+    const dateCondition =
+      startDate && endDate
+        ? `date >= toDate('${startDate}') AND date <= toDate('${endDate}')`
+        : buildQueryWhereClause("daily", 7);
 
     const activeUsersQuery = `
       SELECT sum(visitors) as active_users
@@ -45,28 +54,33 @@ router.get('/overview', authMiddleware, async (req, res) => {
     `;
 
     const [activeUsersRes, newUsersRes, realtimeUsersRes] = await Promise.all([
-      clickhouse.query({ query: activeUsersQuery, format: 'JSON' }).then(r => r.json()),
-      clickhouse.query({ query: newUsersQuery, format: 'JSON' }).then(r => r.json()),
-      clickhouse.query({ query: realtimeUsersQuery, format: 'JSON' }).then(r => r.json())
+      clickhouse
+        .query({ query: activeUsersQuery, format: "JSON" })
+        .then((r) => r.json()),
+      clickhouse
+        .query({ query: newUsersQuery, format: "JSON" })
+        .then((r) => r.json()),
+      clickhouse
+        .query({ query: realtimeUsersQuery, format: "JSON" })
+        .then((r) => r.json()),
     ]);
 
     res.status(200).json({
       active_users: Number(activeUsersRes.data[0]?.active_users || 0),
       new_users: Number(newUsersRes.data[0]?.new_users || 0),
-      realtime_users: Number(realtimeUsersRes.data[0]?.realtime_users || 0)
+      realtime_users: Number(realtimeUsersRes.data[0]?.realtime_users || 0),
     });
-
   } catch (err) {
-    console.error('Acquisition Overview API Error:', err);
-    res.status(500).json({ success: false, error: 'Query failed' });
+    console.error("Acquisition Overview API Error:", err);
+    res.status(500).json({ success: false, error: "Query failed" });
   }
 });
 
 // [2] 시간별 유입 추이
-router.get('/hourly-trend', authMiddleware, async (req, res) => {
+router.get("/hourly-trend", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   const { startDate, endDate } = req.query;
-  
+
   try {
     const checkQuery = `
       SELECT count() as count
@@ -74,11 +88,14 @@ router.get('/hourly-trend', authMiddleware, async (req, res) => {
       WHERE sdk_key = '${sdk_key}'
       LIMIT 1
     `;
-    
-    const checkRes = await clickhouse.query({ query: checkQuery, format: 'JSON' });
+
+    const checkRes = await clickhouse.query({
+      query: checkQuery,
+      format: "JSON",
+    });
     const checkData = await checkRes.json();
     const hasData = checkData.data[0]?.count > 0;
-    
+
     if (!hasData) {
       const query = `
         WITH hours AS (
@@ -97,17 +114,20 @@ router.get('/hourly-trend', authMiddleware, async (req, res) => {
         ORDER BY h.hour ASC
       `;
 
-      const dataRes = await clickhouse.query({ query, format: 'JSONEachRow' });
+      const dataRes = await clickhouse.query({ query, format: "JSONEachRow" });
       const data = await dataRes.json();
 
-      return res.status(200).json(data.map(item => ({
-        hour: item.hour,
-        users: Number(item.users)
-      })));
+      return res.status(200).json(
+        data.map((item) => ({
+          hour: item.hour,
+          users: Number(item.users),
+        }))
+      );
     } else {
-      const dateCondition = startDate && endDate 
-        ? `date_time >= toDateTime('${startDate}') AND date_time <= toDateTime('${endDate}')`
-        : `date_time >= now() - INTERVAL 24 HOUR`;
+      const dateCondition =
+        startDate && endDate
+          ? `date_time >= toDateTime('${startDate}') AND date_time <= toDateTime('${endDate}')`
+          : `date_time >= now() - INTERVAL 24 HOUR`;
 
       const query = `
         WITH hours AS (
@@ -127,32 +147,34 @@ router.get('/hourly-trend', authMiddleware, async (req, res) => {
         ORDER BY h.hour ASC
       `;
 
-      const dataRes = await clickhouse.query({ query, format: 'JSONEachRow' });
+      const dataRes = await clickhouse.query({ query, format: "JSONEachRow" });
       const data = await dataRes.json();
 
-      res.status(200).json(data.map(item => ({
-        hour: item.hour,
-        total_users: Number(item.total_users),
-        new_users: Number(item.new_users),
-        existing_users: Number(item.existing_users)
-      })));
+      res.status(200).json(
+        data.map((item) => ({
+          hour: item.hour,
+          total_users: Number(item.total_users),
+          new_users: Number(item.new_users),
+          existing_users: Number(item.existing_users),
+        }))
+      );
     }
-
   } catch (err) {
-    console.error('Hourly Trend API Error:', err);
-    res.status(500).json({ success: false, error: 'Query failed' });
+    console.error("Hourly Trend API Error:", err);
+    res.status(500).json({ success: false, error: "Query failed" });
   }
 });
 
 // [3] 상위 유입 채널
-router.get('/top-channels', authMiddleware, async (req, res) => {
+router.get("/top-channels", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   const { startDate, endDate } = req.query;
-  
+
   try {
-    const dateCondition = startDate && endDate 
-      ? `date >= toDate('${startDate}') AND date <= toDate('${endDate}')`
-      : buildQueryWhereClause("daily", 7);
+    const dateCondition =
+      startDate && endDate
+        ? `date >= toDate('${startDate}') AND date <= toDate('${endDate}')`
+        : buildQueryWhereClause("daily", 7);
 
     const query = `
       SELECT 
@@ -168,30 +190,32 @@ router.get('/top-channels', authMiddleware, async (req, res) => {
       LIMIT 5
     `;
 
-    const dataRes = await clickhouse.query({ query, format: 'JSONEachRow' });
+    const dataRes = await clickhouse.query({ query, format: "JSONEachRow" });
     const data = await dataRes.json();
 
-    res.status(200).json(data.map(item => ({
-      channel: item.channel,
-      users: Number(item.users),
-      clicks: Number(item.clicks)
-    })));
-
+    res.status(200).json(
+      data.map((item) => ({
+        channel: item.channel,
+        users: Number(item.users),
+        clicks: Number(item.clicks),
+      }))
+    );
   } catch (err) {
-    console.error('Top Channels API Error:', err);
-    res.status(500).json({ success: false, error: 'Query failed' });
+    console.error("Top Channels API Error:", err);
+    res.status(500).json({ success: false, error: "Query failed" });
   }
 });
 
 // [4] 전환 퍼널
-router.get('/funnel-conversion', authMiddleware, async (req, res) => {
+router.get("/funnel-conversion", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   const { startDate, endDate } = req.query;
-  
+
   try {
-    const dateCondition = startDate && endDate 
-      ? `timestamp >= toDateTime('${startDate}') AND timestamp <= toDateTime('${endDate}')`
-      : `timestamp >= now() - INTERVAL 7 DAY`;
+    const dateCondition =
+      startDate && endDate
+        ? `timestamp >= toDateTime('${startDate}') AND timestamp <= toDateTime('${endDate}')`
+        : `timestamp >= now() - INTERVAL 7 DAY`;
 
     const query = `
       SELECT 
@@ -211,36 +235,38 @@ router.get('/funnel-conversion', authMiddleware, async (req, res) => {
         END
     `;
 
-    const dataRes = await clickhouse.query({ query, format: 'JSONEachRow' });
+    const dataRes = await clickhouse.query({ query, format: "JSONEachRow" });
     const data = await dataRes.json();
 
     const stepNames = {
-      '/': '홈',
-      '/product': '상품',
-      '/checkout': '결제',
-      '/success': '완료'
+      "/": "홈",
+      "/product": "상품",
+      "/checkout": "결제",
+      "/success": "완료",
     };
 
-    res.status(200).json(data.map(item => ({
-      step: stepNames[item.page_path] || item.page_path,
-      users: Number(item.users)
-    })));
-
+    res.status(200).json(
+      data.map((item) => ({
+        step: stepNames[item.page_path] || item.page_path,
+        users: Number(item.users),
+      }))
+    );
   } catch (err) {
-    console.error('Funnel Conversion API Error:', err);
-    res.status(500).json({ success: false, error: 'Query failed' });
+    console.error("Funnel Conversion API Error:", err);
+    res.status(500).json({ success: false, error: "Query failed" });
   }
 });
 
 // [5] 플랫폼 분석 (디바이스 & 브라우저)
-router.get('/platform-analysis', authMiddleware, async (req, res) => {
+router.get("/platform-analysis", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   const { startDate, endDate } = req.query;
-  
+
   try {
-    const dateCondition = startDate && endDate 
-      ? `timestamp >= toDateTime('${startDate}') AND timestamp <= toDateTime('${endDate}')`
-      : `timestamp >= now() - INTERVAL 7 DAY`;
+    const dateCondition =
+      startDate && endDate
+        ? `timestamp >= toDateTime('${startDate}') AND timestamp <= toDateTime('${endDate}')`
+        : `timestamp >= now() - INTERVAL 7 DAY`;
 
     const deviceQuery = `
       SELECT 
@@ -268,36 +294,40 @@ router.get('/platform-analysis', authMiddleware, async (req, res) => {
     `;
 
     const [deviceRes, browserRes] = await Promise.all([
-      clickhouse.query({ query: deviceQuery, format: 'JSONEachRow' }).then(r => r.json()),
-      clickhouse.query({ query: browserQuery, format: 'JSONEachRow' }).then(r => r.json())
+      clickhouse
+        .query({ query: deviceQuery, format: "JSONEachRow" })
+        .then((r) => r.json()),
+      clickhouse
+        .query({ query: browserQuery, format: "JSONEachRow" })
+        .then((r) => r.json()),
     ]);
 
     res.status(200).json({
-      device: (deviceRes || []).map(item => ({
+      device: (deviceRes || []).map((item) => ({
         type: item.type,
-        users: Number(item.users)
+        users: Number(item.users),
       })),
-      browser: (browserRes || []).map(item => ({
+      browser: (browserRes || []).map((item) => ({
         name: item.name,
-        users: Number(item.users)
-      }))
+        users: Number(item.users),
+      })),
     });
-
   } catch (err) {
-    console.error('Platform Analysis API Error:', err);
-    res.status(500).json({ success: false, error: 'Query failed' });
+    console.error("Platform Analysis API Error:", err);
+    res.status(500).json({ success: false, error: "Query failed" });
   }
 });
 
 // [6] 클릭 흐름
-router.get('/click-flow', authMiddleware, async (req, res) => {
+router.get("/click-flow", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   const { startDate, endDate } = req.query;
-  
+
   try {
-    const dateCondition = startDate && endDate 
-      ? `timestamp >= toDateTime('${startDate}') AND timestamp <= toDateTime('${endDate}')`
-      : `timestamp >= now() - INTERVAL 7 DAY`;
+    const dateCondition =
+      startDate && endDate
+        ? `timestamp >= toDateTime('${startDate}') AND timestamp <= toDateTime('${endDate}')`
+        : `timestamp >= now() - INTERVAL 7 DAY`;
 
     const query = `
       SELECT 
@@ -319,30 +349,32 @@ router.get('/click-flow', authMiddleware, async (req, res) => {
       LIMIT 20
     `;
 
-    const dataRes = await clickhouse.query({ query, format: 'JSONEachRow' });
+    const dataRes = await clickhouse.query({ query, format: "JSONEachRow" });
     const data = await dataRes.json();
 
-    res.status(200).json(data.map(item => ({
-      from: item.from,
-      to: item.to,
-      count: Number(item.count)
-    })));
-
+    res.status(200).json(
+      data.map((item) => ({
+        from: item.from,
+        to: item.to,
+        count: Number(item.count),
+      }))
+    );
   } catch (err) {
-    console.error('Click Flow API Error:', err);
-    res.status(500).json({ success: false, error: 'Query failed' });
+    console.error("Click Flow API Error:", err);
+    res.status(500).json({ success: false, error: "Query failed" });
   }
 });
 
 // [7] 채널 그룹 분석
-router.get('/channel-groups', authMiddleware, async (req, res) => {
+router.get("/channel-groups", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   const { startDate, endDate } = req.query;
-  
+
   try {
-    const dateCondition = startDate && endDate 
-      ? `date >= toDate('${startDate}') AND date <= toDate('${endDate}')`
-      : buildQueryWhereClause("daily", 7);
+    const dateCondition =
+      startDate && endDate
+        ? `date >= toDate('${startDate}') AND date <= toDate('${endDate}')`
+        : buildQueryWhereClause("daily", 7);
 
     const query = `
       SELECT 
@@ -359,30 +391,32 @@ router.get('/channel-groups', authMiddleware, async (req, res) => {
       LIMIT 20
     `;
 
-    const dataRes = await clickhouse.query({ query, format: 'JSONEachRow' });
+    const dataRes = await clickhouse.query({ query, format: "JSONEachRow" });
     const data = await dataRes.json();
 
-    res.status(200).json(data.map(item => ({
-      channel: item.channel,
-      device: item.device,
-      users: Number(item.users)
-    })));
-
+    res.status(200).json(
+      data.map((item) => ({
+        channel: item.channel,
+        device: item.device,
+        users: Number(item.users),
+      }))
+    );
   } catch (err) {
-    console.error('Channel Groups API Error:', err);
-    res.status(500).json({ success: false, error: 'Query failed' });
+    console.error("Channel Groups API Error:", err);
+    res.status(500).json({ success: false, error: "Query failed" });
   }
 });
 
 // [8] 광고 캠페인 분석 (실데이터)
-router.get('/campaigns', authMiddleware, async (req, res) => {
+router.get("/campaigns", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   const { startDate, endDate } = req.query;
 
   try {
-    const dateCondition = startDate && endDate
-      ? `timestamp >= toDateTime('${startDate}') AND timestamp <= toDateTime('${endDate}')`
-      : `timestamp >= now() - INTERVAL 7 DAY`;
+    const dateCondition =
+      startDate && endDate
+        ? `timestamp >= toDateTime('${startDate}') AND timestamp <= toDateTime('${endDate}')`
+        : `timestamp >= now() - INTERVAL 7 DAY`;
 
     const query = `
       SELECT 
@@ -397,29 +431,39 @@ router.get('/campaigns', authMiddleware, async (req, res) => {
       LIMIT 20
     `;
 
-    const dataRes = await clickhouse.query({ query, format: 'JSONEachRow' });
+    const dataRes = await clickhouse.query({ query, format: "JSONEachRow" });
     const data = await dataRes.json();
 
-    return res.status(200).json(data.map(row => ({
-      campaign: row.campaign,
-      users: Number(row.users)
-    })));
+    return res.status(200).json(
+      data.map((row) => ({
+        campaign: row.campaign,
+        users: Number(row.users),
+      }))
+    );
   } catch (err) {
-    console.error('Campaigns API Error:', err);
-    return res.status(500).json({ success: false, error: 'Query failed' });
+    console.error("Campaigns API Error:", err);
+    return res.status(500).json({ success: false, error: "Query failed" });
   }
 });
 
 // [9] 상위 지역 분석 (실데이터)
-router.get('/top-countries', authMiddleware, async (req, res) => {
+router.get("/top-countries", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   const { startDate, endDate } = req.query;
 
   try {
-    const candidateCols = ['city', 'traffic_country', 'traffic_region', 'country', 'region'];
+    const candidateCols = [
+      "city",
+      "traffic_country",
+      "traffic_region",
+      "country",
+      "region",
+    ];
     const colQuery = `
       SELECT name FROM system.columns 
-      WHERE database = 'klicklab' AND table = 'events' AND name IN (${candidateCols.map(c => `'${c}'`).join(",")})
+      WHERE database = 'klicklab' AND table = 'events' AND name IN (${candidateCols
+        .map((c) => `'${c}'`)
+        .join(",")})
       ORDER BY CASE 
         WHEN name = 'city' THEN 1
         WHEN name = 'traffic_country' THEN 2
@@ -430,7 +474,10 @@ router.get('/top-countries', authMiddleware, async (req, res) => {
       END
       LIMIT 1`;
 
-    const colRes = await clickhouse.query({ query: colQuery, format: 'JSONEachRow' });
+    const colRes = await clickhouse.query({
+      query: colQuery,
+      format: "JSONEachRow",
+    });
     const colRows = await colRes.json();
     const col = colRows[0]?.name;
 
@@ -438,9 +485,10 @@ router.get('/top-countries', authMiddleware, async (req, res) => {
       return res.status(200).json([]);
     }
 
-    const dateCondition = startDate && endDate
-      ? `timestamp >= toDateTime('${startDate}') AND timestamp <= toDateTime('${endDate}')`
-      : `timestamp >= now() - INTERVAL 7 DAY`;
+    const dateCondition =
+      startDate && endDate
+        ? `timestamp >= toDateTime('${startDate}') AND timestamp <= toDateTime('${endDate}')`
+        : `timestamp >= now() - INTERVAL 7 DAY`;
 
     const query = `
       SELECT 
@@ -456,17 +504,57 @@ router.get('/top-countries', authMiddleware, async (req, res) => {
       LIMIT 20
     `;
 
-    const dataRes = await clickhouse.query({ query, format: 'JSONEachRow' });
+    const dataRes = await clickhouse.query({ query, format: "JSONEachRow" });
     const data = await dataRes.json();
 
-    return res.status(200).json(data.map(row => ({
-      region: row.region,
-      users: Number(row.users)
-    })));
+    return res.status(200).json(
+      data.map((row) => ({
+        region: row.region,
+        users: Number(row.users),
+      }))
+    );
   } catch (err) {
-    console.error('Top Countries API Error:', err);
-    return res.status(500).json({ success: false, error: 'Query failed' });
+    console.error("Top Countries API Error:", err);
+    return res.status(500).json({ success: false, error: "Query failed" });
   }
 });
 
-module.exports = router; 
+// [X] 첫 유입페이지 전환율 (명세 기반 집계)
+router.get("/landing-conversion-rate", authMiddleware, async (req, res) => {
+  const { startDate, endDate } = req.query;
+  const { sdk_key } = req.user;
+  const start = startDate || "2024-06-01";
+  const end = endDate || "2024-06-30";
+  try {
+    const query = `
+      SELECT
+        landing_page,
+        COUNT(*) AS total_sessions,
+        COUNTIf(is_converted = 1) AS total_conversions,
+        ROUND(100.0 * COUNTIf(is_converted = 1) / COUNT(*), 1) AS conversion_rate
+      FROM (
+        SELECT
+          session_id,
+          argMin(page_path, timestamp) AS landing_page,
+          max(event_name = 'is_payment') AS is_converted
+        FROM klicklab.events
+        WHERE
+          sdk_key = '${sdk_key}'
+          AND timestamp BETWEEN toDateTime('${start}') AND toDateTime('${end}')
+          AND (event_name = 'page_view' OR event_name = 'is_payment')
+        GROUP BY session_id
+      )
+      GROUP BY landing_page
+      ORDER BY total_sessions DESC
+      LIMIT 20
+    `;
+    const result = await clickhouse.query({ query, format: "JSONEachRow" });
+    const data = await result.json();
+    res.json({ success: true, data });
+  } catch (err) {
+    console.error("Landing Conversion Rate API Error:", err);
+    res.status(500).json({ error: "DB 쿼리 실패" });
+  }
+});
+
+module.exports = router;
