@@ -218,8 +218,8 @@ export const EngagementDashboard: React.FC = () => {
           dateRange={dateRange}
           tempRange={tempRange}
           showPicker={showPicker}
-          setDateRange={(range) => setDateRange(range.map(r => ({ ...r, key: 'selection' })))}
-          setTempRange={(range) => setTempRange(range.map(r => ({ ...r, key: 'selection' })))}
+          setDateRange={setDateRange}
+          setTempRange={setTempRange}
           setShowPicker={setShowPicker}
           onApply={(start, end) => {
             setDateRange([{ startDate: start, endDate: end, key: 'selection' }]);
