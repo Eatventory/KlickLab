@@ -226,10 +226,10 @@ router.get("/realtime-analytics", authMiddleware, async (req, res) => {
       // 데이터 집계
       result = aggregateData(hourlyData, tenMinuteData);
       
-      // 데이터가 없으면 폴백 데이터 사용
-      if (result.length === 0) {
-        result = await getFallbackData(sdk_key, startDate);
-      }
+      // 폴백 데이터 로직 제거 - 데이터가 없으면 빈 배열 유지
+      // if (result.length === 0) {
+      //   result = await getFallbackData(sdk_key, startDate);
+      // }
       
     } else if (useWeeklyData) {
       // 주별 데이터 처리
@@ -242,7 +242,7 @@ router.get("/realtime-analytics", authMiddleware, async (req, res) => {
     
     // 응답 데이터 생성
     const dataSource = isToday ? 
-      (hourlyData.length > 0 || tenMinuteData.length > 0 ? 'hourly+10min' : 'daily-fallback') : 
+      (hourlyData.length > 0 || tenMinuteData.length > 0 ? 'hourly+10min' : 'no-data') : 
       useWeeklyData ? 'weekly' : 'daily';
 
     res.status(200).json({ 
