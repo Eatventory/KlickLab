@@ -14,6 +14,10 @@ import { HourlyTrendLineChart } from './HourlyTrendLineChart';
 import { ClickFlowSankeyChart } from './ClickFlowSankeyChart';
 import { ChannelGroupStackedChart } from './ChannelGroupStackedChart';
 import { keyframes } from 'framer-motion';
+import { ConversionRateWidget } from '../conversion/ConversionRateWidget';
+import { ConversionSummaryCard } from '../overview/ConversionSummaryCard';
+import { ChannelConversionTable } from '../traffic/ChannelConversionTable';
+import { LandingConversionTable } from '../traffic/LandingConversionTable';
 
 // 타입 정의
 interface FilterOptions {
@@ -268,6 +272,13 @@ export const AcquisitionDashboard: React.FC = () => {
     return () => clearInterval(interval);
   }, [dateRange]);
 
+  // channelGroupData 로그 추가
+  useEffect(() => {
+    if (acquisitionData && acquisitionData.channelGroupData) {
+      console.log('[LOG] channelGroupData:', acquisitionData.channelGroupData);
+    }
+  }, [acquisitionData]);
+
   if (loading && !acquisitionData) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -409,14 +420,8 @@ export const AcquisitionDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* 3행: 유입 흐름 + 마케팅 캠페인 유입 + 상위 지역 유입 */}
+        {/* 3행: 마케팅 캠페인 유입 + 상위 지역 유입 + 전환율 표 2개 */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-          {/* 유입 흐름 */}
-          <div className="md:col-span-6 bg-white rounded-lg border border-gray-200 p-4 h-[300px] hover:shadow-lg transition-shadow">
-            <h3 className="text-sm font-semibold text-gray-900 mb-2">유입 흐름</h3>
-            <ClickFlowSankeyChart data={acquisitionData.clickFlowData} refreshKey={refreshKey} />
-          </div>
-
           {/* 마케팅 캠페인 유입 */}
           <div className="md:col-span-3 bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
             <h4 className="text-sm font-semibold text-gray-900 mb-2">마케팅 캠페인 유입</h4>
@@ -433,6 +438,16 @@ export const AcquisitionDashboard: React.FC = () => {
               data={acquisitionData.realtimeData.topCountries.slice(0,10).map((c:any, index: number)=>({label:c.city,value:c.users, key: `country-${c.city}-${index}`}))}
               valueFormatter={(v)=>v.toLocaleString()+'명'}
             />
+          </div>
+
+          {/* 채널별 전환율 */}
+          <div className="md:col-span-3">
+            <ChannelConversionTable />
+          </div>
+
+          {/* 첫 유입 페이지 전환율 */}
+          <div className="md:col-span-3">
+            <LandingConversionTable />
           </div>
         </div>
       </div>

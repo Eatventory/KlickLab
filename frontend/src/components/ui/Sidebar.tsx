@@ -42,12 +42,12 @@ const tabs = [
     icon: Target,
     description: '유입 소스 분석'
   },
-  {
-    id: 'conversion',
-    label: '전환율',
-    icon: Target,
-    description: '전환 퍼널'
-  },
+  // {
+  //   id: 'conversion',
+  //   label: '전환율',
+  //   icon: Target,
+  //   description: '전환 퍼널'
+  // },
   {
     id: 'engagement',
     label: '참여도 분석',

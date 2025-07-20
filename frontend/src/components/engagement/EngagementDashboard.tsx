@@ -9,6 +9,8 @@ import EngagementEvents from './EngagementEvents';
 
 import EngagementPages from './EngagementPages';
 import EngagementVisits from './EngagementVisits';
+import { UserPathSankeyChart } from '../user/UserPathSankeyChart';
+import { mockSankeyPaths } from '../../data/mockData';
 
 // import { eventCounts } from '../../data/engagementMock';
 // import { pageStats } from '../../data/engagementMock';
@@ -30,7 +32,7 @@ import type {
   VisitStatsData,
 } from '../../data/engagementTypes';
 
-const engagementTaps: string[] = ['참여도 개요', '이벤트 보고서', '페이지 및 화면 보고서', '방문 페이지 보고서'];
+const engagementTaps: string[] = ['참여도 개요', '이벤트 보고서', '페이지 및 화면 보고서', '방문 페이지 보고서', '퍼널 분석'];
 
 export const EngagementDashboard: React.FC = () => {
   const [pageTimes, setPageTimes] = useState<PageTimeData[]>([]);
@@ -163,6 +165,52 @@ export const EngagementDashboard: React.FC = () => {
     return () => clearInterval(interval);
   }, [openCollapse, dateRange]);
 
+  // 퍼널 분석(사용자 경로 다이어그램) 상태 및 로직 추가
+  const [sankeyPaths, setSankeyPaths] = useState<string[][] | null>(null);
+  const [sankeyLoading, setSankeyLoading] = useState(false);
+  const [sankeyError, setSankeyError] = useState<string | null>(null);
+  const [dropdownType, setDropdownType] = useState<'event'|'url'>('event');
+
+  useEffect(() => {
+    function cleanPath(path: string[]): string[] {
+      let arr = path.filter(p => typeof p === 'string' && p.trim() !== '');
+      arr = arr.filter((p, i) => i === 0 || p !== arr[i - 1]);
+      return arr;
+    }
+    const fetchSankeyPaths = async () => {
+      setSankeyLoading(true);
+      setSankeyError(null);
+      try {
+        const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+        const pathField = dropdownType === 'url' ? 'url_path' : 'event_path';
+        let query = `?type=${dropdownType}`;
+        const res = await fetch(`/api/stats/sankey-paths${query}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('API 오류');
+        const json = await res.json();
+        if (Array.isArray(json.data)) {
+          const paths = json.data
+            .map((row: any) => Array.isArray(row[pathField]) ? cleanPath(row[pathField]) : null)
+            .filter((p: string[] | null) => Array.isArray(p) && p.length > 1);
+          setSankeyPaths(paths.length > 0 ? paths : null);
+        } else {
+          setSankeyPaths(null);
+        }
+      } catch (err) {
+        setSankeyError('경로 데이터를 불러오지 못했습니다.');
+        setSankeyPaths(null);
+      } finally {
+        setSankeyLoading(false);
+      }
+    };
+    fetchSankeyPaths();
+  }, [dropdownType]);
+
+  const handleDropdownTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setDropdownType(e.target.value as 'event'|'url');
+  };
+
   return (
     <>
       <div className='w-full flex justify-end border-b-2 border-dashed'>
@@ -238,6 +286,34 @@ export const EngagementDashboard: React.FC = () => {
         }
       >
         <EngagementVisits visitStats={visitStats} />
+      </Collapse>
+
+      {/* 퍼널 분석 하위탭 추가 */}
+      <Collapse
+        title={engagementTaps[4]}
+        isOpen={openCollapse === engagementTaps[4]}
+        onToggle={() =>
+          setOpenCollapse((prev) => (prev === engagementTaps[4] ? '' : engagementTaps[4]))
+        }
+      >
+        {/* 전환율 탭의 사용자 경로 다이어그램 전체(드롭다운, 백엔드 연동 포함) */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sankey-container" style={{height: '100%', minHeight: 600, maxHeight: '90vh'}}>
+          <div className="flex items-center justify-between mb-6">
+            <h2 style={{ fontWeight: 700, fontSize: 20 }}>사용자 경로 다이어그램</h2>
+            <select
+              value={dropdownType}
+              onChange={handleDropdownTypeChange}
+              className="border rounded px-2 py-1 text-sm bg-white"
+              style={{ minWidth: 120 }}
+            >
+              <option value="event">이벤트</option>
+              <option value="url">URL</option>
+            </select>
+          </div>
+          <UserPathSankeyChart data={{ paths: sankeyPaths }} type={dropdownType} />
+          {sankeyLoading && <div style={{ color: '#888', padding: 12 }}>경로 데이터를 불러오는 중...</div>}
+          {sankeyError && <div style={{ color: 'red', padding: 12 }}>{sankeyError}</div>}
+        </div>
       </Collapse>
     </>
   );

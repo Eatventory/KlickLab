@@ -108,7 +108,7 @@ export const LandingConversionTable: React.FC = () => {
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 h-full flex flex-col min-h-0 overflow-hidden p-6 relative">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">첫 유입 페이지 전환율</h3>
+        <h3 className="text-sm font-semibold text-gray-900 mb-2">첫 유입 페이지 전환율</h3>
         <button className="text-xs text-gray-500" onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}>
           전환율 {sortOrder === 'asc' ? '↑' : '↓'}
         </button>

@@ -128,7 +128,7 @@ export const ChannelConversionTable: React.FC<ChannelConversionTableProps> = ({ 
   return (
     <div className={`bg-white rounded-lg shadow-sm border border-gray-200 h-full flex flex-col p-6 relative ${className || ''}`}>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">채널별 전환율</h3>
+        <h3 className="text-sm font-semibold text-gray-900 mb-2">채널별 전환율</h3>
         <button className="text-xs text-gray-500" onClick={() => handleSort('conversionRate')}>
           전환율 {sortBy === 'conversionRate' && (sortOrder === 'asc' ? '↑' : '↓')}
         </button>
