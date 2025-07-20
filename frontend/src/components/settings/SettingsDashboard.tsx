@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Code, Globe, Users, Bell, IdCard } from 'lucide-react';
+import { Code, Globe, IdCard } from 'lucide-react';
 import Toast from "../ui/Toast";
 import { ConversionEventMapping } from './ConversionEventMapping';
 import { EventRuleManager } from './EventRuleManager';
-import SegmentFilterManager from './SegmentFilterManager';
-import { SegmentFilterBuilder } from '../ui/SegmentFilterBuilder';
+// import SegmentFilterManager from './SegmentFilterManager';
+// import { SegmentFilterBuilder } from '../ui/SegmentFilterBuilder';
 import {ButtonEventManager} from './ButtonEventManager'
 
 // 타입 정의
@@ -35,15 +35,26 @@ export const SettingsDashboard: React.FC = () => {
     getKey();
   }, []);
 
-  const [domains, setDomains] = useState<DomainData[]>([
+  const formatDate = (date: Date) => {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const year = date.getFullYear();
+    const month = pad(date.getMonth() + 1);
+    const day = pad(date.getDate());
+    const hour = pad(date.getHours());
+    const minute = pad(date.getMinutes());
+    const second = pad(date.getSeconds());
+    return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+  };
+
+  const domains: DomainData[] = [
     {
       id: '1',
-      domain: 'your-api-endpoint.com',
+      domain: 'jgshop.com',
       status: 'active',
-      lastEvent: '2024-07-09 15:37:24',
+      lastEvent: formatDate(new Date()),
       eventCount: 1247
     }
-  ]);
+  ];
 
   const sdkCode = `
     <script type="module" src="https://klicklab-sdk.pages.dev/klicklab_sdk.js"
@@ -60,17 +71,18 @@ export const SettingsDashboard: React.FC = () => {
   return (
     <div className="space-y-6 p-6">
       {/* 전역 필터 설정 */}
-      <SegmentFilterBuilder />
+      {/* <SegmentFilterBuilder /> */}
 
       {/* 2분할 카드 wrapper에는 bg/padding/rounded 없음 */}
-      <div className="flex flex-col lg:flex-row gap-6">
+      {/* <div className="flex flex-col lg:flex-row gap-6">
         <div className="w-full lg:w-1/2">
           <ConversionEventMapping />
         </div>
         <div className="w-full lg:w-1/2">
           <SegmentFilterManager />
         </div>
-      </div>
+      </div> */}
+      <ConversionEventMapping />
 
       {/* 이벤트 생성 규칙 관리 */}
       <EventRuleManager />
@@ -147,7 +159,7 @@ export const SettingsDashboard: React.FC = () => {
                 <th className="text-left py-3 px-4 font-medium text-gray-900">도메인</th>
                 <th className="text-center py-3 px-4 font-medium text-gray-900">상태</th>
                 <th className="text-center py-3 px-4 font-medium text-gray-900">마지막 이벤트</th>
-                <th className="text-right py-3 px-4 font-medium text-gray-900">이벤트 수</th>
+                {/* <th className="text-right py-3 px-4 font-medium text-gray-900">이벤트 수</th> */}
                 <th className="text-center py-3 px-4 font-medium text-gray-900">액션</th>
               </tr>
             </thead>
@@ -165,7 +177,7 @@ export const SettingsDashboard: React.FC = () => {
                     </span>
                   </td>
                   <td className="py-3 px-4 text-center text-gray-600">{domain.lastEvent}</td>
-                  <td className="py-3 px-4 text-right text-gray-700">{domain.eventCount.toLocaleString()}</td>
+                  {/* <td className="py-3 px-4 text-right text-gray-700">{domain.eventCount.toLocaleString()}</td> */}
                   <td className="py-3 px-4 text-center">
                     <button className="text-blue-600 hover:text-blue-800 text-sm">설정</button>
                   </td>
