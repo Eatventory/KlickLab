@@ -5,6 +5,7 @@ import { ko } from 'date-fns/locale';
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import { getRangeLabel } from '../../utils/getRangeLabel';
+import { Filter } from 'lucide-react'
 
 
 // 로컬 시간대 기준으로 YYYY-MM-DD 포맷
@@ -90,23 +91,26 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({
 
   return (
     <div className="relative">
-      <button
-        className="m-2 mr-6 px-2 py-1 hover:bg-gray-200 text-gray-600 hover:text-gray-800 rounded-md flex gap-2"
-        onClick={() => {
-          if (showPicker) {
-            setTempRange(dateRange);
-            setShowPicker(false);
-          } else {
-            setShowPicker(true);
-          }
-        }}
-      >
-        <span className="inline-flex items-center rounded-md bg-gray-200 px-2 py-1 text-xs font-medium text-gray-600">
-          {getRangeLabel(dateRange[0].startDate, dateRange[0].endDate)}
-        </span>
+      <div className='flex items-center'>
+        <Filter className='w-4 h-4' />
+        <button
+          className="m-2 mr-6 px-2 py-1 hover:bg-gray-200 text-gray-600 hover:text-gray-800 rounded-md flex gap-2"
+          onClick={() => {
+            if (showPicker) {
+              setTempRange(dateRange);
+              setShowPicker(false);
+            } else {
+              setShowPicker(true);
+            }
+          }}
+        >
+          <span className="inline-flex items-center rounded-md bg-gray-200 px-2 py-1 text-xs font-medium text-gray-600">
+            {getRangeLabel(dateRange[0].startDate, dateRange[0].endDate)}
+          </span>
 
-        <span>{formatLocalDate(dateRange[0].startDate)} ~ {formatLocalDate(dateRange[0].endDate)}</span>
-      </button>
+          <span>{formatLocalDate(dateRange[0].startDate)} ~ {formatLocalDate(dateRange[0].endDate)}</span>
+        </button>
+      </div>
 
       {showPicker && (
         <>
