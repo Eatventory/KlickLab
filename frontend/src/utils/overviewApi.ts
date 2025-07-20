@@ -19,4 +19,9 @@ export async function fetchRealtimeTrend() {
 export async function fetchRealtimeSources() {
   const res = await fetch('/api/overview/realtime/sources', { headers: getAuthHeaders() });
   return res.json();
+}
+
+export async function fetchOverviewWidgets() {
+  const res = await fetch('/api/overview/widgets', { headers: getAuthHeaders() });
+  return res.json();
 } 

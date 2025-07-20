@@ -130,11 +130,12 @@ export const VisitorChart: React.FC<VisitorChartProps> = ({ data, period = 'dail
       return found || { date: dateStr, visitors: 0, newVisitors: 0, returningVisitors: 0 };
     });
   } else if (period === 'daily') {
-    const today = new Date();
+    // 오늘 날짜를 KST(Asia/Seoul) 기준으로 생성
+    const nowKST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
     const days: string[] = [];
     for (let i = 6; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(today.getDate() - i);
+      const d = new Date(nowKST);
+      d.setDate(nowKST.getDate() - i);
       const dateStr = d.toISOString().slice(0, 10);
       days.push(dateStr);
     }

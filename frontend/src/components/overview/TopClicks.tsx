@@ -24,8 +24,37 @@ export const TopClicks: React.FC<TopClicksProps> = ({ data, loading }) => {
 
   if (!data || data.length === 0) {
     return (
-      <div className="flex items-center justify-center h-32">
-        <div className="text-gray-500">데이터가 없습니다</div>
+      <div className="space-y-2">
+        {/* 헤더 */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-50 rounded-lg">
+              <BarChart3 className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-gray-900">클릭 TOP 5</h3>
+              <p className="text-sm text-gray-500">인기 요소 분석</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-3 h-3 text-green-500 animate-pulse" />
+            <span className="text-xs text-gray-500">실시간</span>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-center h-20">
+          <div className="text-gray-400 text-sm">데이터가 없습니다</div>
+        </div>
+
+        <div className="pt-1">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-gray-600 font-medium">총 클릭 수</span>
+            <span className="font-bold text-gray-900">0</span>
+          </div>
+        </div>
       </div>
     );
   }
