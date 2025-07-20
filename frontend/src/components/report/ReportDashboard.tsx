@@ -104,14 +104,14 @@ export const ReportDashboard: React.FC = () => {
         {/* KPI 테이블 */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className='flex justify-between'>
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2">
               <FileText className="w-5 h-5 text-gray-600" />
               <h2 className="text-lg font-semibold text-gray-900">KPI 요약 리포트</h2>
             </div>
             <div className="flex gap-2">
               <button
                 onClick={() => handleExport()}
-                className="flex items-center gap-2 px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
               >
                 <Download className="w-4 h-4" />
                 다운로드
@@ -119,7 +119,7 @@ export const ReportDashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="overflow-x-auto flex flex-col gap-4">
+          <div className="overflow-x-auto flex flex-col">
             {reportData &&
               Object.entries(reportData).map(([key, section]) => {
                 return (
