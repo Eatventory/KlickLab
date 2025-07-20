@@ -53,7 +53,8 @@ const EngagementVisits: React.FC<EngagementVisitsProps> = ({ visitStats }) => {
               label: pagePath,
               values: { sessions, activeUsers, newVisitors, avgSessionSeconds: avg }
             };
-          });
+          })
+          .filter(row => row.key !== '' && Object.values(row.values).some(v => v > 0));
         })()}
         valueKeys={valueKeys}
         autoSelectBy={keys[0]}
