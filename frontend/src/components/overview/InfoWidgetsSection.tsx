@@ -1,0 +1,73 @@
+import React from 'react';
+import { TopClicks } from './TopClicks';
+import { PieChart, Globe, MousePointer } from 'lucide-react';
+
+// 위젯의 기본 프레임을 위한 컴포넌트
+const WidgetFrame = ({ title, children, icon: Icon }) => (
+  <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 md:p-6 h-full flex flex-col">
+    <div className="flex items-center gap-2 mb-4">
+      {Icon && <Icon className="w-5 h-5 text-gray-500" />}
+      <h2 className="text-base md:text-lg font-semibold text-gray-800">{title}</h2>
+    </div>
+    <div className="flex-grow">{children}</div>
+  </div>
+);
+
+// 간단한 목록 표시를 위한 컴포넌트 (예: 상위 페이지)
+const SimpleTable = ({ data, columns }) => (
+  <div className="space-y-2">
+    <div className="grid grid-cols-2 font-semibold text-sm text-gray-500">
+      <span>{columns[0].label}</span>
+      <span className="text-right">{columns[1].label}</span>
+    </div>
+    {data.map((item, index) => (
+      <div key={index} className="grid grid-cols-2 text-sm text-gray-700 border-t pt-2">
+        <span>{item[columns[0].key]}</span>
+        <span className="text-right font-medium">{item[columns[1].key].toLocaleString()}</span>
+      </div>
+    ))}
+  </div>
+);
+
+export const InfoWidgetsSection = () => {
+    const topPagesData = [
+        { page: '/home', views: 4820 },
+        { page: '/products/electronics', views: 2190 },
+        { page: '/pricing', views: 1870 },
+        { page: '/about-us', views: 980 },
+        { page: '/contact', views: 450 },
+    ];
+    
+    const trafficSourceData = [
+        { source: '직접 유입', users: 750 },
+        { source: 'Google', users: 520 },
+        { source: 'Naver', users: 210 },
+        { source: '소셜 미디어', users: 170 },
+    ];
+
+    return (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
+            {/* 왼쪽: 트래픽 소스 */}
+            <div className="lg:col-span-1">
+            <WidgetFrame title="소스 / 매체별 사용자" icon={PieChart}>
+                <SimpleTable data={trafficSourceData} columns={[{key: 'source', label: '소스'}, {key: 'users', label: '사용자'}]} />
+                {/* 여기에 파이 차트를 추가할 수 있습니다. */}
+            </WidgetFrame>
+            </div>
+
+            {/* 중앙: 상위 활성 페이지 */}
+            <div className="lg:col-span-1">
+            <WidgetFrame title="가장 많이 본 페이지" icon={Globe}>
+                <SimpleTable data={topPagesData} columns={[{key: 'page', label: '페이지 경로'}, {key: 'views', label: '조회수'}]} />
+            </WidgetFrame>
+            </div>
+            
+            {/* 오른쪽: TopClicks (기존 컴포넌트 재사용) */}
+            <div className="lg:col-span-1">
+                <WidgetFrame title="가장 많이 클릭된 요소" icon={MousePointer}>
+                    <TopClicks refreshKey={0} />
+                </WidgetFrame>
+            </div>
+      </div>
+    );
+}

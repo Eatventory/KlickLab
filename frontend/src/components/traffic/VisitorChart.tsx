@@ -169,7 +169,7 @@ export const VisitorChart: React.FC<VisitorChartProps> = ({ data, period = 'dail
               // tickCount={6}
             />
             <Tooltip content={<CustomTooltip />} />
-            <Legend />
+
             <Line 
               type="monotone" 
               dataKey="visitors" 
@@ -179,24 +179,7 @@ export const VisitorChart: React.FC<VisitorChartProps> = ({ data, period = 'dail
               activeDot={{ r: 6 }}
               name="총 방문자"
             />
-            <Line 
-              type="monotone" 
-              dataKey="newVisitors" 
-              stroke="#10b981" 
-              strokeWidth={2}
-              dot={{ fill: '#10b981', strokeWidth: 2, r: 3 }}
-              activeDot={{ r: 5 }}
-              name="신규 방문자"
-            />
-            <Line 
-              type="monotone" 
-              dataKey="returningVisitors" 
-              stroke="#8b5cf6" 
-              strokeWidth={2}
-              dot={{ fill: '#8b5cf6', strokeWidth: 2, r: 3 }}
-              activeDot={{ r: 5 }}
-              name="재방문자"
-            />
+
           </LineChart>
         </ResponsiveContainer>
       </div>
