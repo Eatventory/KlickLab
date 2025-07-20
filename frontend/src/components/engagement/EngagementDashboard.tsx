@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { addDays } from 'date-fns';
 import dayjs from 'dayjs';
 
@@ -15,43 +15,49 @@ import { mockSankeyPaths } from '../../data/mockData';
 // import { eventCounts } from '../../data/engagementMock';
 // import { pageStats } from '../../data/engagementMock';
 // import { visitStats } from '../../data/engagementMock';
+import {
+  viewCounts, clickCounts, avgSessionSecs,
+  sessionsPerUsers, usersOverTime, revisit,
+  eventCounts, pageStats, visitStats,
+  pageTimes, pageViewCounts, bounceRates
+} from '../../data/mockEngagementDataEnhanced';
 
-import type {
-  PageTimeData,
-  PageViewCountsData,
-  BounceRatesData,
-  ViewCountsData,
-  ClickCountsData,
-  AvgSessionSecsData,
-  SessionsPerUsersData,
-  UsersOverTimeData,
+// import type {
+//   PageTimeData,
+//   PageViewCountsData,
+//   BounceRatesData,
+//   ViewCountsData,
+//   ClickCountsData,
+//   AvgSessionSecsData,
+//   SessionsPerUsersData,
+//   UsersOverTimeData,
 
-  RevisitData,
-  EventCountsData,
-  PageStatsData,
-  VisitStatsData,
-} from '../../data/engagementTypes';
+//   RevisitData,
+//   EventCountsData,
+//   PageStatsData,
+//   VisitStatsData,
+// } from '../../data/engagementTypes';
 
 const engagementTaps: string[] = ['참여도 개요', '이벤트 보고서', '페이지 및 화면 보고서', '방문 페이지 보고서', '퍼널 분석'];
 
 export const EngagementDashboard: React.FC = () => {
-  const [pageTimes, setPageTimes] = useState<PageTimeData[]>([]);
-  const [pageViewCounts, setPageViewCounts] = useState<PageViewCountsData[]>([]);
-  const [bounceRates, setBounceRates] = useState<BounceRatesData[]>([]);
-  const [viewCounts, setViewCounts] = useState<ViewCountsData[]>([]);
-  const [clickCounts, setClickCounts] = useState<ClickCountsData[]>([]);
-  const [avgSessionSecs, setAvgSessionSecs] = useState<AvgSessionSecsData[]>([]);
-  const [sessionsPerUsers, setSessionsPerUsers] = useState<SessionsPerUsersData[]>([]);
-  const [usersOverTime, setUsersOverTime] = useState<UsersOverTimeData[]>([]);
+  // const [pageTimes, setPageTimes] = useState<PageTimeData[]>([]);
+  // const [pageViewCounts, setPageViewCounts] = useState<PageViewCountsData[]>([]);
+  // const [bounceRates, setBounceRates] = useState<BounceRatesData[]>([]);
+  // const [viewCounts, setViewCounts] = useState<ViewCountsData[]>([]);
+  // const [clickCounts, setClickCounts] = useState<ClickCountsData[]>([]);
+  // const [avgSessionSecs, setAvgSessionSecs] = useState<AvgSessionSecsData[]>([]);
+  // const [sessionsPerUsers, setSessionsPerUsers] = useState<SessionsPerUsersData[]>([]);
+  // const [usersOverTime, setUsersOverTime] = useState<UsersOverTimeData[]>([]);
 
-  const [revisit, setRevisit] = useState<RevisitData[]>([]);
+  // const [revisit, setRevisit] = useState<RevisitData[]>([]);
 
-  const [eventCounts, setEventCounts] = useState<EventCountsData[]>([]);
-  const [pageStats, setPageStats] = useState<PageStatsData[]>([]);
-  const [visitStats, setVisitStats] = useState<VisitStatsData[]>([]);
+  // const [eventCounts, setEventCounts] = useState<EventCountsData[]>([]);
+  // const [pageStats, setPageStats] = useState<PageStatsData[]>([]);
+  // const [visitStats, setVisitStats] = useState<VisitStatsData[]>([]);
 
   const [loading, setLoading] = useState(false);
-  const [isFirstLoad, setIsFirstLoad] = useState(true);
+  const [isFirstLoad, setIsFirstLoad] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedMetric, setSelectedMetric] = useState<'viewCounts' | 'clickCounts'>('viewCounts');
   const [selectedMetric2, setSelectedMetric2] = useState<'avgSessionSecs' | 'sessionsPerUsers'>('avgSessionSecs');
@@ -147,23 +153,23 @@ export const EngagementDashboard: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    const { startDate, endDate } = dateRange[0];
+  // useEffect(() => {
+  //   const { startDate, endDate } = dateRange[0];
 
-    if (!startDate || !endDate || !openCollapse) return;
-    if (!fetchedTabs[openCollapse]) {
-      fetchTabData(openCollapse, startDate, endDate);
-      setFetchedTabs((prev) => ({ ...prev, [openCollapse]: true }));
-    }
-    const interval = setInterval(() => {
-      const now = new Date();
-      const minute = now.getMinutes();
-      if (minute % 10 === 0) { // 매 10분마다 fetch 실행
-        fetchTabData(openCollapse, startDate, endDate);
-      }
-    }, 60000);
-    return () => clearInterval(interval);
-  }, [openCollapse, dateRange]);
+  //   if (!startDate || !endDate || !openCollapse) return;
+  //   if (!fetchedTabs[openCollapse]) {
+  //     fetchTabData(openCollapse, startDate, endDate);
+  //     setFetchedTabs((prev) => ({ ...prev, [openCollapse]: true }));
+  //   }
+  //   const interval = setInterval(() => {
+  //     const now = new Date();
+  //     const minute = now.getMinutes();
+  //     if (minute % 10 === 0) { // 매 10분마다 fetch 실행
+  //       fetchTabData(openCollapse, startDate, endDate);
+  //     }
+  //   }, 60000);
+  //   return () => clearInterval(interval);
+  // }, [openCollapse, dateRange]);
 
   // 퍼널 분석(사용자 경로 다이어그램) 상태 및 로직 추가
   const [sankeyPaths, setSankeyPaths] = useState<string[][] | null>(null);
@@ -211,6 +217,26 @@ export const EngagementDashboard: React.FC = () => {
     setDropdownType(e.target.value as 'event'|'url');
   };
 
+  /** 상위 5개만 추출 */
+  const topPageTimes = useMemo(
+    () => [...pageTimes]
+      .sort((a, b) => b.averageTime - a.averageTime)
+      .slice(0, 5),
+    [pageTimes]
+  );
+  const topPageViewCounts = useMemo(
+    () => [...pageViewCounts]
+      .sort((a, b) => b.totalViews - a.totalViews)
+      .slice(0, 5),
+    [pageViewCounts]
+  );
+  const topBounceRates = useMemo(
+    () => [...bounceRates]
+      .sort((a, b) => b.bounce_rate - a.bounce_rate)
+      .slice(0, 5),
+    [bounceRates]
+  );
+
   return (
     <>
       <div className='w-full flex justify-end border-b-2 border-dashed'>
@@ -224,7 +250,7 @@ export const EngagementDashboard: React.FC = () => {
           onApply={(start, end) => {
             setDateRange([{ startDate: start, endDate: end, key: 'selection' }]);
 
-            fetchTabData(openCollapse, start, end, true);
+            // fetchTabData(openCollapse, start, end, true);
           }}
         />
       </div>
@@ -238,9 +264,9 @@ export const EngagementDashboard: React.FC = () => {
         <EngagementOverview
           avgSessionSecs={avgSessionSecs}
           sessionsPerUsers={sessionsPerUsers}
-          pageTimes={pageTimes}
-          pageViewCounts={pageViewCounts}
-          bounceRates={bounceRates}
+          pageTimes={topPageTimes}
+          pageViewCounts={topPageViewCounts}
+          bounceRates={topBounceRates}
           viewCounts={viewCounts}
           clickCounts={clickCounts}
           usersOverTime={usersOverTime}
