@@ -10,13 +10,13 @@ interface TableSectionProps {
   title?: string;
   data?: any[];
   columns: Column[];
+  defaultSort?: { key: string; direction: 'asc' | 'desc' };
 }
 
-const TableSection: React.FC<TableSectionProps> = ({ title, data, columns }) => {
-  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({
-    key: 'date',
-    direction: 'asc',
-  });
+const TableSection: React.FC<TableSectionProps> = ({ title, data, columns, defaultSort }) => {
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>(
+    defaultSort || { key: 'date', direction: 'asc' }
+  );
   
   const sortedData = useMemo(() => {
     const safeData = data ?? [];
@@ -76,7 +76,7 @@ const TableSection: React.FC<TableSectionProps> = ({ title, data, columns }) => 
                   onClick={() => handleSort(col.key)}
                 >
                   <div className="flex items-center gap-1 group">
-                    <span>{col.header}</span>
+                    <span className={sortConfig?.key === col.key ? "font-bold" : ""}>{col.header}</span>
                     <ArrowDown
                       className={`w-4 h-4 transition-transform duration-200 ${
                         sortConfig?.key === col.key ? '' : 'opacity-0 group-hover:opacity-25'
