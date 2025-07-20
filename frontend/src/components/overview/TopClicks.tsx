@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { BarChart3, TrendingUp } from 'lucide-react';
 
 interface TopClickItem {
@@ -6,51 +6,55 @@ interface TopClickItem {
   count: number;
 }
 
-interface TopClicksData {
-  items: TopClickItem[];
-}
-
 interface TopClicksProps {
-  refreshKey?: number;
+  data: TopClickItem[];
   loading?: boolean;
 }
 
-export const TopClicks: React.FC<TopClicksProps> = ({ refreshKey, loading }) => {
-  const [data, setData] = useState<TopClickItem[]>([]);
+export const TopClicks: React.FC<TopClicksProps> = ({ data, loading }) => {
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchTopClicks = async () => {
-      try {
-        const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
-        if (!token) throw new Error("No token");
-        const response = await fetch(`/api/stats/top-clicks`, {headers: { Authorization: `Bearer ${token}` }});
-        const result: TopClicksData = await response.json();
-        setData(result.items || []);
-      } catch (error) {
-        console.error('Failed to fetch top clicks:', error);
-        setData([
-          { label: '구매하기', count: 1203 },
-          { label: '장바구니', count: 987 },
-          { label: '로그인', count: 756 },
-          { label: '검색', count: 543 },
-          { label: '상품상세', count: 432 }
-        ]);
-      } finally {
-        // setLoading(false); // This line was removed from the new_code, so it's removed here.
-      }
-    };
-
-    fetchTopClicks();
-    
-    const interval = setInterval(fetchTopClicks, 10000);
-    return () => clearInterval(interval);
-  }, [refreshKey]);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-32">
         <div className="text-gray-500">데이터 로딩 중...</div>
+      </div>
+    );
+  }
+
+  if (!data || data.length === 0) {
+    return (
+      <div className="space-y-2">
+        {/* 헤더 */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-50 rounded-lg">
+              <BarChart3 className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-gray-900">클릭 TOP 5</h3>
+              <p className="text-sm text-gray-500">인기 요소 분석</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-3 h-3 text-green-500 animate-pulse" />
+            <span className="text-xs text-gray-500">실시간</span>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-center h-20">
+          <div className="text-gray-400 text-sm">데이터가 없습니다</div>
+        </div>
+
+        <div className="pt-1">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-gray-600 font-medium">총 클릭 수</span>
+            <span className="font-bold text-gray-900">0</span>
+          </div>
+        </div>
       </div>
     );
   }
@@ -82,7 +86,6 @@ export const TopClicks: React.FC<TopClicksProps> = ({ refreshKey, loading }) => 
       <div className="space-y-2">
         {data.map((item, index) => {
           const percentage = maxCount > 0 ? (item.count / maxCount) * 100 : 0;
-          const isTop = index === 0;
           
           return (
             <div 
@@ -164,4 +167,4 @@ export const TopClicks: React.FC<TopClicksProps> = ({ refreshKey, loading }) => 
       </div>
     </div>
   );
-}; 
+};
