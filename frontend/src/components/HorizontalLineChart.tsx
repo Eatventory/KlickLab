@@ -84,14 +84,6 @@ const HorizontalLineChart: React.FC<HorizontalLineChartProps> = ({
     ? tooltipPos.y - tooltipSize.height - 12
     : tooltipPos.y + 12;
 
-  const latestItem = data[data.length - 1];
-
-  function formatValue(value: number) {
-    if (value >= 10000) return `${Math.round(value / 10000 * 10) / 10}만`;
-    if (value >= 1000) return `${Math.round(value / 1000 * 10) / 10}천`;
-    return value?.toLocaleString();
-  }
-
   const filteredData = useMemo(() => {
     if (unit === 'weekly') {
       const result: typeof data = [];
