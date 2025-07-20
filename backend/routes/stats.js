@@ -549,7 +549,7 @@ router.get("/sankey-paths", authMiddleware, async (req, res) => {
   const query = `
     SELECT ${selectField}
     FROM klicklab.sankey_paths_daily
-    WHERE day = today()
+    WHERE day = yesterday()
       AND sdk_key = '${sdk_key}'
   `;
   try {

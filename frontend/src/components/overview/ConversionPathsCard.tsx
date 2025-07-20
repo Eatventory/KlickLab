@@ -21,12 +21,6 @@ interface ConversionPathsCardProps {
   refreshKey?: number;
 }
 
-const rankIcons = [
-  <span className="text-4xl mr-1" role="img" aria-label="1위">🥇</span>,
-  <span className="text-4xl mr-1" role="img" aria-label="2위">🥈</span>,
-  <span className="text-4xl mr-1" role="img" aria-label="3위">🥉</span>,
-];
-
 const rankColors = [
   'text-blue-700', // 1위
   'text-blue-500', // 2위
@@ -137,9 +131,8 @@ const ConversionPathsCard: React.FC<ConversionPathsCardProps> = ({ className, re
   }
 
   return (
-    <div className={`bg-white rounded-xl border border-gray-200 shadow-sm p-6 ${className || ''}`}> 
-      <div className="flex items-center gap-2 mb-4">
-        <TrendingUp className="w-5 h-5 text-blue-600" />
+    <div className={`bg-white rounded-xl border border-gray-200 shadow-sm p-6 h-[520px] ${className || ''}`}> 
+      <div className="mb-4">
         <h3 className="text-lg font-semibold text-gray-900">전환 경로 Top 3</h3>
       </div>
       <div className="space-y-6">
@@ -148,8 +141,8 @@ const ConversionPathsCard: React.FC<ConversionPathsCardProps> = ({ className, re
             key={pathData.rank}
             className={`flex flex-col md:flex-row md:items-center md:gap-6 p-4 rounded-lg border ${idx === 0 ? 'border-blue-200 bg-blue-50' : idx === 1 ? 'border-blue-50 bg-blue-50' : 'border-gray-100 bg-gray-50'} shadow-sm`}
           >
-            <div className="flex items-center min-w-[70px] mb-2 md:mb-0">
-              {rankIcons[idx]}
+            <div className="flex items-center min-w-[70px] mb-2 md:mb-0 font-bold text-xl text-gray-500">
+              {idx + 1}
             </div>
             <div className="flex-1 min-w-0">
               {formatPath(pathData.path)}
