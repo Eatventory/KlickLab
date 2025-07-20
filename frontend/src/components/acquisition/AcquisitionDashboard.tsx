@@ -43,7 +43,7 @@ interface AcquisitionData {
   };
 }
 
-// Mock Data 생성 함수들
+/* Mock Data 생성 함수들 - 임시로 주석 처리
 const generateMockHourlyData = () => {
   const hours = Array.from({ length: 24 }, (_, i) => i);
   return hours.map(hour => {
@@ -145,6 +145,7 @@ const generateMockCountriesData = () => [
   { city: '울산', users: 30 },
   { city: '수원', users: 15 }
 ];
+*/
 
 export const AcquisitionDashboard: React.FC = () => {
   const { filter: globalFilter } = useSegmentFilter();
@@ -167,6 +168,7 @@ export const AcquisitionDashboard: React.FC = () => {
   const [tempRange, setTempRange] = useState(dateRange);
   const [showPicker, setShowPicker] = useState(false);
 
+  /* Mock 데이터 관련 함수들 - 임시로 주석 처리
   // 강제로 Mock 데이터만 사용하는 함수
   const initializeMockData = () => {
     console.log('=== MOCK DATA 강제 로딩 시작 ===');
@@ -253,10 +255,10 @@ export const AcquisitionDashboard: React.FC = () => {
       // 에러 발생 시에도 Mock 데이터 유지 (아무것도 하지 않음)
     }
   };
+  */
 
 
 
-  /* 기존 fetchAcquisitionData 함수 - 나중에 복원용으로 주석 처리
   const fetchAcquisitionData = async (start?: Date, end?: Date) => {
     try {
       setLoading(true);
@@ -449,28 +451,21 @@ export const AcquisitionDashboard: React.FC = () => {
       setLoading(false);
     }
   };
-  */
 
-  // 컴포넌트 마운트 시 Mock 데이터 강제 로드
   useEffect(() => {
-    console.log('🚀 컴포넌트 마운트 - Mock 데이터 강제 로딩');
-    initializeMockData();
-  }, []); // 마운트 시에만 실행
+    const { startDate, endDate } = dateRange[0];
+    if (startDate && endDate) {
+      fetchAcquisitionData(startDate, endDate);
+    }
 
-  // 날짜 범위나 필터 변경 시 KPI만 재시도
-  useEffect(() => {
-    console.log('📅 날짜/필터 변경 - KPI 재시도');
-    tryFetchRealKpiData();
-  }, [dateRange, globalFilter]);
-
-  // 주기적 KPI 갱신 (Mock 데이터는 건드리지 않음)
-  useEffect(() => {
     const interval = setInterval(() => {
-      console.log('⏰ 주기적 KPI 갱신');
-      tryFetchRealKpiData();
-    }, 60000); // 1분마다 KPI만 시도
+      const { startDate, endDate } = dateRange[0];
+      if (startDate && endDate) {
+        fetchAcquisitionData(startDate, endDate);
+      }
+    }, 60000); // 1분마다 갱신
     return () => clearInterval(interval);
-  }, []);
+  }, [dateRange]);
 
   // channelGroupData 로그 추가
   useEffect(() => {
@@ -514,9 +509,8 @@ export const AcquisitionDashboard: React.FC = () => {
           setTempRange={(range) => setTempRange(range.map(r => ({ ...r, key: 'selection' })))}
           setShowPicker={setShowPicker}
           onApply={(start, end) => {
-            console.log('📅 날짜 범위 적용:', start, end);
             setDateRange([{ startDate: start, endDate: end, key: 'selection' }]);
-            // Mock 데이터는 그대로 유지, KPI만 새 날짜로 재시도 (useEffect에서 자동 처리)
+            fetchAcquisitionData(start, end);
           }}
         />
       </div>
@@ -531,7 +525,7 @@ export const AcquisitionDashboard: React.FC = () => {
               <div className="text-center">
                 <h3 className="text-sm font-semibold text-gray-900 mb-2">활성 사용자</h3>
                 <div className="text-3xl font-bold text-gray-900 mb-1">
-                  {kpiData ? kpiData.active_users?.toLocaleString() || '3,337' : '3,337'}
+                  {kpiData ? kpiData.active_users?.toLocaleString() || '0' : '0'}
                 </div>
                 <div className="text-xs text-green-600">+8.2%</div>
               </div>
@@ -542,7 +536,7 @@ export const AcquisitionDashboard: React.FC = () => {
               <div className="text-center">
                 <h3 className="text-sm font-semibold text-gray-900 mb-2">신규 유입 사용자</h3>
                 <div className="text-3xl font-bold text-gray-900 mb-1">
-                  {kpiData ? kpiData.new_users?.toLocaleString() || '2,391' : '2,391'}
+                  {kpiData ? kpiData.new_users?.toLocaleString() || '0' : '0'}
                 </div>
                 <div className="text-xs text-green-600">+12.5%</div>
               </div>
