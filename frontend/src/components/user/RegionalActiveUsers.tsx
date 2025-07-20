@@ -1,4 +1,6 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { getRangeLabel } from '../../utils/getRangeLabel';
+import dayjs from 'dayjs';
 
 interface RegionData {
   id: string;
@@ -13,25 +15,54 @@ interface MousePosition {
   y: number;
 }
 
-// 지역 데이터 상수 - 컴포넌트 외부로 이동
-const REGION_DATA: RegionData[] = [
-    { id: 'KR-11', name: '서울특별시', users: 120000, percentage: 26.8, color: '#1e40af' },
-    { id: 'KR-41', name: '경기도', users: 95000, percentage: 21.2, color: '#2563eb' },
-    { id: 'KR-26', name: '부산광역시', users: 35000, percentage: 7.8, color: '#3b82f6' },
-    { id: 'KR-48', name: '경상남도', users: 32000, percentage: 7.1, color: '#60a5fa' },
-    { id: 'KR-28', name: '인천광역시', users: 28000, percentage: 6.2, color: '#93c5fd' },
-    { id: 'KR-47', name: '경상북도', users: 22000, percentage: 4.9, color: '#bfdbfe' },
-    { id: 'KR-44', name: '충청남도', users: 20000, percentage: 4.5, color: '#dbeafe' },
-    { id: 'KR-42', name: '강원특별자치도', users: 18000, percentage: 4.0, color: '#eff6ff' },
-    { id: 'KR-45', name: '전라북도', users: 16000, percentage: 3.6, color: '#eff6ff' },
-    { id: 'KR-46', name: '전라남도', users: 15000, percentage: 3.3, color: '#eff6ff' },
-    { id: 'KR-43', name: '충청북도', users: 14000, percentage: 3.1, color: '#eff6ff' },
-    { id: 'KR-27', name: '대구광역시', users: 12000, percentage: 2.7, color: '#eff6ff' },
-    { id: 'KR-29', name: '광주광역시', users: 10000, percentage: 2.2, color: '#eff6ff' },
-    { id: 'KR-30', name: '대전광역시', users: 8000, percentage: 1.8, color: '#eff6ff' },
-    { id: 'KR-31', name: '울산광역시', users: 7000, percentage: 1.6, color: '#eff6ff' },
-    { id: 'KR-50', name: '세종특별자치시', users: 5000, percentage: 1.1, color: '#eff6ff' },
-    { id: 'KR-49', name: '제주특별자치도', users: 3000, percentage: 0.7, color: '#eff6ff' }
+
+interface RegionalActiveUsersProps {
+  dateRange?: { startDate: Date; endDate: Date; key: string };
+  onDataSourceUpdate?: (dataSource: string) => void;
+  data?: any[];  // 전달받은 country 데이터
+  loading?: boolean;  // 로딩 상태
+}
+
+// 백엔드 영어명 → 한국어명 매핑
+const REGION_NAME_MAPPING: Record<string, string> = {
+  'Seoul': '서울특별시',
+  'Gyeonggi': '경기도',
+  'Busan': '부산광역시',
+  'South_Gyeongsang': '경상남도',
+  'Incheon': '인천광역시',
+  'North_Gyeongsang': '경상북도',
+  'South_Chungcheong': '충청남도',
+  'Gangwon': '강원특별자치도',
+  'North_Jeolla': '전라북도',
+  'South_Jeolla': '전라남도',
+  'North_Chungcheong': '충청북도',
+  'Daegu': '대구광역시',
+  'Gwangju': '광주광역시',
+  'Daejeon': '대전광역시',
+  'Ulsan': '울산광역시',
+  'Sejong': '세종특별자치시',
+  'Jeju': '제주특별자치도'
+};
+
+// 지역 메타데이터 (ID, 이름, 색상만 포함)
+const REGION_METADATA = [
+    { id: 'KR-11', name: '서울특별시', color: '#1e40af' },
+    { id: 'KR-41', name: '경기도', color: '#2563eb' },
+    { id: 'KR-26', name: '부산광역시', color: '#3b82f6' },
+    { id: 'KR-48', name: '경상남도', color: '#60a5fa' },
+    { id: 'KR-28', name: '인천광역시', color: '#93c5fd' },
+    { id: 'KR-47', name: '경상북도', color: '#bfdbfe' },
+    { id: 'KR-44', name: '충청남도', color: '#dbeafe' },
+    { id: 'KR-42', name: '강원특별자치도', color: '#eff6ff' },
+    { id: 'KR-45', name: '전라북도', color: '#eff6ff' },
+    { id: 'KR-46', name: '전라남도', color: '#eff6ff' },
+    { id: 'KR-43', name: '충청북도', color: '#eff6ff' },
+    { id: 'KR-27', name: '대구광역시', color: '#eff6ff' },
+    { id: 'KR-29', name: '광주광역시', color: '#eff6ff' },
+    { id: 'KR-30', name: '대전광역시', color: '#eff6ff' },
+    { id: 'KR-31', name: '울산광역시', color: '#eff6ff' },
+    { id: 'KR-50', name: '세종특별자치시', color: '#eff6ff' },
+    { id: 'KR-49', name: '제주특별자치도', color: '#eff6ff' }
   ];
 
 // 색상 범례 상수
@@ -45,23 +76,176 @@ const COLOR_LEGEND = [
   { level: 6, color: '#2563eb' }
 ];
 
-export const RegionalActiveUsers: React.FC = () => {
+
+export const RegionalActiveUsers: React.FC<RegionalActiveUsersProps> = ({ dateRange, onDataSourceUpdate, data, loading: externalLoading }) => {
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [hoveredRegion, setHoveredRegion] = useState<string | null>(null);
   const [mousePosition, setMousePosition] = useState<MousePosition>({ x: 0, y: 0 });
+  const [regionData, setRegionData] = useState<RegionData[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchRegionalData();
+  }, [dateRange]);
+
+  const fetchRegionalData = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+      if (!token) throw new Error("No token");
+
+      let dateQuery = '';
+      if (dateRange) {
+        const startStr = dayjs(dateRange.startDate).format('YYYY-MM-DD');
+        const endStr = dayjs(dateRange.endDate).format('YYYY-MM-DD');
+        dateQuery = `?startDate=${startStr}&endDate=${endStr}`;
+      }
+
+      console.log('[RegionalActiveUsers] 요청 시작:', dateQuery);
+
+      const response = await fetch(`/api/users/realtime-analytics${dateQuery}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch data');
+      
+      const result = await response.json();
+      console.log('[RegionalActiveUsers] API 응답 전체:', result);
+      
+      // 데이터 소스 정보 업데이트
+      if (onDataSourceUpdate && result.meta?.dataSource) {
+        onDataSourceUpdate(result.meta.dataSource);
+      }
+      
+      // 안전한 데이터 접근
+      const dataArray = result.data || result || [];
+      console.log('[RegionalActiveUsers] 데이터 배열:', dataArray);
+      console.log('[RegionalActiveUsers] 데이터 배열 길이:', Array.isArray(dataArray) ? dataArray.length : 'not array');
+      
+      // country 세그먼트 확인 (실제 데이터 구조)
+      const countrySegments = dataArray.filter((row: any) => row.segment_type === 'country');
+      console.log('[RegionalActiveUsers] country 세그먼트:', countrySegments);
+      
+      // city 세그먼트에서 지역 정보 추출 (country는 KR 고정, city는 dist_value에 있음)
+      const cityMap: Record<string, number> = {};
+      
+      if (Array.isArray(dataArray)) {
+        dataArray.forEach((row: any) => {
+          // segment_type이 'country'이고 dist_type이 'city'인 경우 처리
+          if (row.segment_type === 'country' && 
+              row.segment_value === 'KR' && 
+              row.dist_type === 'city' && 
+              row.dist_value && 
+              row.dist_value !== 'unknown') {
+            const city = row.dist_value;
+            console.log('[RegionalActiveUsers] city 데이터 처리:', city, row.user_count, row);
+            if (!cityMap[city]) cityMap[city] = 0;
+            cityMap[city] += parseInt(row.user_count);
+          }
+        });
+      }
+
+      console.log('[RegionalActiveUsers] 최종 cityMap:', cityMap);
+
+      // 알려진 지역(REGION_NAME_MAPPING에 있는 지역)만 총 사용자 수에 포함
+      const knownRegionUsers = Object.entries(cityMap)
+        .filter(([englishName]) => REGION_NAME_MAPPING[englishName])
+        .reduce((sum, [, count]) => sum + count, 0);
+      
+      // 알려지지 않은 지역들 로그 출력
+      const unknownRegions = Object.entries(cityMap)
+        .filter(([englishName]) => !REGION_NAME_MAPPING[englishName]);
+      
+      if (unknownRegions.length > 0) {
+        console.log('[RegionalActiveUsers] 🚨 알려지지 않은 지역 (집계 제외):', unknownRegions);
+      }
+      
+      const totalUsers = knownRegionUsers;
+      console.log('[RegionalActiveUsers] 알려진 지역만 포함한 총 사용자 수:', totalUsers);
+
+      // 기존 지역 데이터 업데이트 (영어명 → 한국어명 매핑 적용)
+      const updatedRegionData = REGION_METADATA.map((region: { id: string; name: string; color: string }) => {
+        const koreanName = region.name; // 한국어 지역명
+        
+        // 영어명에서 한국어명으로 매핑된 데이터 찾기
+        let users = 0;
+        Object.entries(cityMap).forEach(([englishName, userCount]) => {
+          const mappedKoreanName = REGION_NAME_MAPPING[englishName];
+          if (mappedKoreanName === koreanName) {
+            users += userCount;
+          }
+        });
+        
+        const percentage = totalUsers > 0 ? Math.round((users / totalUsers) * 1000) / 10 : 0;
+        
+        console.log(`[RegionalActiveUsers] 지역 매핑: ${koreanName} = ${users}명 (${percentage}%)`);
+        
+        return {
+          ...region,
+          users,
+          percentage
+        };
+      });
+
+      // 사용자 수 기준으로 정렬
+      updatedRegionData.sort((a: RegionData, b: RegionData) => b.users - a.users);
+      
+      // 순위별 색깔 동적 할당
+      const regionsWithData = updatedRegionData.filter((region: RegionData) => region.users > 0);
+      const regionsWithoutData = updatedRegionData.filter((region: RegionData) => region.users === 0);
+      
+      // 사용자 수가 있는 지역들에 순위별 색깔 할당
+      const colorAssignedRegions = regionsWithData.map((region: RegionData, index: number) => {
+        let colorLevel: number;
+        
+        if (regionsWithData.length <= COLOR_LEGEND.length) {
+          // 지역 수가 색상 단계보다 적으면 역순으로 할당 (1위가 가장 진한 색)
+          colorLevel = Math.min(COLOR_LEGEND.length - 1, COLOR_LEGEND.length - 1 - index);
+        } else {
+          // 지역 수가 많으면 구간별로 나누어 할당
+          const segmentSize = Math.ceil(regionsWithData.length / COLOR_LEGEND.length);
+          colorLevel = Math.max(0, COLOR_LEGEND.length - 1 - Math.floor(index / segmentSize));
+        }
+        
+        const assignedColor = COLOR_LEGEND[colorLevel]?.color || COLOR_LEGEND[0].color;
+        
+        console.log(`[RegionalActiveUsers] 색깔 할당: ${region.name} (${index + 1}위, ${region.users}명) → Level ${colorLevel} (${assignedColor})`);
+        
+        return {
+          ...region,
+          color: assignedColor
+        };
+      });
+      
+      // 데이터가 없는 지역들은 가장 연한 색으로 설정
+      const noDataRegions = regionsWithoutData.map((region: RegionData) => ({
+        ...region,
+        color: COLOR_LEGEND[0].color // 가장 연한 색
+      }));
+      
+      // 최종 데이터 합치기 (순위 유지)
+      const finalRegionData = [...colorAssignedRegions, ...noDataRegions];
+      
+      setRegionData(finalRegionData);
+    } catch (error) {
+      setRegionData([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // 메모화된 계산값들
   const regionDataMap = useMemo(() => {
-    return new Map(REGION_DATA.map(region => [region.id, region]));
-  }, []);
+    return new Map(regionData.map(region => [region.id, region]));
+  }, [regionData]);
 
   const totalUsers = useMemo(() => {
-    return REGION_DATA.reduce((sum, region) => sum + region.users, 0);
-  }, []);
+    return regionData.reduce((sum, region) => sum + region.users, 0);
+  }, [regionData]);
 
   const topRegions = useMemo(() => {
-    return REGION_DATA.slice(0, 10);
-  }, []);
+    return regionData.slice(0, 10);
+  }, [regionData]);
 
   // 메모화된 함수들
   const getRegionData = useCallback((regionId: string) => {
@@ -116,9 +300,11 @@ export const RegionalActiveUsers: React.FC = () => {
   }, [hoveredRegion]);
 
   return (
-    <div className="bg-white rounded-lg border p-6 h-full flex flex-col">
+
+    <div className="bg-white rounded-lg border p-5 h-full flex flex-col">
       <div className="flex items-center gap-2 mb-3">
         <h2 className="text-lg font-semibold text-gray-900">지역별 활성 사용자</h2>
+        {loading && <div className="text-xs text-gray-500">업데이트 중...</div>}
       </div>
 
       <div className="flex gap-1 flex-1" style={{ width: '100%' }}>
@@ -304,7 +490,10 @@ export const RegionalActiveUsers: React.FC = () => {
                   transform: mousePosition.x > window.innerWidth - 200 ? 'translateX(-100%)' : 'translateX(0)',
                 }}
               >
-                <div className="text-xs text-gray-500 mb-1">6월 20일~2025년 7월 17일</div>
+
+                <div className="text-xs text-gray-500 mb-1">
+                  {dateRange ? getRangeLabel(dateRange.startDate, dateRange.endDate) : '전체 기간'}
+                </div>
                 <div className="text-xs text-gray-600 mb-2">활성 사용자</div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-900">
@@ -336,7 +525,8 @@ export const RegionalActiveUsers: React.FC = () => {
                 onMouseLeave={handleRegionLeave}
                 onMouseMove={handleMouseMove}
               >
-                <div className="flex items-center justify-between text-xs mb-1">
+
+                <div className="flex items-center justify-between text-xs mb-2">
                   <div className="flex items-center gap-2">
                     <div 
                       className="w-2 h-2 rounded"

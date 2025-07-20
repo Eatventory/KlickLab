@@ -3,15 +3,21 @@ const router = express.Router();
 const clickhouse = require("../src/config/clickhouse");
 const authMiddleware = require('../middlewares/authMiddleware');
 
-function buildQueryWhereClause (table = "minutes", startDate, endDate) {
-  if (!startDate || !endDate) return '1 = 1';
+const {
+  getAvgSessionQuery,
+  getSessionsPerUserQuery,
+  getClickCountsQuery,
+  getViewCountsQuery,
+  getUsersOverTimeQuery,
+  getEventCountsQuery,
+  getPageTimesQuery,
+  getBounceRateQuery,
+  getPageViewsQuery,
+  getPageStatsQuery,
+  getVisitStatsQuery,
+} = require('../utils/engagementUtils');
 
-  if (table === "daily") {
-    return `date BETWEEN toDate('${startDate}') AND toDate('${endDate}')`;
-  } else {
-    return `date_time BETWEEN toDateTime('${startDate} 00:00:00') AND toDateTime('${endDate} 23:59:59')`;
-  }
-}
+/* 참여도 개요 */
 
 router.get('/overview', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
@@ -21,52 +27,16 @@ router.get('/overview', authMiddleware, async (req, res) => {
   try {
     const [avgSessionTimeRes, sessionsPerUserRes] = await Promise.all([
       clickhouse.query({
-        query: `
-          SELECT
-            toDate(date_time) AS date,
-            round(avg(avg_session_seconds), 2) AS avgSessionSeconds
-          FROM (
-            SELECT cast(date AS DateTime) AS date_time, avg_session_seconds FROM daily_metrics
-            WHERE ${buildQueryWhereClause("daily", startDate, endDate)}
-              AND sdk_key = '${sdk_key}'
-            UNION ALL
-            SELECT date_time, avg_session_seconds FROM hourly_metrics
-            WHERE ${buildQueryWhereClause("hourly", startDate, endDate)}
-              AND sdk_key = '${sdk_key}'
-            UNION ALL
-            SELECT date_time, avg_session_seconds FROM minutes_metrics
-            WHERE ${buildQueryWhereClause("minutes", startDate, endDate)}
-              AND sdk_key = '${sdk_key}'
-          )
-          GROUP BY date
-          ORDER BY date ASC
-        `,
+
+        query: getAvgSessionQuery(startDate, endDate, sdk_key),
+
         format: 'JSON',
       }).then(r => r.json()),
-      
+
       clickhouse.query({
-        query: `
-          SELECT
-            toDate(date_time) AS date,
-            sum(visitors) AS totalVisitors,
-            sum(clicks) AS totalClicks,
-            round(sum(clicks) / nullIf(sum(visitors), 0), 2) AS sessionsPerUser
-          FROM (
-            SELECT cast(date AS DateTime) AS date_time, clicks, visitors FROM daily_metrics
-            WHERE ${buildQueryWhereClause("daily", startDate, endDate)}
-              AND sdk_key = '${sdk_key}'
-            UNION ALL
-            SELECT date_time, clicks, visitors FROM hourly_metrics
-            WHERE ${buildQueryWhereClause("hourly", startDate, endDate)}
-              AND sdk_key = '${sdk_key}'
-            UNION ALL
-            SELECT date_time, clicks, visitors FROM minutes_metrics
-            WHERE ${buildQueryWhereClause("minutes", startDate, endDate)}
-              AND sdk_key = '${sdk_key}'
-          )
-          GROUP BY date
-          ORDER BY date ASC
-        `,
+
+        query: getSessionsPerUserQuery(startDate, endDate, sdk_key),
+
         format: 'JSON',
       }).then(r => r.json()),
     ]);
@@ -76,17 +46,17 @@ router.get('/overview', authMiddleware, async (req, res) => {
       data: {
         avgSessionSeconds: avgSessionTimeRes.data.map(d => ({
           date: d.date,
-          avgSessionSeconds: Number(d.avgSessionSeconds),
+          avgSessionSeconds: Number(d.avgSessionSeconds || 0),
         })),
         sessionsPerUser: sessionsPerUserRes.data.map(d => ({
           date: d.date,
-          totalVisitors: Number(d.totalVisitors),
-          totalClicks: Number(d.totalClicks),
-          sessionsPerUser: Number(d.sessionsPerUser),
+          totalVisitors: Number(d.totalVisitors || 0),
+          totalClicks: Number(d.totalClicks || 0),
+          sessionsPerUser: Number(d.sessionsPerUser || 0),
         })),
       },
     });
-    
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, error: 'Query failed' });
@@ -99,88 +69,31 @@ router.get('/page-times', authMiddleware, async (req, res) => {
   const { startDate, endDate, limit = 10 } = req.query;
   if (!startDate || !endDate) return res.status(400).json({ error: 'Missing startDate or endDate' });
 
-  const query = `
-    SELECT
-      page_path AS page,
-      round(sum(avg_time_on_page_seconds * page_views) / sum(page_views), 1) AS averageTime
-    FROM (
-      SELECT page_path, avg_time_on_page_seconds, page_views
-      FROM daily_page_stats
-      WHERE ${buildQueryWhereClause("daily", startDate, endDate)}
-        AND sdk_key = '${sdk_key}'
-      UNION ALL
-      SELECT page_path, avg_time_on_page_seconds, page_views
-      FROM hourly_page_stats
-      WHERE ${buildQueryWhereClause("hourly", startDate, endDate)}
-        AND sdk_key = '${sdk_key}'
-      UNION ALL
-      SELECT page_path, avg_time_on_page_seconds, page_views
-      FROM minutes_page_stats
-      WHERE ${buildQueryWhereClause("minutes", startDate, endDate)}
-        AND sdk_key = '${sdk_key}'
-    )
-    GROUP BY page
-    ORDER BY averageTime DESC
-    LIMIT ${limit}
-  `;
+
+  const query = getPageTimesQuery(startDate, endDate, sdk_key, limit);
+
 
   try {
     const dataRes = await clickhouse.query({ query, format: 'JSONEachRow' });
     const data = await dataRes.json();
     res.status(200).json(data);
   } catch (err) {
-    console.error("Page Times (Simple) API ERROR:", err);
+    console.error("Page Times API ERROR:", err);
     res.status(500).json({ error: "Failed to get page time data" });
   }
 });
 
 /* 이탈률 */
-router.get("/bounce-rate", authMiddleware, async (req, res) => {
+router.get('/bounce-rate', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   const { startDate, endDate, limit = 10 } = req.query;
   if (!startDate || !endDate) return res.status(400).json({ error: 'Missing startDate or endDate' });
 
+
+  const query = getBounceRateQuery(startDate, endDate, sdk_key, limit);
+
   try {
-    const query = `
-      SELECT
-        page_path,
-        sum(page_views) AS total_views,
-        sum(page_exits) AS total_exits,
-        round(total_exits / total_views * 100, 1) AS bounce_rate
-      FROM (
-        SELECT
-          page_path,
-          page_views,
-          page_exits
-        FROM daily_page_stats
-        WHERE ${buildQueryWhereClause("daily", startDate, endDate)}
-          AND sdk_key = '${sdk_key}'
 
-        UNION ALL
-
-        SELECT
-          page_path,
-          page_views,
-          page_exits
-        FROM hourly_page_stats
-        WHERE ${buildQueryWhereClause("hourly", startDate, endDate)}
-          AND sdk_key = '${sdk_key}'
-
-        UNION ALL
-
-        SELECT
-          page_path,
-          page_views,
-          page_exits
-        FROM minutes_page_stats
-        WHERE ${buildQueryWhereClause("minutes", startDate, endDate)}
-          AND sdk_key = '${sdk_key}'
-      )
-      GROUP BY page_path
-      HAVING total_views > 100 AND bounce_rate > 0
-      ORDER BY bounce_rate DESC
-      LIMIT ${limit}
-    `;
     const result = await clickhouse.query({ query, format: "JSONEachRow" });
     const data = await result.json();
     res.status(200).json(data);
@@ -196,31 +109,9 @@ router.get('/page-views', authMiddleware, async (req, res) => {
   const { startDate, endDate, limit = 10 } = req.query;
   if (!startDate || !endDate) return res.status(400).json({ error: 'Missing startDate or endDate' });
 
-  const query = `
-    SELECT
-      page_path AS page,
-      sum(page_views) AS totalViews
-    FROM (
-      SELECT page_path, page_views
-      FROM daily_page_stats
-      WHERE ${buildQueryWhereClause("daily", startDate, endDate)}
-        AND sdk_key = '${sdk_key}'
-      UNION ALL
-      SELECT page_path, page_views
-      FROM hourly_page_stats
-      WHERE ${buildQueryWhereClause("hourly", startDate, endDate)}
-        AND sdk_key = '${sdk_key}'
-      UNION ALL
-      SELECT page_path, page_views
-      FROM minutes_page_stats
-      WHERE ${buildQueryWhereClause("minutes", startDate, endDate)}
-        AND sdk_key = '${sdk_key}'
-    )
-    GROUP BY page
-    HAVING totalViews > 0
-    ORDER BY totalViews DESC
-    LIMIT ${limit}
-  `;
+
+  const query = getPageViewsQuery(startDate, endDate, sdk_key, limit);
+
 
   try {
     const dataRes = await clickhouse.query({query, format: 'JSONEachRow'});
@@ -231,8 +122,8 @@ router.get('/page-views', authMiddleware, async (req, res) => {
     }));
     res.status(200).json(data);
   } catch (err) {
-    console.error("Page Times API ERROR:", err);
-    res.status(500).json({ error: "Failed to get page times data" });
+    console.error("Page Views API ERROR:", err);
+    res.status(500).json({ error: "Failed to get page views data" });
   }
 });
 
@@ -242,41 +133,16 @@ router.get('/view-counts', authMiddleware, async (req, res) => {
   const { startDate, endDate } = req.query;
   if (!startDate || !endDate) return res.status(400).json({ error: 'Missing startDate or endDate' });
 
-  const query = `
-    SELECT
-      date,
-      sum(views) AS totalViews
-    FROM (
-      SELECT date, sum(page_views) AS views
-      FROM daily_page_stats
-      WHERE ${buildQueryWhereClause("daily", startDate, endDate)}
-        AND sdk_key = '${sdk_key}'
-      GROUP BY date
-      UNION ALL
-      SELECT toDate(date_time) AS date, sum(page_views) AS views
-      FROM hourly_page_stats
-      WHERE ${buildQueryWhereClause("hourly", startDate, endDate)}
-        AND sdk_key = '${sdk_key}'
-      GROUP BY toDate(date_time)
-      UNION ALL
-      SELECT toDate(date_time) AS date, sum(page_views) AS views
-      FROM minutes_page_stats
-      WHERE ${buildQueryWhereClause("minutes", startDate, endDate)}
-        AND sdk_key = '${sdk_key}'
-      GROUP BY toDate(date_time)
-    )
-    GROUP BY date
-    ORDER BY date ASC
-  `;
-
   try {
-    const dataRes = await clickhouse.query({query, format: 'JSONEachRow'});
-    let data = await dataRes.json();
-    data = data.map(item => ({
-      ...item,
-      totalViews: Number(item.totalViews),
-    }));
-    res.status(200).json(data);
+    const dataRes = await clickhouse.query({
+      query: getViewCountsQuery(startDate, endDate, sdk_key),
+      format: 'JSONEachRow'
+    });
+    const data = await dataRes.json();
+    res.status(200).json(data.map(d => ({
+      date: d.date,
+      totalViews: Number(d.totalViews || 0),
+    })));
   } catch (err) {
     console.error("View Counts API ERROR:", err);
     res.status(500).json({ error: "Failed to get view counts data" });
@@ -289,38 +155,184 @@ router.get('/click-counts', authMiddleware, async (req, res) => {
   const { startDate, endDate } = req.query;
   if (!startDate || !endDate) return res.status(400).json({ error: 'Missing startDate or endDate' });
 
-  const query = `
-    SELECT
-      toDate(date_time) AS date,
-      sum(clicks) AS totalClicks
-    FROM (
-      SELECT cast(date AS DateTime) AS date_time, clicks FROM daily_metrics
-      WHERE ${buildQueryWhereClause("daily", startDate, endDate)}
-        AND sdk_key = '${sdk_key}'
-      UNION ALL
-      SELECT date_time, clicks FROM hourly_metrics
-      WHERE ${buildQueryWhereClause("hourly", startDate, endDate)}
-        AND sdk_key = '${sdk_key}'
-      UNION ALL
-      SELECT date_time, clicks FROM minutes_metrics
-      WHERE ${buildQueryWhereClause("minutes", startDate, endDate)}
-        AND sdk_key = '${sdk_key}'
-    )
-    GROUP BY date
-    ORDER BY date ASC
-  `;
-
   try {
-    const dataRes = await clickhouse.query({query, format: 'JSONEachRow'});
-    let data = await dataRes.json();
-    data = data.map(item => ({
-      ...item,
-      totalClicks: Number(item.totalClicks),
-    }));
-    res.status(200).json(data);
+    const dataRes = await clickhouse.query({
+      query: getClickCountsQuery(startDate, endDate, sdk_key),
+      format: 'JSONEachRow'
+    });
+    const data = await dataRes.json();
+    res.status(200).json(data.map(d => ({
+      date: d.date,
+      totalClicks: Number(d.totalClicks || 0),
+    })));
   } catch (err) {
     console.error("Click Counts API ERROR:", err);
     res.status(500).json({ error: "Failed to get click counts data" });
+  }
+});
+
+/* 시간 경과에 따른 사용자 활동 */
+router.get('/users-over-time', authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+  const { startDate, endDate } = req.query;
+  if (!startDate || !endDate) return res.status(400).json({ error: 'Missing startDate or endDate' });
+
+  try {
+    const dataRes = await clickhouse.query({
+      query: getUsersOverTimeQuery(startDate, endDate, sdk_key),
+      format: 'JSONEachRow'
+    });
+    const data = await dataRes.json();
+    res.status(200).json(data.map(item => ({
+      date: item.base_date,
+      dailyUsers: Number(item.daily_users),
+      weeklyUsers: Number(item.weekly_users),
+      monthlyUsers: Number(item.monthly_users),
+    })));
+  } catch (err) {
+    console.error("Users Over Time API ERROR:", err);
+    res.status(500).json({ error: "Failed to get users over time data" });
+  }
+});
+
+/* 시간 경과에 따른 이벤트 수 */
+router.get('/event-counts', authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+  const { startDate, endDate } = req.query;
+  if (!startDate || !endDate) return res.status(400).json({ error: 'Missing startDate or endDate' });
+
+  try {
+    const dataRes = await clickhouse.query({
+      query: getEventCountsQuery(startDate, endDate, sdk_key),
+      format: 'JSONEachRow'
+    });
+    const data = await dataRes.json();
+    res.status(200).json(data.map(item => ({
+      date: item.date,
+      eventName: item.event_name,
+      eventCount: Number(item.event_count),
+      userCount: Number(item.user_count),
+      avgEventPerUser: Number(item.avg_event_per_user),
+    })));
+  } catch (err) {
+    console.error("Event Counts API ERROR:", err);
+    res.status(500).json({ error: "Failed to get event counts data" });
+  }
+});
+
+router.get('/page-stats', authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+  const { startDate, endDate } = req.query;
+  if (!startDate || !endDate) return res.status(400).json({ error: 'Missing startDate or endDate' });
+
+  try {
+    const dataRes = await clickhouse.query({
+      query: getPageStatsQuery(startDate, endDate, sdk_key),
+      format: 'JSONEachRow'
+    });
+    const data = await dataRes.json();
+    res.status(200).json(data.map(item => ({
+      date: item.date,
+      pagePath: item.page_path,
+      pageViews: Number(item.page_views),
+      activeUsers: Number(item.active_users),
+      pageviewsPerUser: Number(item.pageviews_per_user),
+      avgEngagementTimeSec: Number(item.avg_engagement_time_sec),
+      totalEvents: Number(item.total_events),
+    })));
+  } catch (err) {
+    console.error("Page Stats API ERROR:", err);
+    res.status(500).json({ error: "Failed to get page stats data" });
+  }
+});
+
+/* 시간 경과에 따른 방문 페이지 */
+router.get('/visit-stats', authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+  const { startDate, endDate } = req.query;
+  if (!startDate || !endDate) {
+    return res.status(400).json({ error: 'Missing startDate or endDate' });
+  }
+
+  try {
+    const dataRes = await clickhouse.query({
+      query: getVisitStatsQuery(startDate, endDate, sdk_key),
+      format: 'JSONEachRow'
+    });
+    const data = await dataRes.json();
+    res.status(200).json(data.map(item => ({
+      date: item.date,
+      pagePath: item.page_path,
+      sessions: Number(item.sessions),
+      activeUsers: Number(item.active_users),
+      newVisitors: Number(item.new_visitors),
+      avgSessionSeconds: Number(item.avg_session_seconds),
+    })));
+  } catch (err) {
+    console.error("Visit Stats API ERROR:", err);
+    res.status(500).json({ error: "Failed to get visit stats data" });
+  }
+});
+
+router.get('/revisit', authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+  const { startDate, endDate } = req.query;
+
+  if (!startDate || !endDate) {
+    return res.status(400).json({ error: 'Missing startDate or endDate' });
+  }
+
+  try {
+    const query = `
+      WITH date_series AS (
+        SELECT toDate('${startDate}') + number AS date
+        FROM numbers(datediff('day', toDate('${startDate}'), toDate('${endDate}')) + 1)
+      ),
+      dau_table AS (
+        SELECT date, visitors AS dau
+        FROM klicklab.daily_metrics
+        WHERE sdk_key = '${sdk_key}' AND date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
+      ),
+      wau_table AS (
+        SELECT date, visitors AS wau
+        FROM klicklab.weekly_metrics
+        WHERE sdk_key = '${sdk_key}'
+      ),
+      mau_table AS (
+        SELECT date, visitors AS mau
+        FROM klicklab.weekly_metrics
+        WHERE sdk_key = '${sdk_key}'
+      )
+      SELECT
+        ds.date AS date,
+        dt.dau,
+        wt.wau,
+        mt.mau,
+        round(dt.dau / wt.wau, 4) AS dau_wau_ratio,
+        round(dt.dau / mt.mau, 4) AS dau_mau_ratio,
+        round(wt.wau / mt.mau, 4) AS wau_mau_ratio
+      FROM date_series ds
+      LEFT JOIN dau_table dt ON ds.date = dt.date
+      LEFT JOIN wau_table wt ON wt.date = toStartOfWeek(ds.date)
+      LEFT JOIN mau_table mt ON mt.date = toStartOfMonth(ds.date)
+      ORDER BY ds.date ASC
+    `;
+
+    const dataRes = await clickhouse.query({ query, format: 'JSONEachRow' });
+    const data = await dataRes.json();
+
+    res.status(200).json(data.map(row => ({
+      date: row.date,
+      dau: Number(row.dau),
+      wau: Number(row.wau),
+      mau: Number(row.mau),
+      dauWauRatio: Number(row.dau_wau_ratio),
+      dauMauRatio: Number(row.dau_mau_ratio),
+      wauMauRatio: Number(row.wau_mau_ratio),
+    })));
+  } catch (err) {
+    console.error('Error fetching revisit stats:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 

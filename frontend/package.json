@@ -11,6 +11,9 @@
   },
   "dependencies": {
     "clsx": "^2.1.0",
+    "d3": "^7.9.0",
+    "d3-sankey": "^0.12.3",
+    "d3-shape": "^3.2.0",
     "date-fns": "^4.1.0",
     "dayjs": "^1.11.13",
     "framer-motion": "^12.23.0",
@@ -25,6 +28,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.29.0",
+    "@types/d3": "^7.4.3",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.5.2",

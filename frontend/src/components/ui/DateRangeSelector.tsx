@@ -6,6 +6,15 @@ import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import { getRangeLabel } from '../../utils/getRangeLabel';
 
+
+// 로컬 시간대 기준으로 YYYY-MM-DD 포맷
+const formatLocalDate = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const customStaticRanges = createStaticRanges([
   { label: '오늘', range: () => ({ startDate: new Date(), endDate: new Date() }) },
   { label: '어제', range: () => {
@@ -95,7 +104,8 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({
         <span className="inline-flex items-center rounded-md bg-gray-200 px-2 py-1 text-xs font-medium text-gray-600">
           {getRangeLabel(dateRange[0].startDate, dateRange[0].endDate)}
         </span>
-        <span>{dateRange[0].startDate.toISOString().slice(0, 10)} ~ {dateRange[0].endDate.toISOString().slice(0, 10)}</span>
+
+        <span>{formatLocalDate(dateRange[0].startDate)} ~ {formatLocalDate(dateRange[0].endDate)}</span>
       </button>
 
       {showPicker && (
@@ -111,7 +121,8 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({
           />
           <div ref={pickerRef} className="absolute right-6 z-50 mt-2 border border-gray-200 rounded-xl shadow-lg bg-white p-4">
             <DateRangePicker
-              onChange={(item) => setTempRange([item.selection])}
+
+              onChange={(item: any) => setTempRange([item.selection])}
               ranges={tempRange}
               months={1}
               direction="horizontal"
