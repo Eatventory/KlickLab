@@ -122,7 +122,7 @@ export const UserDashboard: React.FC = () => {
           {/* 좌측 컬럼: 지역별 + 연령별 */}
           <div className="flex-1 flex flex-col gap-6">
             {/* 지역별 활성 사용자 */}
-            <div className="h-[530px] overflow-hidden">
+            <div className="h-[550px] overflow-hidden">
               <RegionalActiveUsers 
                 dateRange={dateRange[0]} 
                 onDataSourceUpdate={() => {}} // This prop is no longer needed
@@ -132,7 +132,7 @@ export const UserDashboard: React.FC = () => {
             </div>
             
             {/* 연령별 활성 사용자 */}
-            <div className="h-[270px] overflow-hidden">
+            <div className="h-[310px] overflow-hidden">
               <AgeActiveUsers 
                 dateRange={dateRange[0]}
                 data={filteredData.age}
