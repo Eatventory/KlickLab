@@ -1,117 +1,112 @@
 const express = require("express");
 const router = express.Router();
+const { format } = require('@fast-csv/format');
 const clickhouse = require('../src/config/clickhouse');
 const authMiddleware = require('../middlewares/authMiddleware');
-const { formatLocalDateTime } = require('../utils/formatLocalDateTime');
-const { getLocalNow, floorToNearest10Min, getNearestHourFloor, getOneHourAgo, getTodayStart } = require('../utils/timeUtils');
 
-const localNow = getLocalNow();
-const tenMinutesFloor = formatLocalDateTime(floorToNearest10Min());
-const NearestHourFloor = formatLocalDateTime(getNearestHourFloor());
-const oneHourFloor = formatLocalDateTime(getOneHourAgo());
-const todayStart = formatLocalDateTime(getTodayStart());
+// 1) 일별 지표 (daily_metrics)
+const dailyMetricsQ = (sdk_key, startDate, endDate) => {
+  return `
+    SELECT
+      date,
+      visitors,
+      new_visitors,
+      existing_visitors,
+      avg_session_seconds
+    FROM klicklab.daily_metrics
+    WHERE sdk_key='${sdk_key}'
+      AND date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
+    ORDER BY date ASC
+  `;
+}
 
-router.get("/kpi-summary", authMiddleware, async (req, res) => {
+// 2) 클릭 요약 (daily_click_summary)
+const clickSummaryQ = (sdk_key, startDate, endDate) => {
+  return `
+    SELECT
+      date,
+      segment_type,
+      segment_value,
+      total_clicks,
+      total_users,
+      avg_clicks_per_user
+    FROM klicklab.daily_click_summary
+    WHERE sdk_key='${sdk_key}'
+      AND date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
+    ORDER BY date ASC, total_clicks DESC
+  `;
+}
+// 3) 이벤트 집계 (daily_event_agg)
+const eventSummaryQ = (sdk_key, startDate, endDate) => {
+  return `
+    SELECT
+      summary_date AS date,
+      event_name,
+      sumMerge(event_count_state) AS event_count,
+      uniqMerge(unique_users_state) AS unique_users
+    FROM klicklab.daily_event_agg
+    WHERE sdk_key='${sdk_key}'
+      AND summary_date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
+    GROUP BY summary_date, event_name
+    ORDER BY summary_date ASC, event_count DESC
+  `;
+}
+
+router.get("/kpi-report", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
-
-  const todayQuery = `
-    SELECT
-      coalesce(sum(visitors), 0) AS visitors,
-      coalesce(sum(new_visitors), 0) AS new_visitors,
-      coalesce(sum(existing_visitors), 0) AS existing_visitors
-    FROM (
-      SELECT * FROM klicklab.hourly_metrics
-      WHERE date_time >= toDateTime('${todayStart}')
-        AND date_time <= toDateTime('${oneHourFloor}')
-        AND sdk_key = '${sdk_key}'
-      UNION ALL
-      SELECT * FROM klicklab.minutes_metrics
-      WHERE date_time >= toDateTime('${NearestHourFloor}')
-        AND date_time < toDateTime('${tenMinutesFloor}')
-        AND sdk_key = '${sdk_key}'
-    ) AS today_data
-  `;
-
-  const yesterdayQuery = `
-    SELECT
-      visitors,
-      new_visitors,
-      existing_visitors
-    FROM klicklab.daily_metrics
-    WHERE date = toDate('${localNow}') - INTERVAL 1 DAY
-      AND sdk_key = '${sdk_key}'
-  `;
-
-  const weekagoQuery = `
-    SELECT
-      visitors,
-      new_visitors,
-      existing_visitors
-    FROM klicklab.daily_metrics
-    WHERE date = toDate('${localNow}') - INTERVAL 7 DAY
-      AND sdk_key = '${sdk_key}'
-  `;
+  const { startDate, endDate } = req.query;
+  if (!startDate || !endDate) return res.status(400).json({ error: 'Missing startDate or endDate' });
 
   try {
-    const [todayRes, yesterdayRes, weekagoRes] = await Promise.all([
-      clickhouse.query({ query: todayQuery, format: 'JSON' }).then(r => r.json()),
-      clickhouse.query({ query: yesterdayQuery, format: 'JSON' }).then(r => r.json()),
-      clickhouse.query({ query: weekagoQuery, format: 'JSON' }).then(r => r.json()),
+    const [dailyRes, clickRes, eventRes] = await Promise.all([
+      clickhouse.query({ query: dailyMetricsQ(sdk_key, startDate, endDate), format: 'JSON' }).then(r => r.json()),
+      clickhouse.query({ query: clickSummaryQ(sdk_key, startDate, endDate), format: 'JSON' }).then(r => r.json()),
+      clickhouse.query({ query: eventSummaryQ(sdk_key, startDate, endDate), format: 'JSON' }).then(r => r.json()),
     ]);
 
-    const todayData = todayRes.data?.[0] || {};
-    const yesterdayData = yesterdayRes.data?.[0] || {};
-    const weekagoData = weekagoRes.data?.[0] || {};
-
-    const {
-      visitors: daily_visitors = 0,
-      new_visitors: new_users = 0,
-      existing_visitors: returning_users = 0
-    } = todayData;
-    
-    const {
-      visitors: daily_visitors_prev = 0,
-      new_visitors: new_users_prev = 0,
-      existing_visitors: returning_users_prev = 0
-    } = yesterdayData;
-    
-    const {
-      visitors: daily_visitors_week = 0,
-      new_visitors: new_users_week = 0,
-      existing_visitors: returning_users_week = 0
-    } = weekagoData;
-
-    const getDiff = (cur, prev) => {
-      if (!prev || prev === 0) return 0;
-      return (((cur - prev) / prev) * 100).toFixed(1);
-    };
-
-    res.json({
-      reference_date: localNow,
-      daily_visitors: {
-        current: daily_visitors,
-        vs_yesterday: `${getDiff(daily_visitors, daily_visitors_prev)}%`,
-        vs_last_week: `${getDiff(daily_visitors, daily_visitors_week)}%`,
-      },
-      new_users: {
-        current: new_users,
-        vs_yesterday: `${getDiff(new_users, new_users_prev)}%`,
-        vs_last_week: `${getDiff(new_users, new_users_week)}%`,
-      },
-      returning_users: {
-        current: returning_users,
-        vs_yesterday: `${getDiff(returning_users, returning_users_prev)}%`,
-        vs_last_week: `${getDiff(returning_users, returning_users_week)}%`,
-      },
-      churned_users: {
-        current: 0,
-        vs_yesterday: `0%`,
-        vs_last_week: `0%`,
-      },
+    res.status(200).json({
+      dailyMetrics: dailyRes.data || [],
+      clickSummary: clickRes.data || [],
+      eventSummary: eventRes.data || []
     });
   } catch (err) {
-    console.error('[ERROR] KPI 요약 실패:', err);
-    res.status(500).json({ message: "KPI 요약 조회 실패" });
+    console.error('[ERROR] KPI 리포트 조회 실패:', err);
+    res.status(500).json({ message: "KPI 리포트 조회 실패" });
+  }
+});
+
+router.get("/kpi-report/csv", authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+  const { startDate, endDate } = req.query;
+  if (!startDate || !endDate) return res.status(400).json({ error: 'Missing startDate or endDate' });
+
+  const queries = [
+    dailyMetricsQ(sdk_key, startDate, endDate),
+    clickSummaryQ(sdk_key, startDate, endDate),
+    eventSummaryQ(sdk_key, startDate, endDate)
+  ];
+
+  try {
+    // 모두 가져와서 플래튼(flatten) 후 CSV 작성
+    const results = await Promise.all(queries.map(q =>
+      clickhouse.query({ query: q, format: 'JSON' }).then(r => r.json()).then(r => r.data || [])
+    ));
+    const [daily, clicks, events] = results;
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="kpi-report-${startDate}-${endDate}.csv"`);
+
+    const csvStream = format({ headers: true });
+    csvStream.pipe(res);
+
+    daily.forEach(row => csvStream.write({ table: 'daily', ...row }));
+    clicks.forEach(row => csvStream.write({ table: 'clicks', ...row }));
+    events.forEach(row => csvStream.write({ table: 'events', ...row }));
+
+    csvStream.end();
+  } catch (err) {
+    console.error('[ERROR] KPI CSV 생성 실패:', err);
+    res.status(500).end();
   }
 });
 
