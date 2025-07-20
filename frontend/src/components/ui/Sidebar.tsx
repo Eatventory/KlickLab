@@ -93,8 +93,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {/* 하이라이트 백그라운드 */}
           <div
             className={clsx(
-              "absolute left-0 h-11 bg-blue-600 z-0 transition-all duration-200",
-              isCollapsed ? "w-11 rounded-full" : "w-full rounded-e-full"
+              "absolute left-0 h-11 bg-blue-600 rounded-full z-0 transition-all duration-200",
+              isCollapsed ? "w-11" : "w-full"
             )}
             style={{
               transform: `translateY(${tabs.findIndex(t => t.id === activeTab) * 48}px)`
@@ -153,7 +153,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         )}
       >
         <div className="text-xs text-gray-500 whitespace-nowrap">
-          <div>버전 1.0.2</div>
+          <div>버전 1.1.0</div>
           <div>© 2025 KlickLab</div>
         </div>
       </div>

@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from "react";
-import { ChevronDown } from "lucide-react";
+import { useRef, useEffect } from "react";
+import { Triangle } from "lucide-react";
 
 interface CollapseProps {
   title: string;
@@ -30,9 +30,11 @@ const Collapse: React.FC<CollapseProps> = ({ title, children, isOpen, isCard = f
   return (
     <div className="w-full">
       <button onClick={onToggle} className="w-full px-4 py-2 text-left flex items-center gap-4">
-        <ChevronDown
-          className="w-5 h-5 transform transition-transform duration-300"
-          style={{ transform: `rotate(${isOpen ? 180 : 0}deg)` }}
+        <Triangle
+          className="w-4 h-4 transform transition-transform duration-300"
+          style={{ transform: `rotate(${isOpen ? 180 : 90}deg)` }}
+          fill="currentColor"
+          stroke="none"
         />
         <span className={isCard ? "text-lg font-semibold" : ""}>{title}</span>
       </button>

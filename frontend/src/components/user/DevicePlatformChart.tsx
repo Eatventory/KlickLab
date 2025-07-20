@@ -35,7 +35,7 @@ interface DevicePlatformChartProps {
 }
 
 // 타입 정의
-type PlatformKey = 'ios' | 'android' | 'windows' | 'mac';
+type PlatformKey = 'ios' | 'android' | 'windows' | 'mac' | 'unknown';
 type DeviceType = 'mobile' | 'desktop';
 
 // 플랫폼별 색상 매핑 (API 데이터와 독립적)
@@ -44,6 +44,7 @@ const PLATFORM_COLORS: Record<PlatformKey, string> = {
   android: '#A6BF51',  // 녹색 - Android  
   windows: '#64ACEA',  // 하늘색 - Windows
   mac: '#5F6061',      // 회색 - Mac
+  unknown: '#9ca3af'   // 연회색 - 알 수 없음
 } as const;
 
 // 기기별 색상 매핑
@@ -109,8 +110,6 @@ export const DevicePlatformChart: React.FC<DevicePlatformChartProps> = ({ dateRa
         dateQuery = `?startDate=${startStr}&endDate=${endStr}`;
       }
 
-      console.log('[DevicePlatformChart] 요청 시작:', dateQuery);
-
       const response = await fetch(`/api/users/realtime-analytics${dateQuery}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -118,7 +117,6 @@ export const DevicePlatformChart: React.FC<DevicePlatformChartProps> = ({ dateRa
       if (!response.ok) throw new Error('Failed to fetch data');
       
       const result = await response.json();
-      console.log('[DevicePlatformChart] API 응답 전체:', result);
       
       // device_type 세그먼트 데이터 확인
       
@@ -127,12 +125,9 @@ export const DevicePlatformChart: React.FC<DevicePlatformChartProps> = ({ dateRa
       
       // 안전한 데이터 접근
       const dataArray = result.data || result || [];
-      console.log('[DevicePlatformChart] 데이터 배열:', dataArray);
-      console.log('[DevicePlatformChart] 데이터 배열 길이:', Array.isArray(dataArray) ? dataArray.length : 'not array');
 
       // device_type 세그먼트 확인 (실제 데이터 구조)
       const deviceTypeSegments = dataArray.filter((row: any) => row.segment_type === 'device_type');
-      console.log('[DevicePlatformChart] device_type 세그먼트:', deviceTypeSegments);
       
       // 기기 타입별 데이터 수집 (내부 링)
       const deviceTypeMap: Record<string, number> = {};
@@ -151,12 +146,10 @@ export const DevicePlatformChart: React.FC<DevicePlatformChartProps> = ({ dateRa
             const os = row.dist_value.toLowerCase(); // android, other, etc.
             const userCount = parseInt(row.user_count);
             
-            console.log('[DevicePlatformChart] 데이터 처리:', {
-              deviceType, 
-              os, 
-              userCount, 
-              row
-            });
+            // 올바른 device_type만 처리 ('desktop', 'mobile'만 허용)
+            if (deviceType !== 'desktop' && deviceType !== 'mobile') {
+              return; // 'dekktop', 'mobble' 같은 오타는 무시
+            }
             
             // 기기 타입별 집계 (내부 링)
             if (!deviceTypeMap[deviceType]) deviceTypeMap[deviceType] = 0;
@@ -171,9 +164,6 @@ export const DevicePlatformChart: React.FC<DevicePlatformChartProps> = ({ dateRa
         console.error('[DevicePlatformChart] 데이터가 배열이 아닙니다:', typeof dataArray, dataArray);
       }
 
-      console.log('[DevicePlatformChart] 기기 타입별 집계:', deviceTypeMap);
-      console.log('[DevicePlatformChart] OS별 집계:', osMap);
-
       // 총 사용자 수 계산
       const totalUsers = Object.values(osMap).reduce((sum, count) => sum + count, 0);
 
@@ -181,72 +171,102 @@ export const DevicePlatformChart: React.FC<DevicePlatformChartProps> = ({ dateRa
       const formattedData: PlatformData[] = [];
       
       // 플랫폼별로 중복 제거하면서 데이터 집계
-      const finalPlatformMap: Record<string, number> = {};
+      const finalPlatformMap: Record<string, {users: number, deviceType: DeviceType}> = {};
+      
+      // 기기 타입별로 unknown OS 집계를 위한 맵
+      const unknownByDeviceType: Record<DeviceType, number> = {
+        desktop: 0,
+        mobile: 0
+      };
       
       Object.entries(osMap).forEach(([osKey, userCount]) => {
         let platformKey: PlatformKey;
+        let deviceType: DeviceType;
         
         // OS 매핑
         switch (osKey.toLowerCase()) {
           case 'android':
             platformKey = 'android';
+            deviceType = 'mobile';
             break;
           case 'ios':
             platformKey = 'ios';
+            deviceType = 'mobile';
             break;
           case 'windows':
             platformKey = 'windows';
+            deviceType = 'desktop';
             break;
           case 'mac':
           case 'macos':
             platformKey = 'mac';
+            deviceType = 'desktop';
             break;
           case 'other':
+          case 'unknown':
           default:
-            // 'Other'나 알 수 없는 OS는 기기 타입에 따라 분류
-            if (deviceTypeMap.desktop && deviceTypeMap.desktop > (deviceTypeMap.mobile || 0)) {
-              platformKey = 'windows';
-            } else {
-              platformKey = 'android';
-            }
-            break;
+            // 알 수 없는 OS는 기기 타입에 따라 분류하되 'unknown'으로 처리
+            
+            // deviceTypeMap을 통해 이 사용자들이 어떤 기기 타입인지 추정
+            // 실제로는 raw 데이터에서 각 OS별로 어떤 device_type에서 왔는지 추적해야 하지만,
+            // 현재는 비율로 추정
+            const totalDeviceUsers = (deviceTypeMap.desktop || 0) + (deviceTypeMap.mobile || 0);
+            const desktopRatio = totalDeviceUsers > 0 ? (deviceTypeMap.desktop || 0) / totalDeviceUsers : 0.5;
+            
+            const unknownDesktopUsers = Math.round(userCount * desktopRatio);
+            const unknownMobileUsers = userCount - unknownDesktopUsers;
+            
+            unknownByDeviceType.desktop += unknownDesktopUsers;
+            unknownByDeviceType.mobile += unknownMobileUsers;
+            
+            return; // 이 케이스는 별도 처리하므로 여기서 리턴
         }
         
-                 // 플랫폼별로 사용자 수 집계 (중복 제거)
-         if (!finalPlatformMap[platformKey]) finalPlatformMap[platformKey] = 0;
-         finalPlatformMap[platformKey] += userCount;
-       });
-       
-       // 최종 플랫폼 데이터 생성
-       Object.entries(finalPlatformMap).forEach(([platformKey, userCount]) => {
-        const typedPlatformKey = platformKey as PlatformKey;
+        // 플랫폼별로 사용자 수 집계 (중복 제거)
+        const platformMapKey = `${platformKey}_${deviceType}`;
+        if (!finalPlatformMap[platformMapKey]) {
+          finalPlatformMap[platformMapKey] = {users: 0, deviceType};
+        }
+        finalPlatformMap[platformMapKey].users += userCount;
+      });
+      
+      // unknown OS 데이터 추가 (기기 타입별로)
+      Object.entries(unknownByDeviceType).forEach(([deviceTypeStr, userCount]) => {
+        if (userCount > 0) {
+          const deviceType = deviceTypeStr as DeviceType;
+          const platformMapKey = `unknown_${deviceType}`;
+          finalPlatformMap[platformMapKey] = {users: userCount, deviceType};
+        }
+      });
+      
+      // 최종 플랫폼 데이터 생성
+      Object.entries(finalPlatformMap).forEach(([platformMapKey, {users: userCount, deviceType}]) => {
+        const [platformKeyStr] = platformMapKey.split('_');
+        const typedPlatformKey = platformKeyStr as PlatformKey;
         let platformName: string;
-        let deviceType: DeviceType;
         
         switch (typedPlatformKey) {
           case 'android':
             platformName = 'Android';
-            deviceType = 'mobile';
             break;
           case 'ios':
             platformName = 'iOS';
-            deviceType = 'mobile';
             break;
           case 'windows':
             platformName = 'Windows';
-            deviceType = 'desktop';
             break;
           case 'mac':
             platformName = 'macOS';
-            deviceType = 'desktop';
+            break;
+          case 'unknown':
+            platformName = 'UNKNOWN';
             break;
           default:
-            platformName = platformKey;
-            deviceType = 'desktop';
+            platformName = platformKeyStr;
         }
         
         formattedData.push({
-          id: typedPlatformKey,
+          id: `${typedPlatformKey}_${deviceType}`, // unique ID를 위해 deviceType 포함
           name: platformName,
           users: userCount,
           percentage: totalUsers > 0 ? Math.round((userCount / totalUsers) * 1000) / 10 : 0,
@@ -360,7 +380,7 @@ export const DevicePlatformChart: React.FC<DevicePlatformChartProps> = ({ dateRa
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm h-full flex flex-col">
       <div className="mb-8">
-        <h3 className="text-lg font-semibold text-gray-900 mb-1">기기 및 플랫폼별 활성 사용자</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-1">기기 및 플랫폼별 활성 사용자</h3>
       </div>
 
 
