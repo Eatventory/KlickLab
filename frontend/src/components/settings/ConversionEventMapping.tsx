@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Settings, Plus, Trash2, Search } from 'lucide-react';
 import Toast from '../ui/Toast';
 
@@ -32,6 +32,24 @@ export const ConversionEventMapping: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+  const formRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = formRef.current;
+    if (!el) return;
+
+    if (showAddForm) {
+      el.style.maxHeight = `${el.scrollHeight}px`;
+      const handleTransitionEnd = () => (el.style.maxHeight = 'none');
+      el.addEventListener('transitionend', handleTransitionEnd);
+      return () => el.removeEventListener('transitionend', handleTransitionEnd);
+    } else {
+      el.style.maxHeight = `${el.scrollHeight}px`;
+      requestAnimationFrame(() => {
+        el.style.maxHeight = '0px';
+      });
+    }
+  }, [showAddForm]);
 
   // 전환 이벤트 목록 조회
   const fetchEvents = async () => {
@@ -112,8 +130,6 @@ export const ConversionEventMapping: React.FC = () => {
     }
   };
 
-
-
   // 전환 이벤트 삭제
   const handleDeleteEvent = async (event_name: string) => {
     if (!window.confirm(`'${event_name}' 이벤트를 삭제하시겠습니까?`)) {
@@ -146,7 +162,7 @@ export const ConversionEventMapping: React.FC = () => {
         <div className="flex gap-2">
           <button
             onClick={() => setShowAddForm(!showAddForm)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 text-sm"
           >
             <Plus className="w-4 h-4" />
             이벤트 추가
@@ -155,7 +171,11 @@ export const ConversionEventMapping: React.FC = () => {
       </div>
 
       {/* 추가 폼 */}
-      {showAddForm && (
+      <div
+        ref={formRef}
+        className="overflow-hidden transition-all duration-300 ease-in-out"
+        style={{ maxHeight: '0px' }}
+      >
         <div className="mb-6 p-4 border rounded-md bg-gray-50">
           <h3 className="text-sm font-semibold text-gray-700 mb-3">수집된 이벤트에서 선택</h3>
 
@@ -257,7 +277,7 @@ export const ConversionEventMapping: React.FC = () => {
             </button>
           </div>
         </div>
-      )}
+      </div>
 
       {/* 이벤트 목록 테이블 */}
       <div className="overflow-x-auto">
