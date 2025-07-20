@@ -74,8 +74,6 @@ export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({
       }
     });
 
-    console.log('[AgeActiveUsers] 전체 연령 데이터 맵:', ageMap);
-
     // 알려진 연령대와 알려지지 않은 연령대 분리
     const knownAgeUsers = Object.entries(ageMap)
       .filter(([age]) => ageOrder.includes(age))
@@ -88,14 +86,6 @@ export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({
     // 알려지지 않은 연령대들 로그 출력
     const unknownAges = Object.entries(ageMap)
       .filter(([age]) => !ageOrder.includes(age));
-
-    if (unknownAges.length > 0) {
-      console.log('[AgeActiveUsers] 🚨 알려지지 않은 연령대 (알 수 없음으로 집계):', unknownAges);
-      console.log('[AgeActiveUsers] 알 수 없음 연령대 총 사용자 수:', unknownAgeUsers);
-    }
-
-    console.log('[AgeActiveUsers] 알려진 연령대 사용자 수:', knownAgeUsers);
-    console.log('[AgeActiveUsers] 총 사용자 수 (알려진 + 알 수 없음):', knownAgeUsers + unknownAgeUsers);
 
     // 연령대 순서에 따라 데이터 정렬 및 변환 (알려진 연령대만)
     const formattedData: AgeData[] = ageOrder
@@ -110,11 +100,10 @@ export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({
     // "알 수 없음" 연령대 항상 추가 (데이터가 없어도 0으로 표시)
     formattedData.push({
       id: 'unknown',
-      ageRange: 'Unknown',
+      ageRange: '알 수 없음',
       users: unknownAgeUsers,
       color: '#9ca3af' // 회색 색상
     });
-    console.log(`[AgeActiveUsers] 알 수 없음 연령대 추가: ${unknownAgeUsers}명`);
 
     return formattedData;
   }, [data]);
@@ -190,7 +179,7 @@ export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({
 
     <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm h-full flex flex-col">
       <div className="mb-2">
-        <h3 className="text-lg font-semibold text-gray-900 mb-1">연령 별 활성 사용자 & 기타</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-1">연령 별 활성 사용자</h3>
       </div>
 
       {/* 로딩 상태 */}

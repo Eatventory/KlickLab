@@ -67,28 +67,16 @@ export const GenderActiveUsers: React.FC<GenderActiveUsersProps> = ({ dateRange,
 
   // 성별 데이터 처리 함수 분리
   const processGenderData = (dataArray: any[]) => {
-    console.log('[GenderActiveUsers] processGenderData 시작, 받은 데이터:', dataArray);
-    
     // 성별별 사용자 집계
     const genderMap: Record<string, number> = {};
     
     dataArray.forEach((row: any) => {
-      console.log('[GenderActiveUsers] 처리 중인 row:', row);
-      
       if (row.segment_type === 'user_gender' && row.segment_value && row.segment_value !== 'unknown') {
         const gender = row.segment_value;
-        console.log('[GenderActiveUsers] 성별 데이터 발견:', gender, row.user_count);
-        
         if (!genderMap[gender]) genderMap[gender] = 0;
         genderMap[gender] += parseInt(row.user_count);
-        
-        console.log('[GenderActiveUsers] 현재 genderMap:', genderMap);
-      } else {
-        console.log('[GenderActiveUsers] 건너뛴 row - segment_type:', row.segment_type, 'segment_value:', row.segment_value);
       }
     });
-
-    console.log('[GenderActiveUsers] 최종 전체 성별 데이터 맵:', genderMap);
 
     // 알려진 성별(male, female)과 알려지지 않은 성별 분리
     const knownGenderUsers = (genderMap.male || 0) + (genderMap.female || 0);
@@ -96,25 +84,12 @@ export const GenderActiveUsers: React.FC<GenderActiveUsersProps> = ({ dateRange,
       .filter(([gender]) => gender !== 'male' && gender !== 'female')
       .reduce((sum, [, count]) => sum + count, 0);
 
-    console.log('[GenderActiveUsers] 알려진 성별 사용자 수:', knownGenderUsers);
-    console.log('[GenderActiveUsers] 알려지지 않은 성별 사용자 수:', unknownGenderUsers);
-
     // 알려지지 않은 성별들 로그 출력
     const unknownGenders = Object.entries(genderMap)
       .filter(([gender]) => gender !== 'male' && gender !== 'female');
 
-    console.log('[GenderActiveUsers] 알려지지 않은 성별 목록:', unknownGenders);
-
-    if (unknownGenders.length > 0) {
-      console.log('[GenderActiveUsers] 🚨 알려지지 않은 성별 (알 수 없음으로 집계):', unknownGenders);
-      console.log('[GenderActiveUsers] 알 수 없음 성별 총 사용자 수:', unknownGenderUsers);
-    } else {
-      console.log('[GenderActiveUsers] ❌ 알려지지 않은 성별이 없음');
-    }
-
     // 총 사용자 수 계산 (알려진 성별 + 알 수 없음)
     const totalUsers = knownGenderUsers + unknownGenderUsers;
-    console.log('[GenderActiveUsers] 총 사용자 수 (알려진 성별 + 알 수 없음):', totalUsers);
 
     // 데이터 변환 (차트 회전 고려: FEMALE 먼저, MALE 나중에)
     const formattedData: GenderData[] = [];
@@ -129,7 +104,6 @@ export const GenderActiveUsers: React.FC<GenderActiveUsersProps> = ({ dateRange,
         color: GENDER_COLORS.female
       };
       formattedData.push(femaleData);
-      console.log('[GenderActiveUsers] FEMALE 데이터 추가:', femaleData);
     }
     
     // MALE 나중에 추가 (회전 후 오른쪽에 위치)
@@ -142,28 +116,21 @@ export const GenderActiveUsers: React.FC<GenderActiveUsersProps> = ({ dateRange,
         color: GENDER_COLORS.male
       };
       formattedData.push(maleData);
-      console.log('[GenderActiveUsers] MALE 데이터 추가:', maleData);
     }
 
     // "알 수 없음" 성별 추가 (unknownGenderUsers > 0인 경우에만)
-    console.log('[GenderActiveUsers] 알 수 없음 추가 조건 확인:', unknownGenderUsers, '> 0?', unknownGenderUsers > 0);
-    
     if (unknownGenderUsers > 0) {
       const unknownPercentage = totalUsers > 0 ? Math.round((unknownGenderUsers / totalUsers) * 1000) / 10 : 0;
       const unknownData = {
         id: 'unknown' as GenderId,
-        name: 'Unknown',
+        name: '알 수 없음',
         users: unknownGenderUsers,
         percentage: unknownPercentage,
         color: GENDER_COLORS.unknown
       };
       formattedData.push(unknownData);
-      console.log(`[GenderActiveUsers] ✅ 알 수 없음 성별 추가:`, unknownData);
-    } else {
-      console.log(`[GenderActiveUsers] ❌ 알 수 없음 성별 추가하지 않음 (사용자 수: ${unknownGenderUsers})`);
     }
 
-    console.log('[GenderActiveUsers] 최종 formattedData:', formattedData);
     setGenderData(formattedData);
   };
 
@@ -204,8 +171,6 @@ export const GenderActiveUsers: React.FC<GenderActiveUsersProps> = ({ dateRange,
         });
       }
 
-      console.log('[GenderActiveUsers] API에서 가져온 성별 데이터 맵:', genderMap);
-
       // 알려진 성별(male, female)과 알려지지 않은 성별 분리
       const knownGenderUsers = (genderMap.male || 0) + (genderMap.female || 0);
       const unknownGenderUsers = Object.entries(genderMap)
@@ -216,14 +181,8 @@ export const GenderActiveUsers: React.FC<GenderActiveUsersProps> = ({ dateRange,
       const unknownGenders = Object.entries(genderMap)
         .filter(([gender]) => gender !== 'male' && gender !== 'female');
 
-      if (unknownGenders.length > 0) {
-        console.log('[GenderActiveUsers] 🚨 API에서 알려지지 않은 성별 (알 수 없음으로 집계):', unknownGenders);
-        console.log('[GenderActiveUsers] API 알 수 없음 성별 총 사용자 수:', unknownGenderUsers);
-      }
-
       // 총 사용자 수 계산 (알려진 성별 + 알 수 없음)
       const totalUsers = knownGenderUsers + unknownGenderUsers;
-      console.log('[GenderActiveUsers] API 총 사용자 수 (알려진 성별 + 알 수 없음):', totalUsers);
 
       // 데이터 변환 (차트 회전 고려: FEMALE 먼저, MALE 나중에)
       const formattedData: GenderData[] = [];
@@ -260,7 +219,6 @@ export const GenderActiveUsers: React.FC<GenderActiveUsersProps> = ({ dateRange,
           percentage: unknownPercentage,
           color: GENDER_COLORS.unknown
         });
-        console.log(`[GenderActiveUsers] API에서 알 수 없음 성별 추가: ${unknownGenderUsers}명 (${unknownPercentage}%)`);
       }
 
       setGenderData(formattedData);
@@ -350,7 +308,7 @@ export const GenderActiveUsers: React.FC<GenderActiveUsersProps> = ({ dateRange,
   return (
     <div className="bg-white rounded-lg border p-6 relative h-full flex flex-col">
       <div className="mb-6">
-        <h3 className="text-lg font-semibold text-gray-900">성별 별 활성 사용자 & 기타</h3>
+        <h3 className="text-lg font-semibold text-gray-900">성별 별 활성 사용자</h3>
       </div>
 
 

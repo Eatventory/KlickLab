@@ -101,8 +101,6 @@ export const RegionalActiveUsers: React.FC<RegionalActiveUsersProps> = ({ dateRa
         dateQuery = `?startDate=${startStr}&endDate=${endStr}`;
       }
 
-      console.log('[RegionalActiveUsers] 요청 시작:', dateQuery);
-
       const response = await fetch(`/api/users/realtime-analytics${dateQuery}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -110,7 +108,6 @@ export const RegionalActiveUsers: React.FC<RegionalActiveUsersProps> = ({ dateRa
       if (!response.ok) throw new Error('Failed to fetch data');
       
       const result = await response.json();
-      console.log('[RegionalActiveUsers] API 응답 전체:', result);
       
       // 데이터 소스 정보 업데이트
       if (onDataSourceUpdate && result.meta?.dataSource) {
@@ -119,12 +116,9 @@ export const RegionalActiveUsers: React.FC<RegionalActiveUsersProps> = ({ dateRa
       
       // 안전한 데이터 접근
       const dataArray = result.data || result || [];
-      console.log('[RegionalActiveUsers] 데이터 배열:', dataArray);
-      console.log('[RegionalActiveUsers] 데이터 배열 길이:', Array.isArray(dataArray) ? dataArray.length : 'not array');
       
       // country 세그먼트 확인 (실제 데이터 구조)
       const countrySegments = dataArray.filter((row: any) => row.segment_type === 'country');
-      console.log('[RegionalActiveUsers] country 세그먼트:', countrySegments);
       
       // city 세그먼트에서 지역 정보 추출 (country는 KR 고정, city는 dist_value에 있음)
       const cityMap: Record<string, number> = {};
@@ -138,14 +132,11 @@ export const RegionalActiveUsers: React.FC<RegionalActiveUsersProps> = ({ dateRa
               row.dist_value && 
               row.dist_value !== 'unknown') {
             const city = row.dist_value;
-            console.log('[RegionalActiveUsers] city 데이터 처리:', city, row.user_count, row);
             if (!cityMap[city]) cityMap[city] = 0;
             cityMap[city] += parseInt(row.user_count);
           }
         });
       }
-
-      console.log('[RegionalActiveUsers] 최종 cityMap:', cityMap);
 
       // 알려진 지역(REGION_NAME_MAPPING에 있는 지역)만 총 사용자 수에 포함
       const knownRegionUsers = Object.entries(cityMap)
@@ -161,14 +152,8 @@ export const RegionalActiveUsers: React.FC<RegionalActiveUsersProps> = ({ dateRa
       const unknownRegions = Object.entries(cityMap)
         .filter(([englishName]) => !REGION_NAME_MAPPING[englishName]);
       
-      if (unknownRegions.length > 0) {
-        console.log('[RegionalActiveUsers] 🚨 알려지지 않은 지역 (기타 지역으로 집계):', unknownRegions);
-        console.log('[RegionalActiveUsers] 기타 지역 총 사용자 수:', unknownRegionUsers);
-      }
-      
       // 총 사용자 수는 알려진 지역 + 기타 지역
       const totalUsers = knownRegionUsers + unknownRegionUsers;
-      console.log('[RegionalActiveUsers] 총 사용자 수 (알려진 지역 + 기타):', totalUsers);
 
       // 기존 지역 데이터 업데이트 (영어명 → 한국어명 매핑 적용)
       const updatedRegionData = REGION_METADATA.map((region: { id: string; name: string; color: string }) => {
@@ -185,8 +170,6 @@ export const RegionalActiveUsers: React.FC<RegionalActiveUsersProps> = ({ dateRa
         
         const percentage = totalUsers > 0 ? Math.round((users / totalUsers) * 1000) / 10 : 0;
         
-        console.log(`[RegionalActiveUsers] 지역 매핑: ${koreanName} = ${users}명 (${percentage}%)`);
-        
         return {
           ...region,
           users,
@@ -199,12 +182,11 @@ export const RegionalActiveUsers: React.FC<RegionalActiveUsersProps> = ({ dateRa
         const otherRegionPercentage = totalUsers > 0 ? Math.round((unknownRegionUsers / totalUsers) * 1000) / 10 : 0;
         updatedRegionData.push({
           id: 'KR-OTHER',
-          name: 'Unknown',
+          name: '알 수 없음',
           users: unknownRegionUsers,
           percentage: otherRegionPercentage,
           color: '#9ca3af' // 회색 색상
         });
-        console.log(`[RegionalActiveUsers] 기타 지역 추가: ${unknownRegionUsers}명 (${otherRegionPercentage}%)`);
       }
 
       // 사용자 수 기준으로 정렬
@@ -229,8 +211,6 @@ export const RegionalActiveUsers: React.FC<RegionalActiveUsersProps> = ({ dateRa
         }
         
         const assignedColor = COLOR_LEGEND[colorLevel]?.color || COLOR_LEGEND[0].color;
-        
-        console.log(`[RegionalActiveUsers] 색깔 할당: ${region.name} (${index + 1}위, ${region.users}명) → Level ${colorLevel} (${assignedColor})`);
         
         return {
           ...region,

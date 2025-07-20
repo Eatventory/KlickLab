@@ -110,8 +110,6 @@ export const DevicePlatformChart: React.FC<DevicePlatformChartProps> = ({ dateRa
         dateQuery = `?startDate=${startStr}&endDate=${endStr}`;
       }
 
-      console.log('[DevicePlatformChart] 요청 시작:', dateQuery);
-
       const response = await fetch(`/api/users/realtime-analytics${dateQuery}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -119,7 +117,6 @@ export const DevicePlatformChart: React.FC<DevicePlatformChartProps> = ({ dateRa
       if (!response.ok) throw new Error('Failed to fetch data');
       
       const result = await response.json();
-      console.log('[DevicePlatformChart] API 응답 전체:', result);
       
       // device_type 세그먼트 데이터 확인
       
@@ -128,12 +125,9 @@ export const DevicePlatformChart: React.FC<DevicePlatformChartProps> = ({ dateRa
       
       // 안전한 데이터 접근
       const dataArray = result.data || result || [];
-      console.log('[DevicePlatformChart] 데이터 배열:', dataArray);
-      console.log('[DevicePlatformChart] 데이터 배열 길이:', Array.isArray(dataArray) ? dataArray.length : 'not array');
 
       // device_type 세그먼트 확인 (실제 데이터 구조)
       const deviceTypeSegments = dataArray.filter((row: any) => row.segment_type === 'device_type');
-      console.log('[DevicePlatformChart] device_type 세그먼트:', deviceTypeSegments);
       
       // 기기 타입별 데이터 수집 (내부 링)
       const deviceTypeMap: Record<string, number> = {};
@@ -152,12 +146,10 @@ export const DevicePlatformChart: React.FC<DevicePlatformChartProps> = ({ dateRa
             const os = row.dist_value.toLowerCase(); // android, other, etc.
             const userCount = parseInt(row.user_count);
             
-            console.log('[DevicePlatformChart] 데이터 처리:', {
-              deviceType, 
-              os, 
-              userCount, 
-              row
-            });
+            // 올바른 device_type만 처리 ('desktop', 'mobile'만 허용)
+            if (deviceType !== 'desktop' && deviceType !== 'mobile') {
+              return; // 'dekktop', 'mobble' 같은 오타는 무시
+            }
             
             // 기기 타입별 집계 (내부 링)
             if (!deviceTypeMap[deviceType]) deviceTypeMap[deviceType] = 0;
@@ -171,9 +163,6 @@ export const DevicePlatformChart: React.FC<DevicePlatformChartProps> = ({ dateRa
       } else {
         console.error('[DevicePlatformChart] 데이터가 배열이 아닙니다:', typeof dataArray, dataArray);
       }
-
-      console.log('[DevicePlatformChart] 기기 타입별 집계:', deviceTypeMap);
-      console.log('[DevicePlatformChart] OS별 집계:', osMap);
 
       // 총 사용자 수 계산
       const totalUsers = Object.values(osMap).reduce((sum, count) => sum + count, 0);
@@ -217,7 +206,6 @@ export const DevicePlatformChart: React.FC<DevicePlatformChartProps> = ({ dateRa
           case 'unknown':
           default:
             // 알 수 없는 OS는 기기 타입에 따라 분류하되 'unknown'으로 처리
-            console.log('[DevicePlatformChart] 알 수 없는 OS 발견:', osKey, 'userCount:', userCount);
             
             // deviceTypeMap을 통해 이 사용자들이 어떤 기기 타입인지 추정
             // 실제로는 raw 데이터에서 각 OS별로 어떤 device_type에서 왔는지 추적해야 하지만,
@@ -230,14 +218,6 @@ export const DevicePlatformChart: React.FC<DevicePlatformChartProps> = ({ dateRa
             
             unknownByDeviceType.desktop += unknownDesktopUsers;
             unknownByDeviceType.mobile += unknownMobileUsers;
-            
-            console.log('[DevicePlatformChart] Unknown OS 분배:', {
-              osKey,
-              userCount,
-              desktopRatio,
-              unknownDesktopUsers,
-              unknownMobileUsers
-            });
             
             return; // 이 케이스는 별도 처리하므로 여기서 리턴
         }
@@ -256,7 +236,6 @@ export const DevicePlatformChart: React.FC<DevicePlatformChartProps> = ({ dateRa
           const deviceType = deviceTypeStr as DeviceType;
           const platformMapKey = `unknown_${deviceType}`;
           finalPlatformMap[platformMapKey] = {users: userCount, deviceType};
-          console.log('[DevicePlatformChart] Unknown OS 추가:', platformMapKey, userCount);
         }
       });
       
@@ -401,7 +380,7 @@ export const DevicePlatformChart: React.FC<DevicePlatformChartProps> = ({ dateRa
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm h-full flex flex-col">
       <div className="mb-8">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-1">기기 및 플랫폼별 활성 사용자 & 기타</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-1">기기 및 플랫폼별 활성 사용자</h3>
       </div>
 
 
