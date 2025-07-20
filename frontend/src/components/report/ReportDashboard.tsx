@@ -4,6 +4,7 @@ import { addDays } from 'date-fns';
 import dayjs from 'dayjs';
 import { FileText, Download, Share2, Calendar } from 'lucide-react';
 import TableSection from '../ui/TableSection';
+import Collapse from '../ui/Collapse';
 
 interface KpiReportData {
   dailyMetrics: Array<{ date: string; visitors: number; new_visitors: number; existing_visitors: number; avg_session_seconds: number }>;
@@ -12,6 +13,9 @@ interface KpiReportData {
 }
 
 export const ReportDashboard: React.FC = () => {
+  const reportTaps: string[] = ['일별 지표', '클릭 요약', '이벤트 집계'];
+  const [openCollapse, setOpenCollapse] = useState<string[]>(reportTaps);
+
   const [dateRange, setDateRange] = useState([{ startDate: addDays(new Date(), -29), endDate: new Date(), key: 'selection' }]);
   const [tempRange, setTempRange] = useState(dateRange);
   const [showPicker, setShowPicker] = useState(false);
@@ -118,31 +122,70 @@ export const ReportDashboard: React.FC = () => {
 
           <div className="overflow-x-auto flex flex-col gap-4">
             {/* 일별 지표 테이블 */}
-            <TableSection title="일별 지표" data={reportData?.dailyMetrics} columns={[
-              { header: '날짜', key: 'date' },
-              { header: '방문자', key: 'visitors' },
-              { header: '신규', key: 'new_visitors' },
-              { header: '기존', key: 'existing_visitors' },
-              { header: '평균 세션(초)', key: 'avg_session_seconds' },
-            ]}/>
+            <Collapse
+              title={reportTaps[0]}
+              isOpen={openCollapse.includes(reportTaps[0])}
+              isCard={true}
+              onToggle={() =>{
+                setOpenCollapse((prev) =>
+                  prev.includes(reportTaps[0])
+                    ? prev.filter((item) => item !== reportTaps[0])
+                    : [...prev, reportTaps[0]]
+                );
+              }}
+            >
+              <TableSection data={reportData?.dailyMetrics} columns={[
+                { header: '날짜', key: 'date' },
+                { header: '방문자', key: 'visitors' },
+                { header: '신규', key: 'new_visitors' },
+                { header: '기존', key: 'existing_visitors' },
+                { header: '평균 세션(초)', key: 'avg_session_seconds' },
+              ]}/>
+            </Collapse>
 
             {/* 클릭 요약 테이블 */}
-            <TableSection title="클릭 요약" data={reportData?.clickSummary} columns={[
-              { header: '날짜', key: 'date' },
-              { header: '세그먼트', key: 'segment_type' },
-              { header: '값', key: 'segment_value' },
-              { header: '클릭 수', key: 'total_clicks' },
-              { header: '사용자 수', key: 'total_users' },
-              { header: '클릭/사용자', key: 'avg_clicks_per_user' },
-            ]}/>
+            <Collapse
+              title={reportTaps[1]}
+              isOpen={openCollapse.includes(reportTaps[1])}
+              isCard={true}
+              onToggle={() =>{
+                setOpenCollapse((prev) =>
+                  prev.includes(reportTaps[1])
+                    ? prev.filter((item) => item !== reportTaps[1])
+                    : [...prev, reportTaps[1]]
+                );
+              }}
+            >
+              <TableSection data={reportData?.clickSummary} columns={[
+                { header: '날짜', key: 'date' },
+                { header: '세그먼트', key: 'segment_type' },
+                { header: '값', key: 'segment_value' },
+                { header: '클릭 수', key: 'total_clicks' },
+                { header: '사용자 수', key: 'total_users' },
+                { header: '클릭/사용자', key: 'avg_clicks_per_user' },
+              ]}/>
+            </Collapse>
 
             {/* 이벤트 집계 테이블 */}
-            <TableSection title="이벤트 집계" data={reportData?.eventSummary} columns={[
-              { header: '날짜', key: 'date' },
-              { header: '이벤트명', key: 'event_name' },
-              { header: '발생 수', key: 'event_count' },
-              { header: '사용자 수', key: 'unique_users' },
-            ]}/>
+            <Collapse
+              title={reportTaps[2]}
+              isOpen={openCollapse.includes(reportTaps[2])}
+              isCard={true}
+              onToggle={() =>{
+                setOpenCollapse((prev) =>
+                  prev.includes(reportTaps[2])
+                    ? prev.filter((item) => item !== reportTaps[2])
+                    : [...prev, reportTaps[2]]
+                );
+              }}
+            >
+              <TableSection data={reportData?.eventSummary} columns={[
+                { header: '날짜', key: 'date' },
+                { header: '이벤트명', key: 'event_name' },
+                { header: '발생 수', key: 'event_count' },
+                { header: '사용자 수', key: 'unique_users' },
+              ]}/>
+            </Collapse>
           </div>
         </div>
       </div>

@@ -5,10 +5,11 @@ interface CollapseProps {
   title: string;
   children: React.ReactNode;
   isOpen: boolean;
+  isCard?: boolean;
   onToggle: () => void;
 }
 
-const Collapse: React.FC<CollapseProps> = ({ title, children, isOpen, onToggle }) => {
+const Collapse: React.FC<CollapseProps> = ({ title, children, isOpen, isCard = false, onToggle }) => {
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -33,12 +34,12 @@ const Collapse: React.FC<CollapseProps> = ({ title, children, isOpen, onToggle }
           className="w-5 h-5 transform transition-transform duration-300"
           style={{ transform: `rotate(${isOpen ? 180 : 0}deg)` }}
         />
-        <span>{title}</span>
+        <span className={isCard ? "text-lg font-semibold" : ""}>{title}</span>
       </button>
 
       <div
         ref={contentRef}
-        className="overflow-hidden transition-all duration-300 ease-in-out border-b-2"
+        className={`overflow-hidden transition-all duration-300 ease-in-out ${!isCard && "border-b-2"}`}
         style={{ maxHeight: '0px' }}
       >
         <div className="p-6">{children}</div>
