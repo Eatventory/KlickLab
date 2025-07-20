@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { format } = require('@fast-csv/format');
+const stream = require('stream');
 const clickhouse = require('../src/config/clickhouse');
 const authMiddleware = require('../middlewares/authMiddleware');
 
@@ -13,7 +14,7 @@ const dailyMetricsQ = (sdk_key, startDate, endDate) => {
       new_visitors,
       existing_visitors,
       avg_session_seconds
-    FROM klicklab.daily_metrics
+    FROM daily_metrics
     WHERE sdk_key='${sdk_key}'
       AND date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
     ORDER BY date ASC
@@ -30,7 +31,7 @@ const clickSummaryQ = (sdk_key, startDate, endDate) => {
       total_clicks,
       total_users,
       avg_clicks_per_user
-    FROM klicklab.daily_click_summary
+    FROM daily_click_summary
     WHERE sdk_key='${sdk_key}'
       AND date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
     ORDER BY date ASC, total_clicks DESC
@@ -44,7 +45,7 @@ const eventSummaryQ = (sdk_key, startDate, endDate) => {
       event_name,
       sumMerge(event_count_state) AS event_count,
       uniqMerge(unique_users_state) AS unique_users
-    FROM klicklab.daily_event_agg
+    FROM daily_event_agg
     WHERE sdk_key='${sdk_key}'
       AND summary_date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
     GROUP BY summary_date, event_name
@@ -78,32 +79,77 @@ router.get("/kpi-report", authMiddleware, async (req, res) => {
 router.get("/kpi-report/csv", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   const { startDate, endDate } = req.query;
-  if (!startDate || !endDate) return res.status(400).json({ error: 'Missing startDate or endDate' });
+  if (!startDate || !endDate)
+    return res.status(400).json({ error: 'Missing startDate or endDate' });
 
   const queries = [
     dailyMetricsQ(sdk_key, startDate, endDate),
     clickSummaryQ(sdk_key, startDate, endDate),
-    eventSummaryQ(sdk_key, startDate, endDate)
+    eventSummaryQ(sdk_key, startDate, endDate),
   ];
 
   try {
-    // 모두 가져와서 플래튼(flatten) 후 CSV 작성
-    const results = await Promise.all(queries.map(q =>
-      clickhouse.query({ query: q, format: 'JSON' }).then(r => r.json()).then(r => r.data || [])
-    ));
+    const results = await Promise.all(
+      queries.map((q) =>
+        clickhouse.query({ query: q, format: 'JSON' }).then((r) => r.json()).then((r) => r.data || [])
+      )
+    );
     const [daily, clicks, events] = results;
 
-    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="kpi-report-${startDate}-${endDate}.csv"`);
 
-    const csvStream = format({ headers: true });
-    csvStream.pipe(res);
+    const writeCsvSection = (title, data, headers) => {
+      return new Promise((resolve) => {
+        if (data.length === 0) return resolve();
 
-    daily.forEach(row => csvStream.write({ table: 'daily', ...row }));
-    clicks.forEach(row => csvStream.write({ table: 'clicks', ...row }));
-    events.forEach(row => csvStream.write({ table: 'events', ...row }));
+        res.write(`## Table: ${title}\n`);
 
-    csvStream.end();
+        const passthrough = new stream.PassThrough();
+        passthrough.pipe(res, { end: false });
+
+        const csvStream = format({ headers: headers });
+        csvStream.pipe(passthrough);
+        for (const row of data) {
+          const rowData = {};
+          headers.forEach((h) => {
+            rowData[h] = row[h] ?? '';
+          });
+          csvStream.write(rowData);
+        }
+        csvStream.end();
+        csvStream.on('finish', () => {
+          res.write('\n\n');
+          resolve();
+        });
+      });
+    };
+
+    await writeCsvSection('dailyMetrics', daily, [
+      'date',
+      'visitors',
+      'new_visitors',
+      'existing_visitors',
+      'avg_session_seconds',
+    ]);
+
+    await writeCsvSection('clickSummary', clicks, [
+      'date',
+      'segment_type',
+      'segment_value',
+      'total_clicks',
+      'total_users',
+      'avg_clicks_per_user',
+    ]);
+
+    await writeCsvSection('eventSummary', events, [
+      'date',
+      'event_name',
+      'event_count',
+      'unique_users',
+    ]);
+
+    res.end();
   } catch (err) {
     console.error('[ERROR] KPI CSV 생성 실패:', err);
     res.status(500).end();

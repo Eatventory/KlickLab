@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import DateRangeSelector from '../ui/DateRangeSelector';
 import { addDays } from 'date-fns';
 import dayjs from 'dayjs';
-import { FileText, Download, Share2, Calendar } from 'lucide-react';
+import { FileText, Download } from 'lucide-react';
 import TableSection from '../ui/TableSection';
 import Collapse from '../ui/Collapse';
 
@@ -51,7 +51,6 @@ export const ReportDashboard: React.FC = () => {
     const { startDate, endDate } = dateRange[0];
     const startStr = dayjs(startDate).format('YYYY-MM-DD');
     const endStr   = dayjs(endDate).format('YYYY-MM-DD');
-    // window.location.href = `/api/report/kpi-report/csv?startDate=${startStr}&endDate=${endStr}`;
     try {
       const res = await fetch(`/api/report/kpi-report/csv?startDate=${startStr}&endDate=${endStr}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -71,11 +70,6 @@ export const ReportDashboard: React.FC = () => {
       console.error(err || "CSV 다운로드 실패");
     }
   };
-
-  // const handleShare = () => {
-  //   console.log('Sharing report...');
-  //   // 실제로는 링크 생성 및 공유
-  // };
 
   return (
     <div>
@@ -110,13 +104,6 @@ export const ReportDashboard: React.FC = () => {
                 <Download className="w-4 h-4" />
                 다운로드
               </button>
-              {/* <button
-                onClick={handleShare}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
-              >
-                <Share2 className="w-4 h-4" />
-                공유
-              </button> */}
             </div>
           </div>
 
