@@ -185,10 +185,10 @@ router.get('/users-over-time', authMiddleware, async (req, res) => {
     });
     const data = await dataRes.json();
     res.status(200).json(data.map(item => ({
-      datetime: item.datetime,
-      totalVisitors: Number(item.total_visitors),
-      existingVisitors: Number(item.existing_visitors),
-      newVisitors: Number(item.new_visitors),
+      date: item.base_date,
+      dailyUsers: Number(item.daily_users),
+      weeklyUsers: Number(item.weekly_users),
+      monthlyUsers: Number(item.monthly_users),
     })));
   } catch (err) {
     console.error("Users Over Time API ERROR:", err);

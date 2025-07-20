@@ -134,16 +134,76 @@ function getViewCountsQuery(startDate, endDate, sdk_key) {
 
 function getUsersOverTimeQuery(startDate, endDate, sdk_key) {
   return `
+    WITH
+      toDate('${startDate}') AS start,
+      toDate('${endDate}') AS end,
+      today() AS today,
+      dateDiff('day', start, end) AS days
+
     SELECT
-      formatDateTime(date_time, '%Y-%m-%d %H:00:00') AS datetime,
-      sum(visitors) AS total_visitors,
-      sum(existing_visitors) AS existing_visitors,
-      sum(new_visitors) AS new_visitors
-    FROM klicklab.hourly_metrics
-    WHERE date_time BETWEEN toDateTime('${startDate} 00:00:00') AND toDateTime('${startDate} 23:59:59')
-      AND sdk_key = '${sdk_key}'
-    GROUP BY datetime
-    ORDER BY datetime ASC
+      base.date AS base_date,
+      ifNull(daily.visitors, 0) AS daily_users,
+      ifNull(weekly.users, 0) AS weekly_users,
+      ifNull(monthly.users, 0) AS monthly_users
+    FROM (
+      SELECT addDays(start, number) AS date FROM numbers(days + 1)
+    ) base
+
+    LEFT JOIN (
+      SELECT date, sum(visitors) AS visitors FROM (
+        SELECT date, visitors FROM daily_metrics
+        WHERE ${getQueryWhereClause("daily", startDate, endDate)} AND sdk_key = '${sdk_key}'
+        UNION ALL
+        SELECT toDate(date_time) AS date, visitors FROM hourly_metrics
+        WHERE ${getQueryWhereClause("hourly", startDate, endDate)} AND sdk_key = '${sdk_key}'
+        UNION ALL
+        SELECT toDate(date_time) AS date, visitors FROM minutes_metrics
+        WHERE ${getQueryWhereClause("minutes", startDate, endDate)} AND sdk_key = '${sdk_key}'
+      )
+      GROUP BY date
+    ) daily ON base.date = daily.date
+
+    LEFT JOIN (
+      SELECT ref.date AS date, sumIf(dm.visitors, dm.date BETWEEN ref.date - INTERVAL 6 DAY AND ref.date) AS users
+      FROM (
+        SELECT addDays(start, number) AS date FROM numbers(days + 1)
+      ) ref
+      CROSS JOIN (
+        SELECT * FROM (
+          SELECT date, visitors FROM daily_metrics
+          WHERE ${getQueryWhereClause("daily", startDate, endDate)} AND sdk_key = '${sdk_key}'
+          UNION ALL
+          SELECT toDate(date_time) AS date, visitors FROM hourly_metrics
+          WHERE ${getQueryWhereClause("hourly", startDate, endDate)} AND sdk_key = '${sdk_key}'
+          UNION ALL
+          SELECT toDate(date_time) AS date, visitors FROM minutes_metrics
+          WHERE ${getQueryWhereClause("minutes", startDate, endDate)} AND sdk_key = '${sdk_key}'
+        )
+      ) dm
+      GROUP BY ref.date
+    ) weekly ON base.date = weekly.date
+
+    LEFT JOIN (
+      SELECT ref.date AS date, sumIf(dm.visitors, dm.date BETWEEN ref.date - INTERVAL 29 DAY AND ref.date) AS users
+      FROM (
+        SELECT addDays(start, number) AS date FROM numbers(days + 1)
+      ) ref
+      CROSS JOIN (
+        SELECT * FROM (
+          SELECT date, visitors FROM daily_metrics
+          WHERE ${getQueryWhereClause("daily", startDate, endDate)} AND sdk_key = '${sdk_key}'
+          UNION ALL
+          SELECT toDate(date_time) AS date, visitors FROM hourly_metrics
+          WHERE ${getQueryWhereClause("hourly", startDate, endDate)} AND sdk_key = '${sdk_key}'
+          UNION ALL
+          SELECT toDate(date_time) AS date, visitors FROM minutes_metrics
+          WHERE ${getQueryWhereClause("minutes", startDate, endDate)} AND sdk_key = '${sdk_key}'
+        )
+      ) dm
+      GROUP BY ref.date
+    ) monthly ON base.date = monthly.date
+
+    ORDER BY base_date ASC
   `;
 }
 

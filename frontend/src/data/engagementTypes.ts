@@ -39,10 +39,10 @@ export interface SessionsPerUsersData {
 }
 
 export interface UsersOverTimeData {
-  datetime: string;
-  totalVisitors: number;
-  existingVisitors: number;
-  newVisitors: number;
+  date: string;
+  dailyUsers: number;
+  weeklyUsers: number;
+  monthlyUsers: number;
 }
 
 
