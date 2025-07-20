@@ -454,4 +454,86 @@ router.get('/widgets', async (req, res) => {
   }
 });
 
+router.get('/realtime/summary', async (req, res) => {
+  try {
+    const { sdk_key } = req.user;
+    const query = `
+      SELECT active_users_30min, total_events, pageviews, clicks
+      FROM klicklab.v_realtime_active_users
+      WHERE sdk_key = {sdk_key:String}
+    `;
+    const result = await clickhouse.query({
+      query,
+      query_params: { sdk_key },
+      format: 'JSONEachRow',
+    });
+    const data = await result.json();
+    res.json(data[0] || {});
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/realtime/trend', async (req, res) => {
+  try {
+    const { sdk_key } = req.user;
+    const query = `
+      WITH time_slots AS (
+        SELECT toStartOfMinute(now() - INTERVAL number MINUTE) AS minute
+        FROM numbers(30)
+      )
+      SELECT 
+        formatDateTime(time_slots.minute, '%H:%M') AS time,
+        COALESCE(data.users, 0) AS users
+      FROM time_slots
+      LEFT JOIN (
+        SELECT 
+          toStartOfMinute(timestamp) AS minute,
+          uniqExact(client_id) AS users
+        FROM klicklab.events
+        WHERE sdk_key = {sdk_key:String}
+          AND timestamp >= now() - INTERVAL 30 MINUTE
+        GROUP BY minute
+      ) AS data ON time_slots.minute = data.minute
+      ORDER BY time_slots.minute
+    `;
+    const result = await clickhouse.query({
+      query,
+      query_params: { sdk_key },
+      format: 'JSONEachRow',
+    });
+    const data = await result.json();
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/realtime/sources', async (req, res) => {
+  try {
+    const { sdk_key } = req.user;
+    const query = `
+      SELECT 
+        city AS source,
+        uniqExact(client_id) AS users
+      FROM klicklab.events
+      WHERE sdk_key = {sdk_key:String}
+        AND timestamp >= now() - INTERVAL 30 MINUTE
+        AND city != ''
+      GROUP BY city
+      ORDER BY users DESC
+      LIMIT 10
+    `;
+    const result = await clickhouse.query({
+      query,
+      query_params: { sdk_key },
+      format: 'JSONEachRow',
+    });
+    const data = await result.json();
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

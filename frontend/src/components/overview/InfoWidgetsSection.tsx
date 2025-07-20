@@ -14,43 +14,46 @@ const WidgetFrame = ({ title, children, icon: Icon }) => (
 );
 
 // 간단한 목록 표시를 위한 컴포넌트 (예: 상위 페이지)
-const SimpleTable = ({ data, columns }) => (
-  <div className="space-y-2">
-    <div className="grid grid-cols-2 font-semibold text-sm text-gray-500">
-      <span>{columns[0].label}</span>
-      <span className="text-right">{columns[1].label}</span>
-    </div>
-    {data.map((item, index) => (
-      <div key={index} className="grid grid-cols-2 text-sm text-gray-700 border-t pt-2">
-        <span>{item[columns[0].key]}</span>
-        <span className="text-right font-medium">{item[columns[1].key].toLocaleString()}</span>
+const SimpleTable = ({ data, columns, loading }) => {
+  if (loading) {
+    return (
+      <div className="space-y-2">
+        <div className="h-4 bg-gray-200 animate-pulse rounded w-full"></div>
+        <div className="h-4 bg-gray-200 animate-pulse rounded w-4/5"></div>
+        <div className="h-4 bg-gray-200 animate-pulse rounded w-3/5"></div>
       </div>
-    ))}
-  </div>
-);
+    );
+  }
 
-export const InfoWidgetsSection = () => {
-    const topPagesData = [
-        { page: '/home', views: 4820 },
-        { page: '/products/electronics', views: 2190 },
-        { page: '/pricing', views: 1870 },
-        { page: '/about-us', views: 980 },
-        { page: '/contact', views: 450 },
-    ];
-    
-    const trafficSourceData = [
-        { source: '직접 유입', users: 750 },
-        { source: 'Google', users: 520 },
-        { source: 'Naver', users: 210 },
-        { source: '소셜 미디어', users: 170 },
-    ];
+  if (!data || data.length === 0) {
+    return (
+      <div className="text-gray-400 text-sm">데이터가 없습니다</div>
+    );
+  }
 
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-2 font-semibold text-sm text-gray-500">
+        <span>{columns[0].label}</span>
+        <span className="text-right">{columns[1].label}</span>
+      </div>
+      {data.map((item, index) => (
+        <div key={index} className="grid grid-cols-2 text-sm text-gray-700 border-t pt-2">
+          <span>{item[columns[0].key]}</span>
+          <span className="text-right font-medium">{item[columns[1].key].toLocaleString()}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+export const InfoWidgetsSection = ({ trafficSources, topPages, topClicks, loading }) => {
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
             {/* 왼쪽: 트래픽 소스 */}
             <div className="lg:col-span-1">
             <WidgetFrame title="소스 / 매체별 사용자" icon={PieChart}>
-                <SimpleTable data={trafficSourceData} columns={[{key: 'source', label: '소스'}, {key: 'users', label: '사용자'}]} />
+                <SimpleTable data={trafficSources} columns={[{key: 'source', label: '소스'}, {key: 'users', label: '사용자'}]} loading={loading} />
                 {/* 여기에 파이 차트를 추가할 수 있습니다. */}
             </WidgetFrame>
             </div>
@@ -58,14 +61,14 @@ export const InfoWidgetsSection = () => {
             {/* 중앙: 상위 활성 페이지 */}
             <div className="lg:col-span-1">
             <WidgetFrame title="가장 많이 본 페이지" icon={Globe}>
-                <SimpleTable data={topPagesData} columns={[{key: 'page', label: '페이지 경로'}, {key: 'views', label: '조회수'}]} />
+                <SimpleTable data={topPages} columns={[{key: 'page', label: '페이지 경로'}, {key: 'views', label: '조회수'}]} loading={loading} />
             </WidgetFrame>
             </div>
             
             {/* 오른쪽: TopClicks (기존 컴포넌트 재사용) */}
             <div className="lg:col-span-1">
                 <WidgetFrame title="가장 많이 클릭된 요소" icon={MousePointer}>
-                    <TopClicks refreshKey={0} />
+                    <TopClicks data={topClicks} loading={loading} />
                 </WidgetFrame>
             </div>
       </div>

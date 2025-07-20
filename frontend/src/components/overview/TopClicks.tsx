@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { BarChart3, TrendingUp } from 'lucide-react';
 
 interface TopClickItem {
@@ -6,51 +6,26 @@ interface TopClickItem {
   count: number;
 }
 
-interface TopClicksData {
-  items: TopClickItem[];
-}
-
 interface TopClicksProps {
-  refreshKey?: number;
+  data: TopClickItem[];
   loading?: boolean;
 }
 
-export const TopClicks: React.FC<TopClicksProps> = ({ refreshKey, loading }) => {
-  const [data, setData] = useState<TopClickItem[]>([]);
+export const TopClicks: React.FC<TopClicksProps> = ({ data, loading }) => {
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchTopClicks = async () => {
-      try {
-        const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
-        if (!token) throw new Error("No token");
-        const response = await fetch(`/api/stats/top-clicks`, {headers: { Authorization: `Bearer ${token}` }});
-        const result: TopClicksData = await response.json();
-        setData(result.items || []);
-      } catch (error) {
-        console.error('Failed to fetch top clicks:', error);
-        setData([
-          { label: '구매하기', count: 1203 },
-          { label: '장바구니', count: 987 },
-          { label: '로그인', count: 756 },
-          { label: '검색', count: 543 },
-          { label: '상품상세', count: 432 }
-        ]);
-      } finally {
-        // setLoading(false); // This line was removed from the new_code, so it's removed here.
-      }
-    };
-
-    fetchTopClicks();
-    
-    const interval = setInterval(fetchTopClicks, 10000);
-    return () => clearInterval(interval);
-  }, [refreshKey]);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-32">
         <div className="text-gray-500">데이터 로딩 중...</div>
+      </div>
+    );
+  }
+
+  if (!data || data.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-32">
+        <div className="text-gray-500">데이터가 없습니다</div>
       </div>
     );
   }
@@ -82,7 +57,6 @@ export const TopClicks: React.FC<TopClicksProps> = ({ refreshKey, loading }) => 
       <div className="space-y-2">
         {data.map((item, index) => {
           const percentage = maxCount > 0 ? (item.count / maxCount) * 100 : 0;
-          const isTop = index === 0;
           
           return (
             <div 
@@ -164,4 +138,4 @@ export const TopClicks: React.FC<TopClicksProps> = ({ refreshKey, loading }) => 
       </div>
     </div>
   );
-}; 
+};
