@@ -51,21 +51,21 @@ export const Dashboard: React.FC = () => {
   const tabTitles: Record<string, string> = {
     overview: '대시보드',
     users: '사용자 분석',
-    traffic: '트래픽 분석',
+    // traffic: '트래픽 분석',
     engagement: '참여도 분석',
     reports: '리포트',
     settings: '설정',
-    conversion: '전환율',
+    // conversion: '전환율',
     acquisition: '유입 분석',
   };
   const tabDescriptions: Record<string, string> = {
     overview: '전체 개요 및 주요 지표',
     users: '사용자 행동 및 세그먼트 분석',
-    traffic: '방문자 추이 및 소스 분석',
+    // traffic: '방문자 추이 및 소스 분석',
     engagement: '체류시간 및 참여도 분석',
     reports: '상세 리포트 및 데이터 내보내기',
     settings: '시스템 설정 및 계정 관리',
-    conversion: '전환율 및 퍼널 분석',
+    // conversion: '전환율 및 퍼널 분석',
     acquisition: '유입 소스별 분석 및 전환율',
   };
 
@@ -132,11 +132,11 @@ export const Dashboard: React.FC = () => {
               <Routes>
                 <Route path="overview" element={<OverviewDashboard ref={overviewRef} onLastUpdated={handleOverviewUpdate} />} />
                 <Route path="users" element={<UserDashboard />} />
-                <Route path="traffic" element={<TrafficDashboard />} />
+                {/* <Route path="traffic" element={<TrafficDashboard />} /> */}
                 <Route path="engagement" element={<EngagementDashboard />} />
                 <Route path="reports" element={<ReportDashboard />} />
                 <Route path="settings" element={<SettingsDashboard />} />
-                <Route path="conversion" element={<ConversionDashboard />} />
+                {/* <Route path="conversion" element={<ConversionDashboard />} /> */}
                 <Route path="acquisition" element={<AcquisitionDashboard />} />
                 <Route path="" element={<Navigate to="/dashboard/overview" replace />} />
                 <Route path="*" element={<Navigate to="/dashboard/overview" replace />} />
