@@ -2,789 +2,543 @@ const express = require("express");
 const router = express.Router();
 const clickhouse = require("../src/config/clickhouse");
 const authMiddleware = require("../middlewares/authMiddleware");
-const { formatLocalDateTime } = require("../utils/formatLocalDateTime");
-const {
-  getLocalNow,
-  getIsoNow,
-  floorToNearest10Min,
-  getNearestHourFloor,
-  getOneHourAgo,
-  getTodayStart,
-  getYesterdayStart,
-} = require("../utils/timeUtils");
-const { getConversionRate } = require("../utils/conversionUtils");
+const { getLocalNow, getIsoNow } = require("../utils/timeUtils");
+// 모든 /api/overview 경로에 authMiddleware 적용
+router.use(authMiddleware);
 
-const localNow = getLocalNow();
-const isoNow = getIsoNow();
-const tenMinutesFloor = formatLocalDateTime(floorToNearest10Min());
-const NearestHourFloor = formatLocalDateTime(getNearestHourFloor());
-const oneHourFloor = formatLocalDateTime(getOneHourAgo());
-const todayStart = formatLocalDateTime(getTodayStart());
-const yesterdayStart = formatLocalDateTime(getYesterdayStart());
-
-router.get("/session-duration", authMiddleware, async (req, res) => {
-  const { sdk_key } = req.user;
+const now = getLocalNow();
+// 🎯 1. KPI 데이터 조회 (메인 지표들) - 완전히 새로운 접근법
+// 🔧 완전히 수정된 KPI 라우트
+router.get('/kpi', async (req, res) => {
   try {
-    const recentMinutesQuery = `
-      SELECT avg(avg_session_seconds) AS avg_s
-      FROM minutes_metrics
-      WHERE date_time >= toDateTime('${NearestHourFloor}')
-        AND date_time < toDateTime('${tenMinutesFloor}')
-        AND sdk_key = '${sdk_key}'
+    const { sdk_key } = req.user;
+    const { date = 'today()' } = req.query;
+    
+    if (!sdk_key) {
+      return res.status(400).json({ error: 'sdk_key는 필수입니다' });
+    }
+
+    // ✅ 수정된 simple query - 모든 집계 함수 올바르게 수정
+    const simpleQuery = `
+      SELECT 
+        uniqMerge(visitors_state) AS active_users,
+        uniqMerge(session_count_state) AS total_sessions,        -- ✅ uniq 타입이므로 uniqMerge
+        sumMerge(conversions_state) AS total_conversions,        -- ✅ sum 타입이므로 sumMerge
+        uniqMerge(engaged_sessions_state) AS engaged_sessions    -- ✅ uniq 타입이므로 uniqMerge
+      FROM klicklab.daily_overview_agg
+      WHERE summary_date = toDate(now(), 'Asia/Seoul') AND sdk_key = {sdk_key:String}
+      GROUP BY sdk_key  -- ✅ GROUP BY 추가
     `;
 
-    const recentHoursQuery = `
-      SELECT avg(avg_session_seconds) AS avg_s
-      FROM hourly_metrics
-      WHERE date_time >= toDateTime('${todayStart}')
-        AND date_time <= toDateTime('${oneHourFloor}')
-        AND sdk_key = '${sdk_key}'
-    `;
+    const simpleResult = await clickhouse.query({
+      query: simpleQuery,
+      query_params: { sdk_key, now},
+      format: 'JSONEachRow',
+    });
 
-    const prevDayQuery = `
-      SELECT avg_session_seconds AS avg_s
-      FROM daily_metrics
-      WHERE date = yesterday()
-        AND sdk_key = '${sdk_key}'
-    `;
+    const simpleData = await simpleResult.json();
+    console.log('Simple query result:', simpleData);
 
-    const [minutesRes, hoursRes, prevRes] = await Promise.all([
-      clickhouse
-        .query({ query: recentMinutesQuery, format: "JSONEachRow" })
-        .then((r) => r.json()),
-      clickhouse
-        .query({ query: recentHoursQuery, format: "JSONEachRow" })
-        .then((r) => r.json()),
-      clickhouse
-        .query({ query: prevDayQuery, format: "JSONEachRow" })
-        .then((r) => r.json()),
-    ]);
-
-    const recentAvgSec =
-      (+(minutesRes[0]?.avg_s || 0) + +(hoursRes[0]?.avg_s || 0)) / 2;
-
-    const prevAvgSec = +(prevRes[0]?.avg_s || 0);
-    const deltaSec = recentAvgSec - prevAvgSec;
-
-    const data = {
-      averageDuration: recentAvgSec ? Math.round(recentAvgSec) : 0,
-      deltaDuration: Math.round(deltaSec),
-      trend: deltaSec > 0 ? "up" : deltaSec < 0 ? "down" : "flat",
-      period: "최근 약 24시간",
-      periodLabel: "10분~23시간 전 기준",
-    };
-
-    res.status(200).json(data);
-  } catch (err) {
-    console.error("Session Duration API ERROR:", err);
-    res.status(500).json({ error: "Failed to get session duration data" });
-  }
-});
-
-// 전환 이벤트 조회 함수 추가 (stats.js와 동일)
-async function getCurrentConversionEvent(sdk_key) {
-  const result = await clickhouse.query({
-    query: `SELECT event FROM users WHERE sdk_key = '${sdk_key}'`,
-    format: "JSON",
-  });
-  const rows = await result.json();
-  const event = rows.data?.[0]?.event || "is_payment";
-  const eventMap = {
-    is_payment: { fromPage: "/cart", toPage: "/checkout/success" },
-    is_signup: { fromPage: "/signup", toPage: "/signup/success" },
-    add_to_cart: { fromPage: "/products", toPage: "/cart" },
-    contact_submit: { fromPage: "/contact", toPage: "/contact/success" },
-  };
-  return eventMap[event] || eventMap["is_payment"];
-}
-
-router.get("/conversion-summary", authMiddleware, async (req, res) => {
-  let fromPage = req.query.from;
-  let toPage = req.query.to;
-  const period = "7d";
-  const periodLabel = "최근 7일";
-  const { sdk_key } = req.user;
-
-  // 전환 이벤트 설정값을 우선 적용
-  if (!fromPage || !toPage) {
-    const eventPages = await getCurrentConversionEvent(sdk_key);
-    fromPage = fromPage || eventPages.fromPage;
-    toPage = toPage || eventPages.toPage;
-  }
-
-  function buildConversionSubQuery(alias, startOffset, endOffset) {
-    return `
-      ${alias}_filtered AS (
-        SELECT session_id, page_path, timestamp
-        FROM events
-        WHERE page_path IN ('${fromPage}', '${toPage}')
-          AND toDate(timestamp) BETWEEN today() - ${startOffset} AND today() - ${endOffset}
-          AND sdk_key = '${sdk_key}'
-      ),
-      ${alias}_a AS (
-        SELECT session_id, min(timestamp) AS a_time
-        FROM ${alias}_filtered
-        WHERE page_path = '${fromPage}'
-        GROUP BY session_id
-      ),
-      ${alias}_b AS (
-        SELECT session_id, min(timestamp) AS b_time
-        FROM ${alias}_filtered
-        WHERE page_path = '${toPage}'
-        GROUP BY session_id
-      ),
-      ${alias}_joined AS (
-        SELECT a.session_id
-        FROM ${alias}_a a
-        INNER JOIN ${alias}_b b ON a.session_id = b.session_id AND a.a_time < b.b_time
-      ),
-      ${alias}_data AS (
+    if (simpleData.length === 0) {
+      // 집계 테이블에 데이터가 없으면 실시간 쿼리로 대체
+      const realtimeQuery = `
         SELECT 
-          (SELECT count() FROM ${alias}_joined) AS converted,
-          (SELECT count() FROM ${alias}_a) AS total
-      )
-    `;
-  }
-
-  const query = `
-    WITH
-      ${buildConversionSubQuery("recent", 6, 0)},
-      ${buildConversionSubQuery("prev", 13, 7)}
-    SELECT 
-      r.converted AS converted,
-      r.total AS total,
-      round(r.converted / nullIf(r.total, 0) * 100, 1) AS conversion_rate,
-      p.converted AS past_converted,
-      p.total AS past_total,
-      round(p.converted / nullIf(p.total, 0) * 100, 1) AS past_rate
-    FROM recent_data r, prev_data p
-  `;
-
-  try {
-    const resultSet = await clickhouse.query({ query, format: "JSONEachRow" });
-    const rows = await resultSet.json();
-    const data = rows[0] || {};
-
-    const converted = data.converted || 0;
-    const total = data.total || 0;
-    const conversionRate = total === 0 ? 0 : data.conversion_rate || 0;
-    const pastRate = data.past_rate || 0;
-
-    const delta = isFinite(conversionRate - pastRate)
-      ? +(conversionRate - pastRate).toFixed(1)
-      : 0;
-    const trend = delta > 0 ? "up" : delta < 0 ? "down" : "flat";
-
-    res.status(200).json({
-      conversionRate,
-      convertedSessions: converted,
-      totalSessions: total,
-      deltaRate: delta,
-      trend,
-      period,
-      periodLabel,
-    });
-  } catch (err) {
-    console.error("Conversion Rate API ERROR:", err);
-    res.status(500).json({ error: "Failed to get conversion rate data" });
-  }
-});
-
-/* 전환율 1일 (오늘 하루) 버전 */
-router.get("/conversion-today", authMiddleware, async (req, res) => {
-  const { sdk_key } = req.user;
-  const eventPages = await getCurrentConversionEvent(sdk_key);
-  const fromPage = eventPages.fromPage;
-  const toPage = eventPages.toPage;
-
-  try {
-    const [today, yesterday] = await Promise.all([
-      getConversionRate(clickhouse, {
-        fromPage,
-        toPage,
-        sdk_key,
-        startDate: todayStart,
-        endDate: isoNow,
-      }),
-      getConversionRate(clickhouse, {
-        fromPage,
-        toPage,
-        sdk_key,
-        startDate: yesterdayStart,
-        endDate: todayStart,
-      }),
-    ]);
-
-    const delta = +(today.rate - yesterday.rate).toFixed(1);
-    const trend = delta > 0 ? "up" : delta < 0 ? "down" : "flat";
-
-    res.status(200).json({
-      conversionRate: today.rate,
-      convertedSessions: today.converted,
-      totalSessions: today.total,
-      deltaRate: delta,
-      trend,
-    });
-  } catch (err) {
-    console.error("Conversion Quick API ERROR:", err);
-    res.status(500).json({ error: "Failed to calculate conversion rate" });
-  }
-});
-
-/* 첫 랜딩 페이지 기준 전환율 */
-router.get("/conversion-by-landing", authMiddleware, async (req, res) => {
-  const { sdk_key } = req.user;
-  const {
-    start_date,
-    end_date,
-    period = "daily",
-    to = "/checkout/success",
-    event,
-  } = req.query;
-
-  // 전환 이벤트에 따른 전환 페이지 매핑
-  const eventToPageMap = {
-    is_payment: "/checkout/success",
-    is_signup: "/signup/complete",
-    add_to_cart: "/cart",
-    contact_submit: "/contact/complete",
-  };
-
-  const toPage = event && eventToPageMap[event] ? eventToPageMap[event] : to;
-  // 전환 이벤트 설정값 우선 적용
-  if (!toPage) {
-    const eventPages = await getCurrentConversionEvent(sdk_key);
-    toPage = eventPages.toPage;
-  }
-
-  // 날짜 필터링 조건 구성
-  const dateFilter =
-    start_date && end_date
-      ? `toDate(timestamp) BETWEEN toDate('${start_date}') AND toDate('${end_date}')`
-      : `toDate(timestamp) >= today() - INTERVAL 6 DAY`;
-
-  const query = `
-    WITH
-      session_pages AS (
-        SELECT
-          session_id,
-          page_path,
-          timestamp,
-          traffic_source,
-          traffic_medium
+          uniqExact(client_id) AS active_users,
+          uniqExact(session_id) AS total_sessions,
+          0 AS total_conversions,
+          0 AS engaged_sessions,
+          0 AS avg_session_duration
         FROM klicklab.events
-        WHERE event_name = 'page_view'
-          AND ${dateFilter}
-          AND sdk_key = '${sdk_key}'
-        ORDER BY timestamp
-      ),
-      session_first_last AS (
-        SELECT
-          session_id,
-          any(page_path) AS landing,
-          any(traffic_source) AS source,
-          any(traffic_medium) AS medium,
-          max(if(page_path = '${toPage}', 1, 0)) AS is_converted
-        FROM session_pages
-        GROUP BY session_id
-      )
-    SELECT
-      landing,
-      source,
-      medium,
-      count() AS totalSessions,
-      sum(is_converted) AS convertedSessions,
-      round(sum(is_converted) / nullIf(count(), 0) * 100, 1) AS conversionRate
-    FROM session_first_last
-    WHERE landing NOT IN ('/cart', '/checkout/success')
-    GROUP BY landing, source, medium
-    ORDER BY conversionRate DESC, totalSessions DESC
-    LIMIT 50
-  `;
+        WHERE toDate(timestamp) = toDate(now(), 'Asia/Seoul') AND sdk_key = {sdk_key:String}
+      `;
 
-  try {
-    const resultSet = await clickhouse.query({ query, format: "JSONEachRow" });
-    const data = await resultSet.json();
+      const realtimeResult = await clickhouse.query({
+        query: realtimeQuery,
+        query_params: { sdk_key },
+        format: 'JSONEachRow',
+      });
 
-    res.status(200).json({
-      success: true,
-      data: data.map((row) => ({
-        landing: row.landing,
-        source: row.source,
-        medium: row.medium,
-        totalSessions: row.totalSessions,
-        convertedSessions: row.convertedSessions,
-        conversionRate: row.conversionRate,
-      })),
-    });
-  } catch (err) {
-    console.error("Landing Page Conversion API ERROR:", err);
-    res.status(500).json({
-      success: false,
-      error: "Failed to get landing page conversion data",
-    });
-  }
-});
+      const realtimeData = await realtimeResult.json();
+      const row = realtimeData[0] || {};
 
-/* 채널별 전환율 */
-router.get("/conversion-by-channel", authMiddleware, async (req, res) => {
-  const { sdk_key } = req.user;
-  const { start_date, end_date, period = "daily", to } = req.query;
-  // 전환 이벤트 설정값 우선 적용
-  let toPage = to;
-  if (!toPage) {
-    const eventPages = await getCurrentConversionEvent(sdk_key);
-    toPage = eventPages.toPage;
-  }
+      return res.json({
+        data: {
+          activeUsers: parseInt(row.active_users) || 0,
+          avgSessionDuration: 0,
+          conversionRate: 0,
+          engagedSessions: parseInt(row.engaged_sessions) || 0,
+        },
+        changes: {
+          activeUsers: 0,
+          avgSessionDuration: 0,
+          conversionRate: 0,
+          engagedSessions: 0,
+        },
+        note: "Using realtime data - aggregated data not available"
+      });
+    }
 
-  // 날짜 필터 구성
-  const dateFilter =
-    start_date && end_date
-      ? `toDate(timestamp) BETWEEN toDate('${start_date}') AND toDate('${end_date}')`
-      : `toDate(timestamp) >= today() - INTERVAL 6 DAY`;
+    // 집계 테이블에 데이터가 있으면 계산 진행
+    const row = simpleData[0];
+    const totalSessions = parseInt(row.total_sessions) || 1; // 0으로 나누기 방지
 
-  const query = `
-    WITH
-      session_info AS (
-        SELECT
-          session_id,
-          any(traffic_source) AS source,
-          any(traffic_medium) AS medium,
-          any(traffic_campaign) AS campaign,
-          maxIf(1, page_path = '${toPage}') AS is_converted
-        FROM (
-          SELECT session_id, page_path, traffic_source, traffic_medium, traffic_campaign, timestamp
-          FROM klicklab.events
-          WHERE event_name = 'page_view'
-            AND ${dateFilter}
-            AND sdk_key = '${sdk_key}'
-          ORDER BY timestamp
-        )
-        GROUP BY session_id
-      )
-
-    SELECT
-      source,
-      medium,
-      campaign,
-      count() AS totalSessions,
-      sum(is_converted) AS convertedSessions,
-      round(sum(is_converted) / nullIf(count(), 0) * 100, 1) AS conversionRate
-    FROM session_info
-    GROUP BY source, medium, campaign
-    ORDER BY conversionRate DESC, totalSessions DESC
-    LIMIT 50
-  `;
-
-  try {
-    const resultSet = await clickhouse.query({ query, format: "JSONEachRow" });
-    const data = await resultSet.json();
-
-    res.status(200).json({
-      success: true,
-      data: data.map((row) => ({
-        channel: row.source || "Unknown",
-        source: row.source,
-        medium: row.medium,
-        campaign: row.campaign,
-        totalSessions: row.totalSessions,
-        convertedSessions: row.convertedSessions,
-        conversionRate: row.conversionRate,
-      })),
-    });
-  } catch (err) {
-    console.error("Source Conversion API ERROR:", err);
-    res.status(500).json({
-      success: false,
-      error: "Failed to get source-based conversion data",
-    });
-  }
-});
-
-/* 인사이트 summary */
-router.get("/summary", authMiddleware, async (req, res) => {
-  const { sdk_key } = req.user;
-  const date = req.query.date || localNow;
-  const period = req.query.period || "daily";
-
-  // 전환 이벤트 설정값 우선 적용
-  const eventPages = await getCurrentConversionEvent(sdk_key);
-  const fromPage = eventPages.fromPage;
-  const toPage = eventPages.toPage;
-
-  try {
-    // 오늘 metric 쿼리 (hourly + minutes)
-    const metricQuery = `
-      WITH (
-        SELECT avg(avg_session_seconds)
-        FROM (
-          SELECT avg_session_seconds
-          FROM hourly_metrics
-          WHERE date_time >= toDateTime('${todayStart}')
-            AND date_time <= toDateTime('${oneHourFloor}')
-            AND sdk_key = '${sdk_key}'
-            AND avg_session_seconds > 0
-
-          UNION ALL
-
-          SELECT avg_session_seconds
-          FROM minutes_metrics
-          WHERE date_time >= toDateTime('${NearestHourFloor}')
-            AND date_time <= toDateTime('${tenMinutesFloor}')
-            AND sdk_key = '${sdk_key}'
-            AND avg_session_seconds > 0
-        )
-      ) AS raw_avg_session_seconds
-
-      SELECT
-        toUInt64(sum(clicks)) AS clicks,
-        toUInt64(sum(visitors)) AS visitors,
-        toUInt64(multiIf(isFinite(raw_avg_session_seconds), raw_avg_session_seconds, 0)) AS sessionDuration
-      FROM (
-        SELECT clicks, visitors
-        FROM hourly_metrics
-        WHERE date_time >= toDateTime('${todayStart}')
-          AND date_time <= toDateTime('${oneHourFloor}')
-          AND sdk_key = '${sdk_key}'
-
-        UNION ALL
-
-        SELECT clicks, visitors
-        FROM minutes_metrics
-        WHERE date_time >= toDateTime('${NearestHourFloor}')
-          AND date_time <= toDateTime('${tenMinutesFloor}')
-          AND sdk_key = '${sdk_key}'
-      )
+    // ✅ 수정된 세션 시간 계산 쿼리 - uniqMerge로 변경
+    const sessionTimeQuery = `
+      SELECT 
+        CASE 
+          WHEN uniqMerge(session_count_state) > 0 
+          THEN sumMerge(session_dur_sum_state) / uniqMerge(session_count_state)
+          ELSE 0
+        END AS avg_session_duration
+      FROM klicklab.daily_overview_agg
+      WHERE summary_date = toDate(now(), 'Asia/Seoul') AND sdk_key = {sdk_key:String}
+      GROUP BY sdk_key  -- ✅ GROUP BY 추가
     `;
 
-    // 어제 metric 쿼리
-    const prevMetricQuery = `
-      WITH (
-        SELECT avg(avg_session_seconds)
-        FROM daily_metrics
-        WHERE date = toDate('${localNow}') - 1
-          AND sdk_key = '${sdk_key}'
-          AND avg_session_seconds > 0
-      ) AS raw_avg_session_seconds
+    const sessionTimeResult = await clickhouse.query({
+      query: sessionTimeQuery,
+      query_params: { sdk_key },
+      format: 'JSONEachRow',
+    });
 
-      SELECT
-        toUInt64(clicks) AS clicks,
-        toUInt64(visitors) AS visitors,
-        toUInt64(multiIf(isFinite(raw_avg_session_seconds), raw_avg_session_seconds, 0)) AS sessionDuration
-      FROM daily_metrics
-      WHERE date = toDate('${localNow}') - 1
-        AND sdk_key = '${sdk_key}'
+    const sessionTimeData = await sessionTimeResult.json();
+    const avgSessionDuration = sessionTimeData[0]?.avg_session_duration || 0;
+    console.log('avg:', avgSessionDuration)
+
+    // ✅ 수정된 어제 데이터 조회 - 모든 집계 함수 올바르게 수정
+    const yesterdayQuery = `
+      SELECT 
+        uniqMerge(visitors_state) AS active_users_yesterday,
+        uniqMerge(session_count_state) AS total_sessions_yesterday,     -- ✅ uniqMerge로 변경
+        sumMerge(conversions_state) AS total_conversions_yesterday,
+        uniqMerge(engaged_sessions_state) AS engaged_sessions_yesterday,
+        CASE 
+          WHEN uniqMerge(session_count_state) > 0 
+          THEN sumMerge(session_dur_sum_state) / uniqMerge(session_count_state)  -- ✅ uniqMerge로 변경
+          ELSE 0
+        END AS avg_session_duration_yesterday
+      FROM klicklab.daily_overview_agg
+      WHERE summary_date = toDate(now(), 'Asia/Seoul') - 1 AND sdk_key = {sdk_key:String}
+      GROUP BY sdk_key  -- ✅ GROUP BY 추가
     `;
 
-    // top 클릭 요소 (오늘 기준)
-    const topClickQuery = `
-      SELECT element AS label, sum(total_clicks) AS count
-      FROM (
-        SELECT element, total_clicks
-        FROM hourly_top_elements
-        WHERE date_time >= toDateTime('${todayStart}')
-          AND date_time <= toDateTime('${oneHourFloor}')
-          AND sdk_key = '${sdk_key}'
-          AND segment_type = 'user_age' -- 중복 집계 방지
-          AND element != ''
-
-        UNION ALL
-
-        SELECT element, total_clicks
-        FROM minutes_top_elements
-        WHERE date_time >= toDateTime('${NearestHourFloor}')
-          AND date_time <= toDateTime('${tenMinutesFloor}')
-          AND sdk_key = '${sdk_key}'
-          AND segment_type = 'user_age' -- 중복 집계 방지
-          AND element != ''
-      )
-      GROUP BY element
-      ORDER BY count DESC
-      LIMIT 3
-    `;
-
-    const metricRes = await clickhouse.query({
-      query: metricQuery,
-      format: "JSON",
-    });
-    const prevMetricRes = await clickhouse.query({
-      query: prevMetricQuery,
-      format: "JSON",
-    });
-    const topClickRes = await clickhouse.query({
-      query: topClickQuery,
-      format: "JSON",
+    const yesterdayResult = await clickhouse.query({
+      query: yesterdayQuery,
+      query_params: { sdk_key },
+      format: 'JSONEachRow',
     });
 
-    const metricData = await metricRes.json();
-    const prevMetricData = await prevMetricRes.json();
-    const topClickData = await topClickRes.json();
+    const yesterdayData = await yesterdayResult.json();
+    const yesterdayRow = yesterdayData[0] || {};
 
-    const [current] = metricData.data || [{}];
-    const [previous] = prevMetricData.data || [{}];
-    const topClicks = topClickData.data || [];
-
-    const [todayRate, yesterdayRate] = await Promise.all([
-      getConversionRate(clickhouse, {
-        fromPage,
-        toPage,
-        sdk_key,
-        startDate: todayStart,
-        endDate: isoNow,
-      }),
-      getConversionRate(clickhouse, {
-        fromPage,
-        toPage,
-        sdk_key,
-        startDate: yesterdayStart,
-        endDate: todayStart,
-      }),
-    ]);
-
-    const currentConversionRate = todayRate.rate;
-    const prevConversionRate = yesterdayRate.rate;
-
-    const totalClicks = Number(current?.clicks || 0);
-
-    const response = {
-      success: true,
-      data: {
-        metrics: [
-          {
-            name: "방문자 수",
-            value: Number(current?.visitors || 0),
-            prevValue: Number(previous?.visitors || 0),
-            unit: "명",
-            label: "visitors",
-          },
-          {
-            name: "전환율",
-            value: currentConversionRate,
-            prevValue: prevConversionRate,
-            unit: "%",
-            label: "conversionRate",
-          },
-          {
-            name: "클릭 수",
-            value: Number(current?.clicks || 0),
-            prevValue: Number(previous?.clicks || 0),
-            unit: "회",
-            label: "clicks",
-          },
-          {
-            name: "세션 시간",
-            value: Number(current?.sessionDuration || 0),
-            prevValue: Number(previous?.sessionDuration || 0),
-            unit: "초",
-            label: "sessionDuration",
-          },
-        ],
-        topClicks,
-        totalClicks,
-      },
+    // 변화율 계산
+    const calculateChange = (current, previous) => {
+      if (!previous || previous === 0) return 0;
+      return parseFloat(((current - previous) * 100 / previous).toFixed(1));
     };
 
-    res.status(200).json(response);
-  } catch (error) {
-    console.error("Error in /summary:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
-  }
-});
+    const activeUsers = parseInt(row.active_users) || 0;
+    const conversions = parseInt(row.total_conversions) || 0;
 
-// [이벤트별 트렌드] 여러 이벤트의 일별/주별/월별 발생 수를 반환
-router.get("/event-trend", authMiddleware, async (req, res) => {
-  const { sdk_key } = req.user;
-  const { events = "", start_date, end_date, period = "daily" } = req.query;
-  const eventList = events
-    .split(",")
-    .map((e) => e.trim())
-    .filter(Boolean);
-  if (!eventList.length)
-    return res.status(400).json({ error: "이벤트를 지정하세요." });
-  const start = start_date ? `toDate('${start_date}')` : `today() - 13`;
-  const end = end_date ? `toDate('${end_date}')` : `today()`;
-  const eventCases = eventList
-    .map((e) => {
-      const safeCol = e.replace(/[^a-zA-Z0-9_]/g, "_");
-      return `sumIf(1, event_name = '${e}') AS ${safeCol}`;
-    })
-    .join(", ");
-  let groupExpr = "toDate(timestamp)";
-  let dateFormat = "%Y-%m-%d";
-  if (period === "weekly") {
-    groupExpr = "toStartOfWeek(toDate(timestamp))";
-    dateFormat = "%Y-%m-%d";
-  } else if (period === "monthly") {
-    groupExpr = "toStartOfMonth(toDate(timestamp))";
-    dateFormat = "%Y-%m";
-  }
-  const query = `
-    SELECT formatDateTime(${groupExpr}, '${dateFormat}') AS date, ${eventCases}
-    FROM events
-    WHERE toDate(timestamp) BETWEEN ${start} AND ${end}
-      AND sdk_key = '${sdk_key}'
-    GROUP BY ${groupExpr}
-    ORDER BY date ASC
-  `;
-  try {
-    const result = await clickhouse.query({ query, format: "JSON" });
-    const data = (await result.json()).data || [];
-    res.json({ data });
-  } catch (err) {
-    console.error("Event Trend API ERROR:", err);
-    res.status(500).json({ error: "Failed to get event trend data" });
-  }
-});
+    console.log('activeUsers:', activeUsers);
+    console.log('conversions:', conversions);
+    const engagedSessions = parseInt(row.engaged_sessions) || 0;
+    const conversionRate = totalSessions > 0 ? (conversions * 100 / totalSessions) : 0;
 
-// [이벤트별 요약] 여러 이벤트의 전체 발생 수/사용자 수를 반환
-router.get("/event-summary", authMiddleware, async (req, res) => {
-  const { sdk_key } = req.user;
-  const { events = "", start_date, end_date } = req.query;
-  const eventList = events
-    .split(",")
-    .map((e) => e.trim())
-    .filter(Boolean);
-  if (!eventList.length)
-    return res.status(400).json({ error: "이벤트를 지정하세요." });
-  const start = start_date ? `toDate('${start_date}')` : `today() - 13`;
-  const end = end_date ? `toDate('${end_date}')` : `today()`;
-  const eventCases = eventList.map((e) => `('${e}')`).join(", ");
-  const query = `
-    SELECT event_name AS event, count() AS count, uniq(user_id) AS users
-    FROM events
-    WHERE event_name IN (${eventCases})
-      AND toDate(timestamp) BETWEEN ${start} AND ${end}
-      AND sdk_key = '${sdk_key}'
-    GROUP BY event_name
-    ORDER BY count DESC
-  `;
-  try {
-    const result = await clickhouse.query({ query, format: "JSON" });
-    const data = (await result.json()).data || [];
-    res.json({ data });
-  } catch (err) {
-    console.error("Event Summary API ERROR:", err);
-    res.status(500).json({ error: "Failed to get event summary data" });
-  }
-});
-
-// [URL별 page_view/세션 집계] 여러 URL의 page_view 이벤트 수/세션 수 반환
-router.get("/pageview-summary", authMiddleware, async (req, res) => {
-  const { sdk_key } = req.user;
-  const { urls = "", start_date, end_date } = req.query;
-  const urlList = urls
-    .split(",")
-    .map((u) => u.trim())
-    .filter(Boolean);
-  if (!urlList.length)
-    return res.status(400).json({ error: "URL을 지정하세요." });
-  const start = start_date ? `toDate('${start_date}')` : `today() - 13`;
-  const end = end_date ? `toDate('${end_date}')` : `today()`;
-  const urlCases = urlList.map((u) => `'${u}'`).join(", ");
-  const query = `
-    SELECT page_path AS url, count() AS pageViews, uniq(session_id) AS sessions
-    FROM events
-    WHERE event_name = 'page_view'
-      AND page_path IN (${urlCases})
-      AND toDate(timestamp) BETWEEN ${start} AND ${end}
-      AND sdk_key = '${sdk_key}'
-    GROUP BY page_path
-    ORDER BY pageViews DESC
-  `;
-  try {
-    const result = await clickhouse.query({ query, format: "JSON" });
-    const data = (await result.json()).data || [];
-    res.json({ data });
-  } catch (err) {
-    console.error("PageView Summary API ERROR:", err);
-    res.status(500).json({ error: "Failed to get pageview summary data" });
-  }
-});
-
-// [URL별 page_view 트렌드] 여러 URL의 일별/주별/월별 page_view 수를 반환
-router.get("/pageview-trend", authMiddleware, async (req, res) => {
-  const { sdk_key } = req.user;
-  const { urls = "", start_date, end_date, period = "daily" } = req.query;
-  const urlList = urls
-    .split(",")
-    .map((u) => u.trim())
-    .filter(Boolean);
-  if (!urlList.length)
-    return res.status(400).json({ error: "URL을 지정하세요." });
-  const start = start_date ? `toDate('${start_date}')` : `today() - 13`;
-  const end = end_date ? `toDate('${end_date}')` : `today()`;
-  let groupExpr = "toDate(timestamp)";
-  let dateFormat = "%Y-%m-%d";
-  if (period === "weekly") {
-    groupExpr = "toStartOfWeek(toDate(timestamp))";
-    dateFormat = "%Y-%m-%d";
-  } else if (period === "monthly") {
-    groupExpr = "toStartOfMonth(toDate(timestamp))";
-    dateFormat = "%Y-%m";
-  }
-  const urlCases = urlList.map((u) => `'${u}'`).join(", ");
-  const query = `
-    SELECT formatDateTime(${groupExpr}, '${dateFormat}') AS date, page_path AS url, count() AS pageViews
-    FROM events
-    WHERE event_name = 'page_view'
-      AND page_path IN (${urlCases})
-      AND toDate(timestamp) BETWEEN ${start} AND ${end}
-      AND sdk_key = '${sdk_key}'
-    GROUP BY date, page_path
-    ORDER BY date ASC, page_path ASC
-  `;
-  try {
-    const result = await clickhouse.query({ query, format: "JSON" });
-    const data = (await result.json()).data || [];
     res.json({
-      data: data.map((row) => ({
-        ...row,
-        pageViews: Number(row.pageViews) || 0,
-      })),
+      data: {
+        activeUsers: activeUsers,
+        avgSessionDuration: Math.round(avgSessionDuration),
+        conversionRate: parseFloat(conversionRate.toFixed(1)),
+        engagedSessions: engagedSessions,
+      },
+      changes: {
+        activeUsers: calculateChange(activeUsers, parseInt(yesterdayRow.active_users_yesterday) || 0),
+        avgSessionDuration: calculateChange(avgSessionDuration, parseFloat(yesterdayRow.avg_session_duration_yesterday) || 0),
+        conversionRate: calculateChange(conversionRate, 
+          yesterdayRow.total_sessions_yesterday > 0 ? 
+          (parseInt(yesterdayRow.total_conversions_yesterday) || 0) * 100 / parseInt(yesterdayRow.total_sessions_yesterday) : 0),
+        engagedSessions: calculateChange(engagedSessions, parseInt(yesterdayRow.engaged_sessions_yesterday) || 0),
+      }
     });
-  } catch (err) {
-    console.error("PageView Trend API ERROR:", err);
-    res.status(500).json({ error: "Failed to get pageview trend data" });
+
+  } catch (error) {
+    console.error('KPI 데이터 조회 오류:', error);
+    
+    // 오류 발생 시 기본값 반환
+    res.json({
+      data: {
+        activeUsers: 0,
+        avgSessionDuration: 0,
+        conversionRate: 0,
+        engagedSessions: 0,
+      },
+      changes: {
+        activeUsers: 0,
+        avgSessionDuration: 0,
+        conversionRate: 0,
+        engagedSessions: 0,
+      },
+      error: error.message
+    });
   }
 });
 
-// 모든 page_path를 중복 없이 반환하는 API (sdk_key별)
-router.get("/all-page-paths", authMiddleware, async (req, res) => {
-  const { sdk_key } = req.user;
+// ✅ 수정된 visitor-trend 라우트 - GROUP BY 추가
+router.get('/visitor-trend', async (req, res) => {
   try {
-    const query = `
-      SELECT DISTINCT page_path
-      FROM events
-      WHERE page_path IS NOT NULL AND sdk_key = '${sdk_key}'
-      ORDER BY page_path
+    const { sdk_key } = req.user;
+    const { days = 7 } = req.query;
+    
+    if (!sdk_key) {
+      return res.status(400).json({ error: 'sdk_key는 필수입니다' });
+    }
+
+    // ✅ 집계 테이블 쿼리 수정 - GROUP BY 추가
+    const aggregatedQuery = `
+      SELECT 
+        toString(summary_date) AS date,
+        uniqMerge(visitors_state) AS visitors
+      FROM klicklab.daily_overview_agg
+      WHERE summary_date >= toDate(now(), 'Asia/Seoul') - {days:UInt8}
+        AND summary_date <= toDate(now(), 'Asia/Seoul')
+        AND sdk_key = {sdk_key:String}
+      GROUP BY summary_date  -- ✅ GROUP BY 추가!
+      ORDER BY summary_date
     `;
-    const result = await clickhouse.query({ query, format: "JSONEachRow" });
-    const rows = await result.json();
-    const paths = rows.map((r) => r.page_path).filter(Boolean);
-    res.json({ data: paths });
-  } catch (err) {
-    console.error("all-page-paths API ERROR:", err);
-    res.status(500).json({ error: "Failed to get all page paths" });
+
+    try {
+      const result = await clickhouse.query({
+        query: aggregatedQuery,
+        query_params: { 
+          sdk_key,
+          days: parseInt(days)
+        },
+        format: 'JSONEachRow',
+      });
+
+      const data = await result.json();
+      
+      if (data.length > 0) {
+        const formattedData = data.map(row => ({
+          date: row.date,
+          visitors: parseInt(row.visitors) || 0
+        }));
+
+        return res.json({ data: formattedData });
+      }
+    } catch (aggregatedError) {
+      console.log('집계 데이터 조회 실패, 실시간 데이터로 대체:', aggregatedError.message);
+    }
+
+    // fallback: 실시간 데이터
+    const realtimeQuery = `
+      SELECT 
+        toString(toDate(timestamp)) AS date,
+        uniqExact(client_id) AS visitors
+      FROM klicklab.events
+      WHERE toDate(timestamp) >= toDate(now(), 'Asia/Seoul') - {days:UInt8}
+        AND toDate(timestamp) <= toDate(now(), 'Asia/Seoul')
+        AND sdk_key = {sdk_key:String}
+      GROUP BY toDate(timestamp)
+      ORDER BY date
+    `;
+
+    const realtimeResult = await clickhouse.query({
+      query: realtimeQuery,
+      query_params: { sdk_key, days: parseInt(days) },
+      format: 'JSONEachRow',
+    });
+
+    const realtimeData = await realtimeResult.json();
+    const formattedData = realtimeData.map(row => ({
+      date: row.date,
+      visitors: parseInt(row.visitors) || 0
+    }));
+
+    res.json({ data: formattedData });
+
+  } catch (error) {
+    console.error('방문자 트렌드 조회 오류:', error);
+    res.status(500).json({ error: '방문자 트렌드 데이터를 불러올 수 없습니다' });
   }
 });
 
-// page_view 이벤트가 실제로 기록된 URL만 중복 없이 반환하는 API (sdk_key별)
-router.get("/pageview-urls", authMiddleware, async (req, res) => {
-  const { sdk_key } = req.user;
+// ✅ 수정된 widgets 라우트 - element_selector 제거
+router.get('/widgets', async (req, res) => {
   try {
-    const query = `
-      SELECT DISTINCT page_path
-      FROM events
-      WHERE page_path IS NOT NULL AND event_name = 'page_view' AND sdk_key = '${sdk_key}'
-      ORDER BY page_path
+    const { sdk_key } = req.user;
+    const { date = 'today()' } = req.query;
+    
+    if (!sdk_key) {
+      return res.status(400).json({ error: 'sdk_key는 필수입니다' });
+    }
+
+    const dateCondition = date === 'today()' ? 'today()' : `toDate('${date}')`;
+
+    // 트래픽 소스별 데이터
+    const trafficSourceQuery = `
+      SELECT 
+        traffic_source AS source,
+        uniqExact(client_id) AS users
+      FROM klicklab.events
+      WHERE sdk_key = {sdk_key:String}
+        AND toDate(timestamp) = ${dateCondition}
+        AND traffic_source != ''
+      GROUP BY traffic_source
+      ORDER BY users DESC
+      LIMIT 10
     `;
-    const result = await clickhouse.query({ query, format: "JSONEachRow" });
-    const rows = await result.json();
-    const paths = rows.map((r) => r.page_path).filter(Boolean);
-    res.json({ data: paths });
-  } catch (err) {
-    console.error("pageview-urls API ERROR:", err);
-    res.status(500).json({ error: "Failed to get pageview urls" });
+
+    // 상위 페이지별 데이터
+    const topPagesQuery = `
+      SELECT 
+        page_path AS page,
+        countIf(event_name = 'page_view') AS views
+      FROM klicklab.events
+      WHERE sdk_key = {sdk_key:String}
+        AND toDate(timestamp) = ${dateCondition}
+        AND page_path != ''
+      GROUP BY page_path
+      ORDER BY views DESC
+      LIMIT 10
+    `;
+
+    // ✅ 상위 이벤트 요소 (element_selector 대신 page_path 사용)
+    const topEventsQuery = `
+    SELECT 
+    event_name AS event,
+    sumMerge(event_count_state) AS count
+  FROM klicklab.daily_event_agg
+  WHERE summary_date >= toDate(now(), 'Asia/Seoul') - 6
+    AND summary_date <= toDate(now(), 'Asia/Seoul')
+    AND sdk_key = {sdk_key:String}
+    AND event_name NOT IN ('auto_click', 'page_view', 'scroll_depth', 'page_exit')
+  GROUP BY event_name
+  ORDER BY count DESC
+  LIMIT 10
+`;
+
+    // 병렬로 쿼리 실행
+    const [trafficResult, pagesResult, eventsResult] = await Promise.all([
+      clickhouse.query({
+        query: trafficSourceQuery,
+        query_params: { sdk_key },
+        format: 'JSONEachRow',
+      }),
+      clickhouse.query({
+        query: topPagesQuery,
+        query_params: { sdk_key },
+        format: 'JSONEachRow',
+      }),
+      clickhouse.query({
+        query: topEventsQuery,
+        query_params: { sdk_key },
+        format: 'JSONEachRow',
+      })
+    ]);
+
+    const [trafficData, pagesData, eventsData] = await Promise.all([
+      trafficResult.json(),
+      pagesResult.json(),
+      eventsResult.json()
+    ]);
+
+    res.json({
+      trafficSources: trafficData.map(row => ({
+        source: row.source,
+        users: parseInt(row.users) || 0
+      })),
+      topPages: pagesData.map(row => ({
+        page: row.page,
+        views: parseInt(row.views) || 0
+      })),
+      topEvents: eventsData.map(row => ({
+        event: row.event,
+        count: parseInt(row.count) || 0
+      }))
+    });
+
+  } catch (error) {
+    console.error('위젯 데이터 조회 오류:', error);
+    res.status(500).json({ error: '위젯 데이터를 불러올 수 없습니다' });
+  }
+});
+
+// 🔥 3. 실시간 활성 사용자 조회 (30분) - 이미 작동하고 있으므로 그대로 유지
+router.get('/realtime', async (req, res) => {
+  try {
+    const { sdk_key } = req.user;
+    
+    if (!sdk_key) {
+      return res.status(400).json({ error: 'sdk_key는 필수입니다' });
+    }
+
+    const query = `
+      SELECT 
+        uniqExact(client_id) AS active_users_30min,
+        count() AS total_events,
+        countIf(event_name = 'page_view') AS pageviews,
+        countIf(event_name = 'auto_click') AS clicks
+      FROM klicklab.events
+      WHERE timestamp >= now() - INTERVAL 30 MINUTE
+        AND timestamp <= now()
+        AND sdk_key = {sdk_key:String}
+    `;
+
+    const result = await clickhouse.query({
+      query,
+      query_params: { sdk_key },
+      format: 'JSONEachRow',
+    });
+
+    const data = await result.json();
+    const row = data[0] || {};
+
+    res.json({
+      data: {
+        activeUsers30min: parseInt(row.active_users_30min) || 0,
+        totalEvents: parseInt(row.total_events) || 0,
+        pageviews: parseInt(row.pageviews) || 0,
+        clicks: parseInt(row.clicks) || 0,
+      }
+    });
+
+  } catch (error) {
+    console.error('실시간 데이터 조회 오류:', error);
+    res.status(500).json({ error: '실시간 데이터를 불러올 수 없습니다' });
+  }
+});
+
+// 📊 4. 실시간 30분 트렌드 조회 - 이미 작동하므로 그대로 유지
+router.get('/realtime-trend', async (req, res) => {
+  try {
+    const { sdk_key } = req.user;
+    
+    if (!sdk_key) {
+      return res.status(400).json({ error: 'sdk_key는 필수입니다' });
+    }
+
+    const query = `
+      WITH time_slots AS (
+        SELECT toStartOfMinute(now() - INTERVAL number MINUTE) AS minute
+        FROM numbers(30)
+      )
+      SELECT 
+        formatDateTime(time_slots.minute, '%H:%M') AS time,
+        COALESCE(data.users, 0) AS users
+      FROM time_slots
+      LEFT JOIN (
+        SELECT 
+          toStartOfMinute(timestamp) AS minute,
+          uniqExact(client_id) AS users
+        FROM klicklab.events
+        WHERE sdk_key = {sdk_key:String}
+          AND timestamp >= now() - INTERVAL 30 MINUTE
+        GROUP BY minute
+      ) AS data ON time_slots.minute = data.minute
+      ORDER BY time_slots.minute
+    `;
+
+    const result = await clickhouse.query({
+      query,
+      query_params: { sdk_key },
+      format: 'JSONEachRow',
+    });
+
+    const data = await result.json();
+    const formattedData = data.map(row => ({
+      time: row.time,
+      users: parseInt(row.users) || 0
+    }));
+
+    res.json({ data: formattedData });
+
+  } catch (error) {
+    console.error('실시간 트렌드 조회 오류:', error);
+    res.status(500).json({ error: '실시간 트렌드 데이터를 불러올 수 없습니다' });
+  }
+});
+
+router.get('/realtime/summary', async (req, res) => {
+  try {
+    const { sdk_key } = req.user;
+    const query = `
+      SELECT active_users_30min, total_events, pageviews, clicks
+      FROM klicklab.v_realtime_active_users
+      WHERE sdk_key = {sdk_key:String}
+    `;
+    const result = await clickhouse.query({
+      query,
+      query_params: { sdk_key },
+      format: 'JSONEachRow',
+    });
+    const data = await result.json();
+    res.json(data[0] || {});
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/realtime/trend', async (req, res) => {
+  try {
+    const { sdk_key } = req.user;
+    const query = `
+      WITH time_slots AS (
+        SELECT toStartOfMinute(now() - INTERVAL number MINUTE) AS minute
+        FROM numbers(30)
+      )
+      SELECT 
+        formatDateTime(time_slots.minute, '%H:%M') AS time,
+        COALESCE(data.users, 0) AS users
+      FROM time_slots
+      LEFT JOIN (
+        SELECT 
+          toStartOfMinute(timestamp) AS minute,
+          uniqExact(client_id) AS users
+        FROM klicklab.events
+        WHERE sdk_key = {sdk_key:String}
+          AND timestamp >= now() - INTERVAL 30 MINUTE
+        GROUP BY minute
+      ) AS data ON time_slots.minute = data.minute
+      ORDER BY time_slots.minute
+    `;
+    const result = await clickhouse.query({
+      query,
+      query_params: { sdk_key },
+      format: 'JSONEachRow',
+    });
+    const data = await result.json();
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/realtime/sources', async (req, res) => {
+  try {
+    const { sdk_key } = req.user;
+    const query = `
+      SELECT 
+        city AS source,
+        uniqExact(client_id) AS users
+      FROM klicklab.events
+      WHERE sdk_key = {sdk_key:String}
+        AND timestamp >= now() - INTERVAL 30 MINUTE
+        AND city != ''
+      GROUP BY city
+      ORDER BY users DESC
+      LIMIT 10
+    `;
+    const result = await clickhouse.query({
+      query,
+      query_params: { sdk_key },
+      format: 'JSONEachRow',
+    });
+    const data = await result.json();
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
