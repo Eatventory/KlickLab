@@ -70,9 +70,13 @@ export const ReportDashboard: React.FC = () => {
       const blob = await blobResponse.blob();
       const url = window.URL.createObjectURL(blob);
 
+      const contentDisposition = blobResponse.headers.get('Content-Disposition');
+      const filenameMatch = contentDisposition?.match(/filename="(.+)"/);
+      const filename = filenameMatch?.[1] || `kpi-report-export.csv`;
+
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'kpi-report-export.csv';
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       a.remove();

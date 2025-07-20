@@ -4,6 +4,7 @@ const { format } = require('@fast-csv/format');
 const stream = require('stream');
 const clickhouse = require('../src/config/clickhouse');
 const authMiddleware = require('../middlewares/authMiddleware');
+const { formatLocalDateTime } = require('../utils/formatLocalDateTime');
 
 const { getKpiQueries } = require('../utils/reportUtils');
 
@@ -43,8 +44,9 @@ router.post('/kpi-report/csv', async (req, res) => {
     return res.status(400).json({ error: 'Missing or invalid report data' });
   }
 
+  const dateTime = formatLocalDateTime(new Date(), true);
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-  res.setHeader('Content-Disposition', `attachment; filename="kpi-report-export.csv"`);
+  res.setHeader('Content-Disposition', `attachment; filename="kpi-report-export-${dateTime}.csv"`);
 
   try {
     const sections = Object.entries(reportData);
