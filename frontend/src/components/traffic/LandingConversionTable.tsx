@@ -35,7 +35,7 @@ export const LandingConversionTable: React.FC = () => {
       const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
       if (!token) throw new Error("No token");
       
-      const response = await fetch(`/api/overview/conversion-by-landing?to=/checkout/success&event=${currentEvent}`, {
+      const response = await fetch(`/api/acquisition/landing-conversion-rate?to=/checkout/success&event=${currentEvent}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       

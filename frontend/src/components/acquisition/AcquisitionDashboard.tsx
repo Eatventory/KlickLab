@@ -15,7 +15,7 @@ import { ClickFlowSankeyChart } from './ClickFlowSankeyChart';
 import { ChannelGroupStackedChart } from './ChannelGroupStackedChart';
 import { keyframes } from 'framer-motion';
 import { ConversionRateWidget } from '../conversion/ConversionRateWidget';
-import { ConversionSummaryCard } from '../overview/ConversionSummaryCard';
+import { ConversionSummaryCard } from '../ConversionSummaryCard';
 import { ChannelConversionTable } from '../traffic/ChannelConversionTable';
 import { LandingConversionTable } from '../traffic/LandingConversionTable';
 
@@ -443,11 +443,6 @@ export const AcquisitionDashboard: React.FC = () => {
           {/* 채널별 전환율 */}
           <div className="md:col-span-3">
             <ChannelConversionTable />
-          </div>
-
-          {/* 첫 유입 페이지 전환율 */}
-          <div className="md:col-span-3">
-            <LandingConversionTable />
           </div>
         </div>
       </div>

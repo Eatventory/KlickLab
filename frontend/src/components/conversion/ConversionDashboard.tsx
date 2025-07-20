@@ -4,12 +4,12 @@ import { UserPathSankeyChart } from '../user/UserPathSankeyChart';
 import { SankeyFunnel } from './SankeyFunnel';
 import { ChannelConversionTable } from '../traffic/ChannelConversionTable';
 import { LandingConversionTable } from '../traffic/LandingConversionTable';
-import ConversionPathsCard from '../overview/ConversionPathsCard';
+import ConversionPathsCard from '../ConversionPathsCard';
 import ChartTableWrapper from '../ui/ChartTableWrapper';
 import HorizontalLineChart from '../HorizontalLineChart';
 import { mockSankeyPaths } from '../../data/mockData';
 import { ConversionRateWidget } from './ConversionRateWidget';
-import { ConversionSummaryCard } from '../overview/ConversionSummaryCard';
+import { ConversionSummaryCard } from '../ConversionSummaryCard';
 
 const DEFAULT_EVENTS = ['page_view', 'scroll', 'auto_click', 'user_engagement'];
 const PERIOD_LABELS = { daily: '일', weekly: '주', monthly: '월' };

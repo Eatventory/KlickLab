@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
-import { useConversionEvent } from '../../context/ConversionEventContext';
+import { useConversionEvent } from '../context/ConversionEventContext';
 
 interface ConversionPath {
   path: string[];
