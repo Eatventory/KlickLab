@@ -3,13 +3,10 @@ import { StatCard } from './StatCard';
 import { VisitorChart } from '../traffic/VisitorChart';
 import { TopClicks } from './TopClicks';
 import { BarChart, Globe, Users, MousePointer, Clock, TrendingDown, PieChart } from 'lucide-react';
-import { TrendingUp } from 'lucide-react';
-import { useSegmentFilter } from '../../context/SegmentFilterContext';
-import { mockSankeyPaths } from '../../data/mockData';
-import dayjs from 'dayjs';
+
 
 // 위젯의 기본 프레임을 위한 컴포넌트
-const WidgetFrame = ({ title, children, icon: Icon }: { title: string; children: React.ReactNode; icon?: React.ElementType }) => (
+const WidgetFrame = ({ title, children, icon: Icon }) => (
   <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 md:p-6 h-full flex flex-col">
     <div className="flex items-center gap-2 mb-4">
       {Icon && <Icon className="w-5 h-5 text-gray-500" />}
@@ -20,7 +17,7 @@ const WidgetFrame = ({ title, children, icon: Icon }: { title: string; children:
 );
 
 // 간단한 목록 표시를 위한 컴포넌트 (예: 상위 페이지)
-const SimpleTable = ({ data, columns }: { data: Record<string, any>[]; columns: { key: string; label: string }[] }) => (
+const SimpleTable = ({ data, columns }) => (
   <div className="space-y-2">
     <div className="grid grid-cols-2 font-semibold text-sm text-gray-500">
       <span>{columns[0].label}</span>
@@ -35,8 +32,63 @@ const SimpleTable = ({ data, columns }: { data: Record<string, any>[]; columns: 
   </div>
 );
 
+// 호버 가능한 실시간 차트 컴포넌트
+const RealtimeChart = ({ data }) => {
+  const [hoveredBar, setHoveredBar] = useState(null);
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+
+  const handleMouseEnter = (index, event) => {
+    setHoveredBar(index);
+    setMousePosition({ x: event.clientX, y: event.clientY });
+  };
+
+  const handleMouseMove = (event) => {
+    setMousePosition({ x: event.clientX, y: event.clientY });
+  };
+
+  const handleMouseLeave = () => {
+    setHoveredBar(null);
+  };
+
+  return (
+    <div className="relative">
+      {/* 호버 툴팁 */}
+      {hoveredBar !== null && (
+        <div 
+          className="fixed z-50 bg-gray-800 text-white text-xs rounded px-2 py-1 pointer-events-none"
+          style={{ 
+            left: mousePosition.x + 10, 
+            top: mousePosition.y - 30 
+          }}
+        >
+          <div>30분 전</div>
+          <div className="font-bold">활성 사용자: {data[hoveredBar]?.users || 0}</div>
+        </div>
+      )}
+      
+      {/* 차트 */}
+      <div className="h-28 mb-6 overflow-hidden">
+        <div className="flex items-end h-full gap-0.5">
+          {data.map((d, i) => (
+            <div 
+              key={i} 
+              style={{ height: `${d.users * 2}px` }} 
+              className={`flex-1 rounded-t cursor-pointer transition-colors ${
+                hoveredBar === i ? 'bg-blue-600' : 'bg-blue-400'
+              }`}
+              onMouseEnter={(e) => handleMouseEnter(i, e)}
+              onMouseMove={handleMouseMove}
+              onMouseLeave={handleMouseLeave}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Google Analytics 스타일의 개요 대시보드
-export const OverviewDashboard = forwardRef<any, {}>((props, ref) => {
+export const OverviewDashboard = forwardRef((props, ref) => {
   // --- Mock Data ---
   const visitorsData = { today: 1650 };
   const sessionsData = { today: 2130 };
@@ -108,7 +160,7 @@ export const OverviewDashboard = forwardRef<any, {}>((props, ref) => {
   ];
 
   // 초를 '분 초'로 변환
-  const formatDuration = (seconds: number) => {
+  const formatDuration = (seconds) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
     return `${m}분 ${s}초`;
@@ -145,13 +197,13 @@ export const OverviewDashboard = forwardRef<any, {}>((props, ref) => {
                       : kpi.title === "세션 주요 이벤트 비율"
                       ? `${kpi.value}%`
                       : kpi.value,
-                  changeType: kpi.changeType as 'increase' | 'decrease' | 'neutral'
+                  changeType: kpi.changeType
                 }}
               />
             ))}
           </div>
           {/* 선그래프 (트렌드) */}
-          <div className="w-full" flex-1 mb-4>
+          <div className="w-full flex-1 mb-4">
             <VisitorChart data={visitorTrendData} period="daily" />
           </div>
         </div>
@@ -160,14 +212,8 @@ export const OverviewDashboard = forwardRef<any, {}>((props, ref) => {
           <div>
             <div className="text-base font-semibold text-gray-700 mb-1">지난 30분 동안의 활성 사용자</div>
             <div className="text-3xl font-extrabold text-blue-700 mb-4">{realtimeUserCount}</div>
-            {/* 분당 활성 사용자 막대그래프 (recharts BarChart 예시) */}
-            <div className="h-28 mb-6 overflow-hidden">
-              <div className="flex items-end h-full gap-0.5">
-                {realtimeUserTrend.map((d, i) => (
-                  <div key={i} style={{ height: `${d.users * 2}px` }} className="flex-1 bg-blue-400 rounded-t" />
-                ))}
-              </div>
-            </div>
+            {/* 호버 가능한 분당 활성 사용자 막대그래프 */}
+            <RealtimeChart data={realtimeUserTrend} />
             <div className="text-xs text-gray-400 text-left mb-4">분당 활성 사용자</div>
           </div>
           {/* 유입경로별 막대그래프 */}
@@ -217,4 +263,4 @@ export const OverviewDashboard = forwardRef<any, {}>((props, ref) => {
       </div>
     </div>
   );
-}); 
+});
