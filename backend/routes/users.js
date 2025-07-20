@@ -158,7 +158,9 @@ router.get("/realtime-analytics", authMiddleware, async (req, res) => {
     const now = new Date();
     const currentHour = now.getHours();
     const currentMinute = now.getMinutes();
-    const today = now.toISOString().slice(0, 10);
+    // 한국 시간대(UTC+9) 기준으로 today 계산
+    const koreaTime = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+    const today = koreaTime.toISOString().slice(0, 10);
     
     // 날짜 조건 확인
     const isOnlyToday = startDate === endDate && startDate === today;
