@@ -41,27 +41,28 @@ interface AcquisitionData {
   realtimeData: {
     topCountries: any[];
   };
+  channelConversionData: any[];
 }
 
-// Mock Data 생성 함수들
+// Mock Data 생성 함수들 (활성 사용자 3457명, 신규 유입 사용자 2505명 기준)
 const generateMockHourlyData = () => {
   const hours = Array.from({ length: 24 }, (_, i) => i);
   return hours.map(hour => {
     let baseUsers;
-    // 새벽(0-6시): 낮은 수치 (1/3로 조정)
+    // 새벽(0-6시): 낮은 수치
     if (hour >= 0 && hour <= 6) {
-      baseUsers = Math.floor(Math.random() * 17) + 7;
+      baseUsers = Math.floor(Math.random() * 80) + 30; // 30-110명
     }
-    // 오후 7시-11시: 높은 수치 (1/3로 조정)
+    // 오후 7시-11시: 높은 수치
     else if (hour >= 19 && hour <= 23) {
-      baseUsers = Math.floor(Math.random() * 50) + 67;
+      baseUsers = Math.floor(Math.random() * 120) + 200; // 200-320명
     }
-    // 나머지 시간: 중간 수치 (1/3로 조정)
+    // 나머지 시간: 중간 수치
     else {
-      baseUsers = Math.floor(Math.random() * 33) + 27;
+      baseUsers = Math.floor(Math.random() * 80) + 120; // 120-200명
     }
     
-    const newUsers = Math.floor(baseUsers * (0.6 + Math.random() * 0.3)); // 60-90%가 신규
+    const newUsers = Math.floor(baseUsers * (0.65 + Math.random() * 0.2)); // 65-85%가 신규
     const existingUsers = baseUsers - newUsers;
     
     return {
@@ -74,76 +75,86 @@ const generateMockHourlyData = () => {
 };
 
 const generateMockTopChannelData = () => [
-  { channel: 'google', users: 1547, clicks: 2431 },
-  { channel: 'kakao', users: 933, clicks: 1544 },
-  { channel: 'naver', users: 671, clicks: 1087 },
-  { channel: 'direct', users: 229, clicks: 298 }
+  { channel: 'google', users: 1730, clicks: 2684 }, // 가장 높음
+  { channel: 'naver', users: 1040, clicks: 1612 }, // 2위
+  { channel: 'kakao', users: 520, clicks: 806 },   // 3위  
+  { channel: 'direct', users: 167, clicks: 259 }   // 가장 낮음
 ];
 
 const generateMockNewUserChannelData = () => [
-  { channel: 'google', users: 375 },
-  { channel: 'kakao', users: 226 },
-  { channel: 'naver', users: 148 },
-  { channel: 'direct', users: 48 }
+  { channel: 'google', users: 577 }, // 상위 유입 채널의 정확히 1/3
+  { channel: 'naver', users: 347 }, // 정확히 1/3
+  { channel: 'kakao', users: 173 }, // 정확히 1/3
+  { channel: 'direct', users: 56 }  // 정확히 1/3
 ];
 
 const generateMockDeviceData = () => {
-  const total = 1112; // 3337의 1/3
+  const total = 3457;
   return [
-    { name: 'Mobile', value: Math.floor(total * 0.65), percentage: 65 },
-    { name: 'Desktop', value: Math.floor(total * 0.30), percentage: 30 },
+    { name: 'Mobile', value: Math.floor(total * 0.68), percentage: 68 },
+    { name: 'Desktop', value: Math.floor(total * 0.27), percentage: 27 },
     { name: 'Tablet', value: Math.floor(total * 0.05), percentage: 5 }
   ];
 };
 
 const generateMockBrowserData = () => {
-  const total = 1112; // 3337의 1/3
+  const total = 3457;
   return [
-    { name: 'Chrome', value: Math.floor(total * 0.50), percentage: 50 },
-    { name: 'Safari', value: Math.floor(total * 0.28), percentage: 28 },
+    { name: 'Chrome', value: Math.floor(total * 0.52), percentage: 52 },
+    { name: 'Safari', value: Math.floor(total * 0.26), percentage: 26 },
     { name: 'Edge', value: Math.floor(total * 0.17), percentage: 17 },
     { name: 'Others', value: Math.floor(total * 0.05), percentage: 5 }
   ];
 };
 
 const generateMockChannelGroupData = () => [
-  { channel: 'google', device: 'mobile', users: 335 },
-  { channel: 'google', device: 'desktop', users: 181 },
-  { channel: 'kakao', device: 'mobile', users: 233 },
-  { channel: 'kakao', device: 'desktop', users: 78 },
-  { channel: 'naver', device: 'mobile', users: 145 },
-  { channel: 'naver', device: 'desktop', users: 78 },
-  { channel: 'direct', device: 'mobile', users: 46 },
-  { channel: 'direct', device: 'desktop', users: 31 }
+  { channel: 'google', device: 'mobile', users: 433 }, // 75% mobile (577의 75%)
+  { channel: 'google', device: 'desktop', users: 144 }, // 25% desktop (577의 25%)
+  { channel: 'naver', device: 'mobile', users: 212 }, // 61% mobile (347의 61%)
+  { channel: 'naver', device: 'desktop', users: 135 }, // 39% desktop (347의 39%)
+  { channel: 'kakao', device: 'mobile', users: 125 }, // 72% mobile (173의 72%)
+  { channel: 'kakao', device: 'desktop', users: 48 }, // 28% desktop (173의 28%)
+  { channel: 'direct', device: 'mobile', users: 34 }, // 60% mobile (56의 60%)
+  { channel: 'direct', device: 'desktop', users: 22 }  // 40% desktop (56의 40%)
 ];
 
 const generateMockFunnelData = () => [
-  { stage: '방문', visitors: 1112, conversionRate: 100 },
-  { stage: '페이지 뷰', visitors: 890, conversionRate: 80 },
-  { stage: '참여', visitors: 556, conversionRate: 50 },
-  { stage: '전환', visitors: 111, conversionRate: 10 }
+  { stage: '회원가입', visitors: 2457, conversionRate: 61 },
+  { stage: '구매', visitors: 561, conversionRate: 12 }
 ];
 
 const generateMockCampaignData = () => [
-  { campaign: 'summer2024', description: '시즌 한정 할인 이벤트', sessions: 589 },
-  { campaign: 'welcome_offer', description: '신규 가입 혜택 캠페인', sessions: 415 },
-  { campaign: 'instagram_promo', description: 'SNS 리그램 이벤트', sessions: 296 },
-  { campaign: 'Google Ads - Brand', sessions: 280 },
-  { campaign: 'Kakao Display', sessions: 180 },
-  { campaign: 'Naver Search', sessions: 140 },
-  { campaign: 'Facebook Campaign', sessions: 70 },
-  { campaign: 'YouTube Ads', sessions: 30 }
+  { campaign: 'summer2024', description: '시즌 한정 할인 이벤트', sessions: 950 }, // 1위
+  { campaign: 'welcome_offer', description: '신규 가입 혜택 캠페인', sessions: 720 }, // 2위
+  { campaign: 'instagram_promo', description: 'SNS 리그램 이벤트', sessions: 480 }, // 3위
+  { campaign: 'Google Ads - Brand', sessions: 380 },
+  { campaign: 'Naver Search', sessions: 290 },
+  { campaign: 'Kakao Display', sessions: 220 },
+  { campaign: 'Facebook Campaign', sessions: 150 },
+  { campaign: 'YouTube Ads', sessions: 80 }
 ];
 
 const generateMockCountriesData = () => [
-  { city: '서울', users: 611 },
-  { city: '부산', users: 148 },
-  { city: '대구', users: 111 },
-  { city: '인천', users: 93 },
-  { city: '광주', users: 56 },
-  { city: '대전', users: 48 },
-  { city: '울산', users: 30 },
-  { city: '수원', users: 15 }
+  { city: '서울특별시', users: 1384 },  // 40%
+  { city: '경기도', users: 518 },       // 15%
+  { city: '부산광역시', users: 311 },   // 9%
+  { city: '경상남도', users: 242 },     // 7%
+  { city: '인천광역시', users: 207 },   // 6%
+  { city: '경상북도', users: 173 },     // 5%
+  { city: '대구광역시', users: 138 },   // 4%
+  { city: '충청남도', users: 104 },     // 3%
+  { city: '전라북도', users: 104 },     // 3%
+  { city: '강원특별자치도', users: 86 }, // 2.5%
+  { city: '충청북도', users: 69 },      // 2%
+  { city: '전라남도', users: 69 },      // 2%
+  { city: '광주광역시', users: 52 },    // 1.5%
+];
+
+const generateMockChannelConversionData = () => [
+  { channel: 'google', visitors: 1730, conversions: 346, conversionRate: 20.0 }, // 1위 (20%)
+  { channel: 'naver', visitors: 1040, conversions: 182, conversionRate: 17.5 },  // 2위 (17.5%)
+  { channel: 'kakao', visitors: 520, conversions: 73, conversionRate: 14.0 },    // 3위 (14%)
+  { channel: 'direct', visitors: 167, conversions: 17, conversionRate: 10.2 }    // 4위 (10.2%)
 ];
 
 export const AcquisitionDashboard: React.FC = () => {
@@ -167,19 +178,12 @@ export const AcquisitionDashboard: React.FC = () => {
   const [tempRange, setTempRange] = useState(dateRange);
   const [showPicker, setShowPicker] = useState(false);
 
-  // 강제로 Mock 데이터만 사용하는 함수
+  // Mock 데이터와 실제 KPI 데이터를 함께 사용하는 함수
   const initializeMockData = () => {
-    console.log('=== MOCK DATA 강제 로딩 시작 ===');
+    console.log('=== MOCK DATA 로딩 시작 (활성 사용자 3457명, 신규 유입 사용자 2505명 기준) ===');
     
-    // 로딩 상태 설정
     setLoading(true);
     setError(null);
-    
-    // KPI 데이터 먼저 설정 (Mock 기본값)
-    setKpiData({
-      active_users: 3337,
-      new_users: 2391
-    });
     
     // 차트용 Mock 데이터 생성
     const mockChartData: AcquisitionData = {
@@ -191,26 +195,31 @@ export const AcquisitionDashboard: React.FC = () => {
       clickFlowData: { nodes: [], links: [] },
       channelGroupData: generateMockChannelGroupData(),
       sessionData: generateMockCampaignData(),
-      realtimeData: { topCountries: generateMockCountriesData() }
+      realtimeData: { topCountries: generateMockCountriesData() },
+      channelConversionData: generateMockChannelConversionData()
     };
     
     console.log('=== MOCK DATA 설정 완료 ===', mockChartData);
     
-    // 데이터 설정
+    // Mock 차트 데이터 설정
     setAcquisitionData(mockChartData);
     setRefreshKey(prev => prev + 1);
     setLoading(false);
     
-    // 백그라운드에서 실제 KPI 데이터 시도 (실패해도 Mock 유지)
+    // 실제 KPI 데이터 가져오기 (활성 사용자, 신규 유입 사용자만)
     tryFetchRealKpiData();
   };
 
-  // 백그라운드에서 실제 KPI 데이터만 가져오기 (실패해도 Mock 유지)
+  // 활성 사용자와 신규 유입 사용자만 실제 API에서 가져오기
   const tryFetchRealKpiData = async () => {
     try {
       const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
       if (!token) {
-        console.log('[KPI] 토큰 없음 - Mock KPI 유지');
+        console.log('[KPI] 토큰 없음 - Mock KPI 사용: 활성 사용자 3457명, 신규 유입 사용자 2505명');
+        setKpiData({
+          active_users: 3457,
+          new_users: 2505
+        });
         return;
       }
 
@@ -232,31 +241,39 @@ export const AcquisitionDashboard: React.FC = () => {
       const globalFilterString = globalFilterParams.toString();
       const globalFilterQuery = globalFilterString ? `&${globalFilterString}` : '';
 
-      console.log('[KPI] 실제 API 시도...');
+      console.log('[KPI] 실제 API 시도 (활성 사용자, 신규 유입 사용자만)...');
       const response = await fetch(`/api/acquisition/overview?${dateQuery}${globalFilterQuery}`, { 
         headers: { Authorization: `Bearer ${token}` },
-        signal: AbortSignal.timeout(5000) // 5초 타임아웃
+        signal: AbortSignal.timeout(5000)
       });
 
       if (response.ok) {
         const realKpiData = await response.json();
         console.log('[KPI] 실제 데이터 수신:', realKpiData);
-        // 실제 KPI 데이터가 있으면 업데이트, 없으면 Mock 유지
-        if (realKpiData.active_users && realKpiData.new_users) {
-          setKpiData(realKpiData);
-        }
+        // 실제 KPI 데이터가 있으면 사용, 없으면 Mock 사용
+        setKpiData({
+          active_users: realKpiData.active_users || 3457,
+          new_users: realKpiData.new_users || 2505
+        });
       } else {
-        console.log('[KPI] API 응답 실패 - Mock KPI 유지');
+        console.log('[KPI] API 응답 실패 - Mock KPI 사용');
+        setKpiData({
+          active_users: 3457,
+          new_users: 2505
+        });
       }
     } catch (err) {
-      console.log('[KPI] API 에러 - Mock KPI 유지:', err);
-      // 에러 발생 시에도 Mock 데이터 유지 (아무것도 하지 않음)
+      console.log('[KPI] API 에러 - Mock KPI 사용:', err);
+      setKpiData({
+        active_users: 3457,
+        new_users: 2505
+      });
     }
   };
 
 
 
-  /* 기존 fetchAcquisitionData 함수 - 나중에 복원용으로 주석 처리
+  /* fetchAcquisitionData 함수 - Mock 모드에서는 사용하지 않음
   const fetchAcquisitionData = async (start?: Date, end?: Date) => {
     try {
       setLoading(true);
@@ -451,9 +468,9 @@ export const AcquisitionDashboard: React.FC = () => {
   };
   */
 
-  // 컴포넌트 마운트 시 Mock 데이터 강제 로드
+  // 컴포넌트 마운트 시 Mock 데이터 로드
   useEffect(() => {
-    console.log('🚀 컴포넌트 마운트 - Mock 데이터 강제 로딩');
+    console.log('🚀 컴포넌트 마운트 - Mock 데이터 로딩');
     initializeMockData();
   }, []); // 마운트 시에만 실행
 
@@ -531,7 +548,7 @@ export const AcquisitionDashboard: React.FC = () => {
               <div className="text-center">
                 <h3 className="text-sm font-semibold text-gray-900 mb-2">활성 사용자</h3>
                 <div className="text-3xl font-bold text-gray-900 mb-1">
-                  {kpiData ? kpiData.active_users?.toLocaleString() || '3,337' : '3,337'}
+                  {kpiData ? kpiData.active_users?.toLocaleString() || '3,457' : '3,457'}
                 </div>
                 <div className="text-xs text-green-600">+8.2%</div>
               </div>
@@ -542,7 +559,7 @@ export const AcquisitionDashboard: React.FC = () => {
               <div className="text-center">
                 <h3 className="text-sm font-semibold text-gray-900 mb-2">신규 유입 사용자</h3>
                 <div className="text-3xl font-bold text-gray-900 mb-1">
-                  {kpiData ? kpiData.new_users?.toLocaleString() || '2,391' : '2,391'}
+                  {kpiData ? kpiData.new_users?.toLocaleString() || '2,505' : '2,505'}
                 </div>
                 <div className="text-xs text-green-600">+12.5%</div>
               </div>
