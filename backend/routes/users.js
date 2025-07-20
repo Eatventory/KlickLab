@@ -3,6 +3,7 @@ const router = express.Router();
 const clickhouse = require("../src/config/clickhouse");
 const authMiddleware = require("../middlewares/authMiddleware");
 
+
 // 상수 정의
 const GENDER_FILTER = "AND (segment_type != 'user_gender' OR segment_value IN ('male', 'female'))";
 const UNKNOWN_FILTER = "AND segment_value != 'unknown'";
@@ -11,6 +12,7 @@ const GROUP_BY_FIELDS = "GROUP BY segment_type, segment_value, dist_type, dist_v
 
 // 공통 쿼리 실행 함수
 const executeQuery = async (query) => {
+
   try {
     const result = await clickhouse.query({ query, format: "JSON" }).then(r => r.json());
     return result.data || [];
@@ -99,6 +101,7 @@ const getTenMinuteData = async (sdkKey, startDate, currentHour, currentMinute) =
       console.warn(`Failed to fetch 10-minute data for ${currentHour}:${currentMinute}:`, err.message);
     }
   }
+
   
   return tenMinuteData;
 };
@@ -261,6 +264,7 @@ router.get("/realtime-analytics", authMiddleware, async (req, res) => {
     console.error("Realtime Analytics API ERROR:", err);
     res.status(500).json({ error: "Failed to get realtime analytics data" });
   }
+
 });
 
 module.exports = router;

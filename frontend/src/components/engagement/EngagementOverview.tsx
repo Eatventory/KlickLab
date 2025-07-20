@@ -13,6 +13,7 @@ import type {
   AvgSessionSecsData,
   SessionsPerUsersData,
   UsersOverTimeData,
+
   RevisitData,
 } from '../../data/engagementTypes';
 
@@ -25,6 +26,7 @@ interface Props {
   viewCounts: ViewCountsData[];
   clickCounts: ClickCountsData[];
   usersOverTime: UsersOverTimeData[];
+
   revisit: RevisitData[];
   selectedMetric: 'viewCounts' | 'clickCounts';
   selectedMetric2: 'avgSessionSecs' | 'sessionsPerUsers';
@@ -43,6 +45,7 @@ const EngagementOverview: React.FC<Props> = ({
   viewCounts,
   clickCounts,
   usersOverTime,
+
   revisit,
   selectedMetric,
   selectedMetric2,
@@ -153,6 +156,7 @@ const EngagementOverview: React.FC<Props> = ({
           />
         </div>
 
+
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
           <div className="flex items-center gap-2 mb-4">
             <h2 className="text-lg font-semibold text-gray-900">사용자 재방문</h2>
@@ -255,6 +259,7 @@ const EngagementOverview: React.FC<Props> = ({
               { key: 'dailyUsers', name: '1일' },
             ]}
             showLegend={true}
+
             tooltipRenderer={(item, hoveredLineKey) => (
               <div className="text-sm space-y-1 min-w-[120px]">
                 <div className="text-gray-500">{item.date}</div>
@@ -270,6 +275,7 @@ const EngagementOverview: React.FC<Props> = ({
                     {item.monthlyUsers.toLocaleString()}
                   </span>
                 </div>
+
             
                 <div
                   className="flex items-center"
@@ -282,6 +288,7 @@ const EngagementOverview: React.FC<Props> = ({
                     {item.weeklyUsers.toLocaleString()}
                   </span>
                 </div>
+
             
                 <div
                   className="flex items-center"

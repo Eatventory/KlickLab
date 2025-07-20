@@ -16,6 +16,7 @@ export interface ChartTableWrapperProps {
   valueKeys: { key: string; label: string; showPercent?: boolean }[];
   children: (
     selectedKeys: string[],
+
     chartData: Record<string, any>[] ,
     lineDefs: { key: string; name: string }[],
     unit: 'daily' | 'weekly' | 'monthly'
@@ -31,6 +32,7 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
   title,
   valueKeys,
   children,
+
   onSortChange
 }) => {
   const [selectedKeys, setSelectedKeys] = useState<string[]>(['SUM']);
@@ -68,6 +70,7 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
     return [...filtered].sort((a, b) => {
       const aVal = sortKey === 'label' ? a.label : a.values[sortKey] || 0;
       const bVal = sortKey === 'label' ? b.label : b.values[sortKey] || 0;
+
       return sortOrder === 'asc' ? aVal < bVal ? -1 : aVal > bVal ? 1 : 0 : aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
     });
   }, [data, searchText, sortKey, sortOrder]);
@@ -78,6 +81,7 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
     const start = (currentPage - 1) * itemsPerPage;
     return filteredData.slice(start, start + itemsPerPage);
   }, [filteredData, currentPage, itemsPerPage]);
+
 
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
 
@@ -103,6 +107,7 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
     });
   }, [data, selectedKeys, valueKeys]);
 
+
   const lineDefs = useMemo(() => (
     selectedKeys
       .filter(k => k !== 'SUM')
@@ -124,6 +129,7 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
 
   const handleSort = (key: string) => {
     if (sortKey === key) {
+
       const newOrder = sortOrder === 'asc' ? 'desc' : 'asc';
       setSortOrder(newOrder);
       onSortChange?.(key, newOrder);
@@ -166,6 +172,7 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
             placeholder="검색"
             value={searchText}
             onChange={e => {
+
               setIsManualSelection(true);
               setSearchText(e.target.value);
               setCurrentPage(1);
@@ -173,6 +180,7 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
             className="text-sm placeholder-gray-500 w-full bg-transparent"
           />
         </div>
+
         <div className="p-2 flex justify-end items-center gap-4 text-sm">
           <div className="flex items-center gap-1">
             <span className="text-gray-600">페이지당 행 수:</span>
@@ -182,12 +190,14 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
               onChange={e => {
                 setCurrentPage(1);
                 setItemsPerPage(parseInt(e.target.value, 10));
+
               }}>
               {[10, 20, 50, 100].map(n => (
                 <option key={n} value={n}>{n}</option>
               ))}
             </select>
           </div>
+
           <div className="flex items-center gap-1">
             <span className="text-gray-600">이동:</span>
             <input
@@ -202,6 +212,7 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
               className="w-12 px-2 py-1 rounded text-center"
             />
           </div>
+
           <div className="flex items-center gap-2 text-gray-600">
             <button
               disabled={currentPage === 1}
@@ -211,6 +222,7 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
               <ChevronLeft />
             </button>
             <span>
+
               {Math.min((currentPage - 1) * itemsPerPage + 1, filteredData.length)}~
               {Math.min(currentPage * itemsPerPage, filteredData.length)}
               &nbsp;/&nbsp;{filteredData.length}
@@ -225,6 +237,7 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
           </div>
         </div>
       </div>
+
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm table-fixed">
           <colgroup>
@@ -255,6 +268,7 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
                 className="p-2 text-right cursor-pointer"
                 onClick={() => handleSort(key)}
               >
+
                 <div className="flex items-center justify-end gap-1 group">
                   <ArrowDown
                     className={`w-4 h-4 transition-transform duration-200 ${
@@ -269,6 +283,7 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
           </thead>
           <tbody>
             <tr className="bg-gray-100 font-semibold border-t">
+
               <td className="p-2">
                 <input
                   type="checkbox"
@@ -288,6 +303,7 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
                   <input
                     type="checkbox"
                     checked={selectedKeys.includes(row.key)}
+
                     disabled={!selectedKeys.includes(row.key) && selectedKeys.filter(k => k !== 'SUM').length >= maxSelectable}
                     onChange={() => toggleSelect(row.key)}
                   />

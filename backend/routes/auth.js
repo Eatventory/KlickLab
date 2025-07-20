@@ -25,7 +25,7 @@ router.post("/login", async (req, res) => {
     const accessToken = jwt.sign(
       { userId: user.id, email: user.email, sdk_key: user.sdk_key },
       process.env.JWT_SECRET,
-      { expiresIn: "15m" }
+      { expiresIn: "150m" }
     );
 
     const refreshToken = jwt.sign(
@@ -63,7 +63,7 @@ router.post("/refresh", (req, res) => {
         sdk_key: payload.sdk_key,
       },
       process.env.JWT_SECRET,
-      { expiresIn: "15m" }
+      { expiresIn: "150m" }
     );
     res.status(200).json({ accessToken });
   } catch {

@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useCallback } from 'react';
 import { getRangeLabel } from '../../utils/getRangeLabel';
 import dayjs from 'dayjs';
@@ -14,6 +15,7 @@ interface MousePosition {
   x: number;
   y: number;
 }
+
 
 interface ApiDataItem {
   segment_type: string;
@@ -56,6 +58,7 @@ export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({
   const [hoveredAge, setHoveredAge] = useState<string | null>(null);
   const [mousePosition, setMousePosition] = useState<MousePosition>({ x: 0, y: 0 });
   const [showTooltip, setShowTooltip] = useState(false);
+
 
   // 연령 데이터 처리 (메모화)
   const ageData = useMemo(() => {
@@ -155,6 +158,7 @@ export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({
   };
 
   return (
+
     <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm h-full flex flex-col">
       <div className="mb-2">
         <h3 className="text-lg font-semibold text-gray-900 mb-1">연령 별 활성 사용자</h3>
@@ -236,6 +240,7 @@ export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({
           ))}
         </div>
         
+
         <div className="space-y-2 relative z-10 mt-4">
           {ageData.map((age) => {
             const barWidth = (age.users / chartMax) * 100;
@@ -244,23 +249,27 @@ export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({
             return (
               <div key={age.id} className="flex items-center">
                 {/* 연령대 라벨 */}
+
                 <div className="w-14 text-right text-sm font-medium text-gray-700 mr-4 whitespace-nowrap">
                   {age.ageRange}
                 </div>
                 
                 {/* 막대 그래프 */}
                 <div className="flex-1 relative mr-3">
+
                   <div className="w-full bg-slate-100 rounded-full h-5 relative overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all duration-300 cursor-pointer relative"
                       style={{
                         width: `${barWidth}%`,
+
                         backgroundColor: isHovered ? '#4338ca' : age.color,
                         boxShadow: isHovered 
                           ? '0 2px 8px rgba(79, 70, 229, 0.3)' 
                           : '0 1px 3px rgba(79, 70, 229, 0.2)',
                         transform: isHovered ? 'scaleY(1.1)' : 'scaleY(1)',
                       }}
+
                                              onMouseEnter={(event) => handleMouseEnter(age.id, event)}
                        onMouseLeave={handleMouseLeave}
                       onMouseMove={handleMouseMove}
@@ -268,6 +277,7 @@ export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({
                   </div>
                 </div>
                 
+
                 {/* 사용자 수 표시 (동적 단위) */}
                 <div className="w-10 text-right text-xs font-medium text-gray-600">
                   {formatValue(age.users, divisor)}{unit}
@@ -275,6 +285,7 @@ export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({
               </div>
             );
           })}
+
       </div>
 
       {/* X축 눈금 (동적) - 바 시작점과 끝점에 정확히 정렬 */}
@@ -296,6 +307,7 @@ export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({
           className="fixed bg-white border border-gray-200 shadow-lg rounded-lg p-3 text-sm z-50 pointer-events-none"
           style={getTooltipStyle()}
         >
+
           <div className="text-xs text-gray-500 mb-1">
             {dateRange ? getRangeLabel(dateRange.startDate, dateRange.endDate) : '전체 기간'}
           </div>

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import HorizontalLineChart from '../HorizontalLineChart';
 import ChartTableWrapper from '../ui/ChartTableWrapper';
@@ -6,6 +7,7 @@ import type { EventCountsData } from '../../data/engagementTypes';
 interface EngagementEventsProps {
   eventCounts: EventCountsData[];
 }
+
 
 const keys = ['eventCount', 'userCount', 'avgEventPerUser'];
 const labels = ['이벤트 수', '총 사용자', '사용자당 평균 이벤트 수'];
@@ -29,6 +31,7 @@ const EngagementEvents: React.FC<EngagementEventsProps> = ({ eventCounts }) => {
       <ChartTableWrapper
         data={(() => {
           const map: Record<string, { eventCount: number; userCount: number }> = {};
+
           eventCounts
             .filter(({ eventName }) => eventName !== '')
             .forEach(({ eventName, eventCount, userCount }) => {
@@ -51,6 +54,7 @@ const EngagementEvents: React.FC<EngagementEventsProps> = ({ eventCounts }) => {
             };
           });
         })()}
+
         valueKeys={valueKeys}
         autoSelectBy={keys[0]}
         title="이벤트 이름"
@@ -67,6 +71,7 @@ const EngagementEvents: React.FC<EngagementEventsProps> = ({ eventCounts }) => {
                 let sum = 0;
                 selectedKeys.forEach(event => {
                   const match = eventCounts.find(d => d.date === date && d.eventName === event);
+
                   const val = match
                     ? {
                         [keys[0]]: match.eventCount,
@@ -82,6 +87,7 @@ const EngagementEvents: React.FC<EngagementEventsProps> = ({ eventCounts }) => {
               });
             })()}
             lines={[
+
               ...selectedKeys
                 .filter(k => k !== 'SUM')
                 .map(k => ({ key: k, name: k })),

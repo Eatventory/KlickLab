@@ -45,6 +45,7 @@ export interface UsersOverTimeData {
   monthlyUsers: number;
 }
 
+
 export interface RevisitData {
   date: string;
   dau: number;
@@ -61,6 +62,7 @@ export interface EventCountsData {
   eventCount: number;
   userCount: number;
   avgEventPerUser: number;
+
 }
 
 export interface PageStatsData {

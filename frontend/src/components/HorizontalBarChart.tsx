@@ -23,9 +23,9 @@ const AnimatedBar: React.FC<{ percentage: number }> = ({ percentage }) => {
   }, [percentage]);
 
   return (
-    <div className="relative w-full h-1.5 bg-gray-200 mt-1 overflow-hidden">
+    <div className="relative w-full h-1 bg-gray-200 mt-1 overflow-hidden">
       <div
-        className="absolute top-0 left-0 h-1.5 bg-blue-500 transition-all duration-700 ease-out"
+        className="absolute top-0 left-0 h-1 bg-blue-500 transition-all duration-700 ease-out"
         style={{ width: `${width}%` }}
       />
     </div>

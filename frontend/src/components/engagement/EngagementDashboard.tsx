@@ -6,6 +6,7 @@ import Collapse from '../ui/Collapse';
 import DateRangeSelector from '../ui/DateRangeSelector';
 import EngagementOverview from './EngagementOverview';
 import EngagementEvents from './EngagementEvents';
+
 import EngagementPages from './EngagementPages';
 import EngagementVisits from './EngagementVisits';
 
@@ -22,6 +23,7 @@ import type {
   AvgSessionSecsData,
   SessionsPerUsersData,
   UsersOverTimeData,
+
   RevisitData,
   EventCountsData,
   PageStatsData,
@@ -39,6 +41,7 @@ export const EngagementDashboard: React.FC = () => {
   const [avgSessionSecs, setAvgSessionSecs] = useState<AvgSessionSecsData[]>([]);
   const [sessionsPerUsers, setSessionsPerUsers] = useState<SessionsPerUsersData[]>([]);
   const [usersOverTime, setUsersOverTime] = useState<UsersOverTimeData[]>([]);
+
   const [revisit, setRevisit] = useState<RevisitData[]>([]);
 
   const [eventCounts, setEventCounts] = useState<EventCountsData[]>([]);
@@ -51,6 +54,7 @@ export const EngagementDashboard: React.FC = () => {
   const [selectedMetric, setSelectedMetric] = useState<'viewCounts' | 'clickCounts'>('viewCounts');
   const [selectedMetric2, setSelectedMetric2] = useState<'avgSessionSecs' | 'sessionsPerUsers'>('avgSessionSecs');
 
+
   const [openCollapse, setOpenCollapse] = useState<string>(engagementTaps[0]);
   const [fetchedTabs, setFetchedTabs] = useState<{ [key: string]: boolean }>({});
   const [fetchCache, setFetchCache] = useState<{[tab: string]: { start: string; end: string }}>({});
@@ -60,6 +64,7 @@ export const EngagementDashboard: React.FC = () => {
   ]);
   const [tempRange, setTempRange] = useState(dateRange);
   const [showPicker, setShowPicker] = useState(false);
+
 
   const fetchTabData = async (
     tab: string,
@@ -142,6 +147,7 @@ export const EngagementDashboard: React.FC = () => {
 
   useEffect(() => {
     const { startDate, endDate } = dateRange[0];
+
     if (!startDate || !endDate || !openCollapse) return;
     if (!fetchedTabs[openCollapse]) {
       fetchTabData(openCollapse, startDate, endDate);
@@ -169,6 +175,7 @@ export const EngagementDashboard: React.FC = () => {
           setShowPicker={setShowPicker}
           onApply={(start, end) => {
             setDateRange([{ startDate: start, endDate: end, key: 'selection' }]);
+
             fetchTabData(openCollapse, start, end, true);
           }}
         />
@@ -177,6 +184,7 @@ export const EngagementDashboard: React.FC = () => {
       <Collapse
         title={engagementTaps[0]}
         isOpen={openCollapse === engagementTaps[0]}
+
         onToggle={() => setOpenCollapse(prev => prev === engagementTaps[0] ? '' : engagementTaps[0])}
       >
         <EngagementOverview
@@ -188,6 +196,7 @@ export const EngagementDashboard: React.FC = () => {
           viewCounts={viewCounts}
           clickCounts={clickCounts}
           usersOverTime={usersOverTime}
+
           revisit={revisit}
           selectedMetric={selectedMetric}
           selectedMetric2={selectedMetric2}
@@ -202,6 +211,7 @@ export const EngagementDashboard: React.FC = () => {
         title={engagementTaps[1]}
         isOpen={openCollapse === engagementTaps[1]}
         onToggle={() =>
+
           setOpenCollapse((prev) => (prev === engagementTaps[1] ? '' : engagementTaps[1]))
         }
       >
@@ -212,6 +222,7 @@ export const EngagementDashboard: React.FC = () => {
         title={engagementTaps[2]}
         isOpen={openCollapse === engagementTaps[2]}
         onToggle={() =>
+
           setOpenCollapse((prev) => (prev === engagementTaps[2] ? '' : engagementTaps[2]))
         }
       >
@@ -222,6 +233,7 @@ export const EngagementDashboard: React.FC = () => {
         title={engagementTaps[3]}
         isOpen={openCollapse === engagementTaps[3]}
         onToggle={() =>
+
           setOpenCollapse((prev) => (prev === engagementTaps[3] ? '' : engagementTaps[3]))
         }
       >

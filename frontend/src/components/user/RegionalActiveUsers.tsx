@@ -15,6 +15,7 @@ interface MousePosition {
   y: number;
 }
 
+
 interface RegionalActiveUsersProps {
   dateRange?: { startDate: Date; endDate: Date; key: string };
   onDataSourceUpdate?: (dataSource: string) => void;
@@ -74,6 +75,7 @@ const COLOR_LEGEND = [
   { level: 5, color: '#3b82f6' },
   { level: 6, color: '#2563eb' }
 ];
+
 
 export const RegionalActiveUsers: React.FC<RegionalActiveUsersProps> = ({ dateRange, onDataSourceUpdate, data, loading: externalLoading }) => {
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
@@ -298,6 +300,7 @@ export const RegionalActiveUsers: React.FC<RegionalActiveUsersProps> = ({ dateRa
   }, [hoveredRegion]);
 
   return (
+
     <div className="bg-white rounded-lg border p-5 h-full flex flex-col">
       <div className="flex items-center gap-2 mb-3">
         <h2 className="text-lg font-semibold text-gray-900">지역별 활성 사용자</h2>
@@ -487,6 +490,7 @@ export const RegionalActiveUsers: React.FC<RegionalActiveUsersProps> = ({ dateRa
                   transform: mousePosition.x > window.innerWidth - 200 ? 'translateX(-100%)' : 'translateX(0)',
                 }}
               >
+
                 <div className="text-xs text-gray-500 mb-1">
                   {dateRange ? getRangeLabel(dateRange.startDate, dateRange.endDate) : '전체 기간'}
                 </div>
@@ -521,6 +525,7 @@ export const RegionalActiveUsers: React.FC<RegionalActiveUsersProps> = ({ dateRa
                 onMouseLeave={handleRegionLeave}
                 onMouseMove={handleMouseMove}
               >
+
                 <div className="flex items-center justify-between text-xs mb-2">
                   <div className="flex items-center gap-2">
                     <div 
