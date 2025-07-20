@@ -47,6 +47,7 @@ export const GenderActiveUsers: React.FC<GenderActiveUsersProps> = ({ dateRange,
   const [hoveredGender, setHoveredGender] = useState<string | null>(null);
   const [mousePosition, setMousePosition] = useState<MousePosition>({ x: 0, y: 0 });
   const [showTooltip, setShowTooltip] = useState(false);
+
   const [genderData, setGenderData] = useState<GenderData[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -262,6 +263,7 @@ export const GenderActiveUsers: React.FC<GenderActiveUsersProps> = ({ dateRange,
         <h3 className="text-lg font-semibold text-gray-900">성별 별 활성 사용자</h3>
       </div>
 
+
       {/* 로딩 상태 */}
       {actualLoading && (
         <div className="flex-1 flex flex-col">
@@ -317,6 +319,7 @@ export const GenderActiveUsers: React.FC<GenderActiveUsersProps> = ({ dateRange,
           <svg width={CHART_CONFIG.width} height={CHART_CONFIG.height} viewBox={CHART_CONFIG.viewBox} className="transform -rotate-90">
             {(() => {
               let cumulativePercentage = 0;
+
               // 강제로 순서를 뒤집어서 FEMALE이 왼쪽에 나오도록 함
               const reversedData = [...genderData].reverse();
               return reversedData.map((gender) => {
@@ -384,6 +387,7 @@ export const GenderActiveUsers: React.FC<GenderActiveUsersProps> = ({ dateRange,
           </div>
         ))}
       </div>
+
         </>
       )}
 
@@ -393,6 +397,7 @@ export const GenderActiveUsers: React.FC<GenderActiveUsersProps> = ({ dateRange,
           className="fixed bg-white border border-gray-200 shadow-lg rounded-lg p-3 text-sm z-50 pointer-events-none"
           style={getTooltipStyle()}
         >
+
           <div className="text-xs text-gray-500 mb-1">
             {dateRange ? getRangeLabel(dateRange.startDate, dateRange.endDate) : '전체 기간'}
           </div>

@@ -42,7 +42,7 @@ export default function LoginForm() {
       }
       
       const { accessToken } = await res.json();
-      setToken(accessToken, 15 * 60 * 1000, remember); // 토큰 + 만료시각 저장 (15분 후)
+      setToken(accessToken, 150 * 60 * 1000, remember); // 토큰 + 만료시각 저장 (15분 후)
       
       // 자동 로그인 설정 저장
       if (remember) {

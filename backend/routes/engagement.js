@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const clickhouse = require("../src/config/clickhouse");
 const authMiddleware = require('../middlewares/authMiddleware');
+
 const {
   getAvgSessionQuery,
   getSessionsPerUserQuery,
@@ -17,6 +18,7 @@ const {
 } = require('../utils/engagementUtils');
 
 /* 참여도 개요 */
+
 router.get('/overview', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   const { startDate, endDate } = req.query;
@@ -25,12 +27,16 @@ router.get('/overview', authMiddleware, async (req, res) => {
   try {
     const [avgSessionTimeRes, sessionsPerUserRes] = await Promise.all([
       clickhouse.query({
+
         query: getAvgSessionQuery(startDate, endDate, sdk_key),
+
         format: 'JSON',
       }).then(r => r.json()),
 
       clickhouse.query({
+
         query: getSessionsPerUserQuery(startDate, endDate, sdk_key),
+
         format: 'JSON',
       }).then(r => r.json()),
     ]);
@@ -63,7 +69,9 @@ router.get('/page-times', authMiddleware, async (req, res) => {
   const { startDate, endDate, limit = 10 } = req.query;
   if (!startDate || !endDate) return res.status(400).json({ error: 'Missing startDate or endDate' });
 
+
   const query = getPageTimesQuery(startDate, endDate, sdk_key, limit);
+
 
   try {
     const dataRes = await clickhouse.query({ query, format: 'JSONEachRow' });
@@ -81,9 +89,11 @@ router.get('/bounce-rate', authMiddleware, async (req, res) => {
   const { startDate, endDate, limit = 10 } = req.query;
   if (!startDate || !endDate) return res.status(400).json({ error: 'Missing startDate or endDate' });
 
+
   const query = getBounceRateQuery(startDate, endDate, sdk_key, limit);
 
   try {
+
     const result = await clickhouse.query({ query, format: "JSONEachRow" });
     const data = await result.json();
     res.status(200).json(data);
@@ -99,7 +109,9 @@ router.get('/page-views', authMiddleware, async (req, res) => {
   const { startDate, endDate, limit = 10 } = req.query;
   if (!startDate || !endDate) return res.status(400).json({ error: 'Missing startDate or endDate' });
 
+
   const query = getPageViewsQuery(startDate, endDate, sdk_key, limit);
+
 
   try {
     const dataRes = await clickhouse.query({query, format: 'JSONEachRow'});
@@ -321,6 +333,82 @@ router.get('/revisit', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error('Error fetching revisit stats:', err);
     res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+/* 시간 경과에 따른 사용자 활동 */
+router.get('/users-over-time', authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+  const { startDate, endDate } = req.query;
+  if (!startDate || !endDate) return res.status(400).json({ error: 'Missing startDate or endDate' });
+
+  const query = `
+    SELECT
+      d1.date AS base_date,
+      any(d1.visitors) AS daily_users,
+      sumIf(d2.visitors, d2.date BETWEEN d1.date - INTERVAL 6 DAY AND d1.date) AS weekly_users,
+      sumIf(d2.visitors, d2.date BETWEEN d1.date - INTERVAL 29 DAY AND d1.date) AS monthly_users
+    FROM daily_metrics d1
+    LEFT JOIN daily_metrics d2 ON d1.sdk_key = d2.sdk_key
+    WHERE d1.sdk_key = '${sdk_key}'
+      AND d1.date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
+    GROUP BY d1.date
+    ORDER BY base_date ASC
+  `;
+
+  try {
+    const dataRes = await clickhouse.query({query, format: 'JSONEachRow'});
+    let data = await dataRes.json();
+    data = data.map(item => ({
+      date: item.base_date,
+      dailyUsers: Number(item.daily_users),
+      weeklyUsers: Number(item.weekly_users),
+      monthlyUsers: Number(item.monthly_users),
+    }));
+    res.status(200).json(data);
+  } catch (err) {
+    console.error("Click Counts API ERROR:", err);
+    res.status(500).json({ error: "Failed to get click counts data" });
+  }
+});
+
+/* 시간 경과에 따른 이벤트 이름별 이벤트 수 */
+router.get('/event-counts', authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+  const { startDate, endDate } = req.query;
+  if (!startDate || !endDate) return res.status(400).json({ error: 'Missing startDate or endDate' });
+
+  // TODO: events가 아닌 다른 테이블 사용해야 함!!
+  const query = `
+    SELECT 
+      toDate(timestamp) AS date,
+      event_name,
+      count(*) AS event_count,
+      uniqExact(client_id) AS user_count,
+      round(count() / uniqExact(client_id), 2) AS avg_event_per_user
+    FROM events
+    WHERE timestamp BETWEEN '${startDate}T00:00:00' AND '${endDate}T23:59:59'
+      AND sdk_key = '${sdk_key}' 
+    GROUP BY date, event_name
+    ORDER BY date ASC, event_count DESC
+    LIMIT 100
+    SETTINGS max_threads = 8
+  `;
+
+  try {
+    const dataRes = await clickhouse.query({query, format: 'JSONEachRow'});
+    let data = await dataRes.json();
+    data = data.map(item => ({
+      date: item.date,
+      eventName: item.event_name,
+      eventCount: Number(item.event_count),
+      userCount: Number(item.user_count),
+      avgEventPerUser: Number(item.avg_event_per_user),
+    }));
+    res.status(200).json(data);
+  } catch (err) {
+    console.error("Event Counts API ERROR:", err);
+    res.status(500).json({ error: "Failed to get event counts data" });
   }
 });
 

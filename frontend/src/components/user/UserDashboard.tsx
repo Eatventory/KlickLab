@@ -6,6 +6,7 @@ import { RegionalActiveUsers } from './RegionalActiveUsers';
 import { GenderActiveUsers } from './GenderActiveUsers';
 import { AgeActiveUsers } from './AgeActiveUsers';
 import { DevicePlatformChart } from './DevicePlatformChart';
+
 import DateRangeSelector from '../ui/DateRangeSelector';
 
 interface ApiData {
