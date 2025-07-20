@@ -5,7 +5,7 @@ const authMiddleware = require("../middlewares/authMiddleware");
 
 
 // 상수 정의
-const GENDER_FILTER = "AND (segment_type != 'user_gender' OR segment_value IN ('male', 'female'))";
+const GENDER_FILTER = "AND (segment_type != 'user_gender' OR (segment_type = 'user_gender' AND segment_value != 'unknown'))";
 const UNKNOWN_FILTER = "AND segment_value != 'unknown'";
 const SELECT_FIELDS = "segment_type, segment_value, dist_type, dist_value, sum(user_count) as user_count";
 const GROUP_BY_FIELDS = "GROUP BY segment_type, segment_value, dist_type, dist_value";
@@ -20,30 +20,6 @@ const executeQuery = async (query) => {
     console.error(`Query execution failed:`, err.message);
     return [];
   }
-};
-
-// 주별 데이터를 사용할지 판단하는 함수 (ISO 8601 기준, 월요일 시작)
-const shouldUseWeeklyData = (startDate, endDate) => {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  
-  // ISO 8601 기준: 월요일을 주의 시작으로 설정
-  const startOfWeek = new Date(start);
-  const dayOffset = (start.getDay() + 6) % 7; // 월요일로 이동하기 위한 오프셋
-  startOfWeek.setDate(start.getDate() - dayOffset);
-  startOfWeek.setHours(0, 0, 0, 0);
-  
-  const endOfWeek = new Date(startOfWeek);
-  endOfWeek.setDate(startOfWeek.getDate() + 6); // 일요일로 이동
-  endOfWeek.setHours(23, 59, 59, 999);
-  
-  // 선택된 기간이 정확히 한 주(월요일~일요일)인지 엄격하게 확인
-  const isCompleteWeek = start.getTime() === startOfWeek.getTime() && 
-                        end.getDate() === endOfWeek.getDate() &&
-                        end.getMonth() === endOfWeek.getMonth() &&
-                        end.getFullYear() === endOfWeek.getFullYear();
-  
-  return isCompleteWeek;
 };
 
 // 시간별 데이터 조회 함수
@@ -106,22 +82,6 @@ const getTenMinuteData = async (sdkKey, startDate, currentHour, currentMinute) =
   return tenMinuteData;
 };
 
-// 주별 데이터 조회 함수
-const getWeeklyData = async (sdkKey, startDate, endDate) => {
-  const weeklyQuery = `
-    SELECT ${SELECT_FIELDS}
-    FROM klicklab.weekly_user_distribution
-    WHERE week_start_date = '${startDate}'
-      AND week_end_date = '${endDate}'
-      AND sdk_key = '${sdkKey}'
-      ${UNKNOWN_FILTER}
-      ${GENDER_FILTER}
-    ${GROUP_BY_FIELDS}
-  `;
-  
-  return await executeQuery(weeklyQuery);
-};
-
 // 일별 데이터 조회 함수
 const getDailyData = async (sdkKey, startDate, endDate) => {
   const dailyQuery = `
@@ -172,11 +132,11 @@ const getFallbackData = async (sdkKey, startDate) => {
   return result;
 };
 
-// 데이터 집계 함수
-const aggregateData = (hourlyData, tenMinuteData) => {
+// 데이터 집계 함수 (일별, 시간별, 십분별 데이터 모두 합산)
+const aggregateData = (dailyData, hourlyData, tenMinuteData) => {
   const aggregatedData = {};
   
-  [...hourlyData, ...tenMinuteData].forEach(item => {
+  [...dailyData, ...hourlyData, ...tenMinuteData].forEach(item => {
     const key = `${item.segment_type}-${item.segment_value}-${item.dist_type || 'none'}-${item.dist_value || 'none'}`;
     
     if (!aggregatedData[key]) {
@@ -189,7 +149,7 @@ const aggregateData = (hourlyData, tenMinuteData) => {
   return Object.values(aggregatedData);
 };
 
-// 실시간 사용자 분석 데이터 (시간별/10분별/일별/주별 집계)
+// 실시간 사용자 분석 데이터 (시간별/10분별/일별 집계)
 router.get("/realtime-analytics", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   
@@ -198,17 +158,19 @@ router.get("/realtime-analytics", authMiddleware, async (req, res) => {
     const now = new Date();
     const currentHour = now.getHours();
     const currentMinute = now.getMinutes();
+    const today = now.toISOString().slice(0, 10);
     
     // 날짜 조건 확인
-    const isToday = startDate === endDate && startDate === now.toISOString().slice(0, 10);
-    const useWeeklyData = shouldUseWeeklyData(startDate, endDate);
+    const isOnlyToday = startDate === endDate && startDate === today;
+    const includesOnlyToday = startDate <= today && endDate >= today;
     
     let result = [];
+    let dailyData = [];
     let hourlyData = [];
     let tenMinuteData = [];
     
-    if (isToday) {
-      // 오늘 데이터 처리
+    if (isOnlyToday) {
+      // 오늘만 선택된 경우 - 시간별/십분별 데이터만 사용
       const availableTimesQuery = `
         SELECT DISTINCT date_time
         FROM klicklab.hourly_user_distribution
@@ -226,34 +188,62 @@ router.get("/realtime-analytics", authMiddleware, async (req, res) => {
       // 10분 단위 데이터 수집
       tenMinuteData = await getTenMinuteData(sdk_key, startDate, currentHour, currentMinute);
       
-      // 데이터 집계
-      result = aggregateData(hourlyData, tenMinuteData);
+      // 데이터 집계 (일별 데이터 없음)
+      result = aggregateData([], hourlyData, tenMinuteData);
       
-      // 폴백 데이터 로직 제거 - 데이터가 없으면 빈 배열 유지
-      // if (result.length === 0) {
-      //   result = await getFallbackData(sdk_key, startDate);
-      // }
+    } else if (includesOnlyToday) {
+      // 기간에 오늘이 포함된 경우 - 과거는 일별, 오늘은 시간별/십분별
       
-    } else if (useWeeklyData) {
-      // 주별 데이터 처리
-      result = await getWeeklyData(sdk_key, startDate, endDate);
+      // 1. 과거 날짜들(startDate ~ 어제까지)의 일별 데이터 조회
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().slice(0, 10);
+      
+      if (startDate <= yesterdayStr) {
+        dailyData = await getDailyData(sdk_key, startDate, yesterdayStr);
+      }
+      
+      // 2. 오늘의 시간별/십분별 데이터 조회
+      const availableTimesQuery = `
+        SELECT DISTINCT date_time
+        FROM klicklab.hourly_user_distribution
+        WHERE toDate(date_time) = toDate('${today}')
+          AND sdk_key = '${sdk_key}'
+        ORDER BY date_time DESC
+      `;
+      
+      const availableTimes = await executeQuery(availableTimesQuery);
+      const timesList = availableTimes.map(row => row.date_time);
+      
+      // 시간별 데이터 수집
+      hourlyData = await getHourlyData(sdk_key, timesList);
+      
+      // 10분 단위 데이터 수집
+      tenMinuteData = await getTenMinuteData(sdk_key, today, currentHour, currentMinute);
+      
+      // 모든 데이터 집계
+      result = aggregateData(dailyData, hourlyData, tenMinuteData);
       
     } else {
-      // 일별 데이터 처리
+      // 과거 기간만 선택된 경우 - 일별 데이터만 사용
       result = await getDailyData(sdk_key, startDate, endDate);
     }
     
     // 응답 데이터 생성
-    const dataSource = isToday ? 
-      (hourlyData.length > 0 || tenMinuteData.length > 0 ? 'hourly+10min' : 'no-data') : 
-      useWeeklyData ? 'weekly' : 'daily';
+    let dataSource = 'daily';
+    if (isOnlyToday) {
+      dataSource = (hourlyData.length > 0 || tenMinuteData.length > 0) ? 'hourly+10min' : 'no-data';
+    } else if (includesOnlyToday) {
+      dataSource = 'daily+hourly+10min';
+    }
 
     res.status(200).json({ 
       data: result,
       meta: {
-        isToday,
-        useWeeklyData,
+        isOnlyToday,
+        includesOnlyToday,
         dataSource,
+        dailyRecords: dailyData.length,
         hourlyRecords: hourlyData.length,
         tenMinuteRecords: tenMinuteData.length,
         currentTime: `${currentHour}:${currentMinute}`

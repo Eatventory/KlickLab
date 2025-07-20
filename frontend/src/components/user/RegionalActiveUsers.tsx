@@ -152,16 +152,23 @@ export const RegionalActiveUsers: React.FC<RegionalActiveUsersProps> = ({ dateRa
         .filter(([englishName]) => REGION_NAME_MAPPING[englishName])
         .reduce((sum, [, count]) => sum + count, 0);
       
+      // 알려지지 않은 지역들의 사용자 수 합산 (기타 지역)
+      const unknownRegionUsers = Object.entries(cityMap)
+        .filter(([englishName]) => !REGION_NAME_MAPPING[englishName])
+        .reduce((sum, [, count]) => sum + count, 0);
+      
       // 알려지지 않은 지역들 로그 출력
       const unknownRegions = Object.entries(cityMap)
         .filter(([englishName]) => !REGION_NAME_MAPPING[englishName]);
       
       if (unknownRegions.length > 0) {
-        console.log('[RegionalActiveUsers] 🚨 알려지지 않은 지역 (집계 제외):', unknownRegions);
+        console.log('[RegionalActiveUsers] 🚨 알려지지 않은 지역 (기타 지역으로 집계):', unknownRegions);
+        console.log('[RegionalActiveUsers] 기타 지역 총 사용자 수:', unknownRegionUsers);
       }
       
-      const totalUsers = knownRegionUsers;
-      console.log('[RegionalActiveUsers] 알려진 지역만 포함한 총 사용자 수:', totalUsers);
+      // 총 사용자 수는 알려진 지역 + 기타 지역
+      const totalUsers = knownRegionUsers + unknownRegionUsers;
+      console.log('[RegionalActiveUsers] 총 사용자 수 (알려진 지역 + 기타):', totalUsers);
 
       // 기존 지역 데이터 업데이트 (영어명 → 한국어명 매핑 적용)
       const updatedRegionData = REGION_METADATA.map((region: { id: string; name: string; color: string }) => {
@@ -187,12 +194,26 @@ export const RegionalActiveUsers: React.FC<RegionalActiveUsersProps> = ({ dateRa
         };
       });
 
+      // 기타 지역 데이터 추가 (unknownRegionUsers > 0인 경우에만)
+      if (unknownRegionUsers > 0) {
+        const otherRegionPercentage = totalUsers > 0 ? Math.round((unknownRegionUsers / totalUsers) * 1000) / 10 : 0;
+        updatedRegionData.push({
+          id: 'KR-OTHER',
+          name: 'Unknown',
+          users: unknownRegionUsers,
+          percentage: otherRegionPercentage,
+          color: '#9ca3af' // 회색 색상
+        });
+        console.log(`[RegionalActiveUsers] 기타 지역 추가: ${unknownRegionUsers}명 (${otherRegionPercentage}%)`);
+      }
+
       // 사용자 수 기준으로 정렬
       updatedRegionData.sort((a: RegionData, b: RegionData) => b.users - a.users);
       
-      // 순위별 색깔 동적 할당
-      const regionsWithData = updatedRegionData.filter((region: RegionData) => region.users > 0);
+      // 순위별 색깔 동적 할당 (기타 지역 제외)
+      const regionsWithData = updatedRegionData.filter((region: RegionData) => region.users > 0 && region.id !== 'KR-OTHER');
       const regionsWithoutData = updatedRegionData.filter((region: RegionData) => region.users === 0);
+      const otherRegion = updatedRegionData.find((region: RegionData) => region.id === 'KR-OTHER');
       
       // 사용자 수가 있는 지역들에 순위별 색깔 할당
       const colorAssignedRegions = regionsWithData.map((region: RegionData, index: number) => {
@@ -223,8 +244,11 @@ export const RegionalActiveUsers: React.FC<RegionalActiveUsersProps> = ({ dateRa
         color: COLOR_LEGEND[0].color // 가장 연한 색
       }));
       
-      // 최종 데이터 합치기 (순위 유지)
+      // 최종 데이터 합치기 (순위 유지, 기타 지역은 색상 유지)
       const finalRegionData = [...colorAssignedRegions, ...noDataRegions];
+      if (otherRegion) {
+        finalRegionData.push(otherRegion); // 기타 지역은 맨 마지막에 추가
+      }
       
       setRegionData(finalRegionData);
     } catch (error) {
@@ -244,7 +268,12 @@ export const RegionalActiveUsers: React.FC<RegionalActiveUsersProps> = ({ dateRa
   }, [regionData]);
 
   const topRegions = useMemo(() => {
-    return regionData.slice(0, 10);
+    // 기타 지역을 제외한 상위 10개 지역
+    const knownRegions = regionData.filter(region => region.id !== 'KR-OTHER').slice(0, 10);
+    // 기타 지역이 있으면 추가
+    const otherRegion = regionData.find(region => region.id === 'KR-OTHER');
+    
+    return otherRegion ? [...knownRegions, otherRegion] : knownRegions;
   }, [regionData]);
 
   // 메모화된 함수들
@@ -302,7 +331,7 @@ export const RegionalActiveUsers: React.FC<RegionalActiveUsersProps> = ({ dateRa
   return (
 
     <div className="bg-white rounded-lg border p-5 h-full flex flex-col">
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2">
         <h2 className="text-lg font-semibold text-gray-900">지역별 활성 사용자</h2>
         {loading && <div className="text-xs text-gray-500">업데이트 중...</div>}
       </div>
@@ -509,9 +538,9 @@ export const RegionalActiveUsers: React.FC<RegionalActiveUsersProps> = ({ dateRa
         </div>
 
         {/* 상위 10개 지역 그래프 */}
-        <div className="bg-white rounded-lg" style={{ flex: '0.67' }}>
+        <div className="bg-white rounded-lg" style={{ flex: '0.80' }}>
           <div className="p-2">
-            <h3 className="text-sm font-medium text-gray-900">상위 10개 지역</h3>
+            <h3 className="text-sm font-medium text-gray-900">상위 10개 지역 & 기타</h3>
           </div>
           <div className="px-2 pb-2 space-y-2">
             {topRegions.map((region, index) => (
