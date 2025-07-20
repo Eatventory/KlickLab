@@ -45,7 +45,7 @@ const tabs = [
   // {
   //   id: 'conversion',
   //   label: '전환율',
-  //   icon: TrendingUp,
+  //   icon: Target,
   //   description: '전환 퍼널'
   // },
   {
