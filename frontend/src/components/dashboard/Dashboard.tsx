@@ -136,7 +136,7 @@ export const Dashboard: React.FC = () => {
                 <Route path="engagement" element={<EngagementDashboard />} />
                 <Route path="reports" element={<ReportDashboard />} />
                 <Route path="settings" element={<SettingsDashboard />} />
-                {/* <Route path="conversion" element={<ConversionDashboard />} /> */}
+                <Route path="conversion" element={<ConversionDashboard />} />
                 <Route path="acquisition" element={<AcquisitionDashboard />} />
                 <Route path="" element={<Navigate to="/dashboard/overview" replace />} />
                 <Route path="*" element={<Navigate to="/dashboard/overview" replace />} />
