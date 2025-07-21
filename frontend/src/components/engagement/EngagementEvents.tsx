@@ -22,7 +22,7 @@ const EngagementEvents: React.FC<EngagementEventsProps> = ({ eventCounts }) => {
   const [sortKey, setSortKey] = useState<string>(keys[0]);
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6" id="engagementEvents">
+    <div className="custom-card" id="engagementEvents">
       <div className="flex items-center gap-2">
         <h2 className="text-lg font-semibold text-gray-900">
           시간 경과에 따른 이벤트 이름별 {labels[getKeyIndex(sortKey)]}
