@@ -3,8 +3,6 @@ import { Code, Globe, IdCard } from 'lucide-react';
 import Toast from "../ui/Toast";
 import { ConversionEventMapping } from './ConversionEventMapping';
 import { EventRuleManager } from './EventRuleManager';
-// import SegmentFilterManager from './SegmentFilterManager';
-// import { SegmentFilterBuilder } from '../ui/SegmentFilterBuilder';
 import {ButtonEventManager} from './ButtonEventManager'
 
 // 타입 정의
@@ -56,10 +54,7 @@ export const SettingsDashboard: React.FC = () => {
     }
   ];
 
-  const sdkCode = `
-    <script type="module" src="https://klicklab-sdk.pages.dev/klicklab_sdk.js"
-    data-sdk-key="${keyData}"></script>
-  `;
+  const sdkCode = `<script type="module" src="https://klicklab-sdk.pages.dev/klicklab_sdk.js" data-sdk-key="${keyData}"></script>`;
 
   const [showToast, setShowToast] = useState(false);
 
@@ -70,18 +65,7 @@ export const SettingsDashboard: React.FC = () => {
 
   return (
     <div className="space-y-6 p-6">
-      {/* 전역 필터 설정 */}
-      {/* <SegmentFilterBuilder /> */}
-
-      {/* 2분할 카드 wrapper에는 bg/padding/rounded 없음 */}
-      {/* <div className="flex flex-col lg:flex-row gap-6">
-        <div className="w-full lg:w-1/2">
-          <ConversionEventMapping />
-        </div>
-        <div className="w-full lg:w-1/2">
-          <SegmentFilterManager />
-        </div>
-      </div> */}
+      {/* 전환 이벤트 관리 */}
       <ConversionEventMapping />
 
       {/* 이벤트 생성 규칙 관리 */}
@@ -91,7 +75,7 @@ export const SettingsDashboard: React.FC = () => {
       <ButtonEventManager />
 
       {/* SDK 설치 가이드 */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="custom-card">
         <div className="flex items-center gap-2 mb-4">
           <Code className="w-5 h-5 text-gray-600" />
           <h2 className="text-lg font-semibold text-gray-900">SDK 설치 가이드</h2>
@@ -101,7 +85,7 @@ export const SettingsDashboard: React.FC = () => {
             웹사이트에 아래 코드를 추가하여 이벤트 수집을 시작하세요.
           </p>
           <div className="relative">
-            <pre className="bg-gray-50 p-4 rounded-lg text-sm overflow-x-auto">
+            <pre className="bg-gray-50 hover:bg-gray-100 p-4 rounded-lg text-sm overflow-x-auto">
               <code className="block text-left">{sdkCode}</code>
             </pre>
             <button
@@ -118,14 +102,14 @@ export const SettingsDashboard: React.FC = () => {
       </div>
 
       {/* 사용자 SDK KEY */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="custom-card">
         <div className="flex items-center gap-2 mb-4">
           <IdCard className="w-5 h-5 text-gray-600" />
           <h2 className="text-lg font-semibold text-gray-900">SDK 키 확인하기</h2>
         </div>
         <div className="space-y-4">
           <div className="relative">
-            <pre className="bg-gray-50 p-4 rounded-lg text-sm overflow-x-auto">
+            <pre className="bg-gray-50 hover:bg-gray-100 p-4 rounded-lg text-sm overflow-x-auto">
               <code className="block text-left">{keyData}</code>
             </pre>
             <button
@@ -142,7 +126,7 @@ export const SettingsDashboard: React.FC = () => {
       </div>
 
       {/* 도메인 연동 리스트 */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="custom-card">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Globe className="w-5 h-5 text-gray-600" />
@@ -187,29 +171,6 @@ export const SettingsDashboard: React.FC = () => {
           </table>
         </div>
       </div>
-
-      {/* 향후 구현 예정 컴포넌트들 */}
-      {/* <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Users className="w-5 h-5 text-gray-600" />
-            <h3 className="text-lg font-semibold text-gray-900">사용자 권한 관리</h3>
-          </div>
-          <div className="flex items-center justify-center h-32 text-gray-500">
-            개발 중...
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Bell className="w-5 h-5 text-gray-600" />
-            <h3 className="text-lg font-semibold text-gray-900">알림 설정</h3>
-          </div>
-          <div className="flex items-center justify-center h-32 text-gray-500">
-            개발 중...
-          </div>
-        </div>
-      </div> */}
     </div>
   );
 }; 
