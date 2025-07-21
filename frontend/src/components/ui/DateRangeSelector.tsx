@@ -92,8 +92,9 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({
   return (
     <div className="relative">
       <div className='flex items-center'>
-        <div
-          className="m-2 mr-6 px-2 py-1 text-gray-600 rounded-md flex gap-2"
+        <Filter className='w-4 h-4' />
+        <button
+          className="m-2 mr-6 px-2 py-1 hover:bg-gray-200 text-gray-600 hover:text-gray-800 rounded-md flex gap-2"
           onClick={() => {
             if (showPicker) {
               setTempRange(dateRange);
@@ -108,7 +109,7 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({
           </span>
 
           <span>{formatLocalDate(dateRange[0].startDate)} ~ {formatLocalDate(dateRange[0].endDate)}</span>
-        </div>
+        </button>
       </div>
 
       {showPicker && (
