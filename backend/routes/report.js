@@ -48,6 +48,8 @@ router.post('/kpi-report/csv', async (req, res) => {
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="kpi-report-export-${dateTime}.csv"`);
 
+  res.write("\uFEFF");
+
   try {
     const sections = Object.entries(reportData);
 
