@@ -59,7 +59,7 @@ const EngagementOverview: React.FC<Props> = ({
   return (
     <div id="engagementOverview" className="space-y-8">
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-[repeat(auto-fit,minmax(320px,1fr))]">
-        <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 pt-0 col-span-2">
+        <div className="custom-card col-span-2" style={{ paddingTop: 0 }}>
           <ChartWrapper
             metrics={[
               { key: 'avgSessionSecs', label: '평균 온라인 세션 참여 시간',
@@ -101,7 +101,7 @@ const EngagementOverview: React.FC<Props> = ({
           </ChartWrapper>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="custom-card">
           <div className="flex items-center gap-2 mb-4">
             <h2 className="text-lg font-semibold text-gray-900">페이지 평균 체류시간</h2>
           </div>
@@ -121,7 +121,7 @@ const EngagementOverview: React.FC<Props> = ({
           />
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="custom-card">
           <div className="flex items-center gap-2 mb-4">
             <h2 className="text-lg font-semibold text-gray-900">페이지 별 조회수</h2>
           </div>
@@ -139,7 +139,7 @@ const EngagementOverview: React.FC<Props> = ({
           />
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
+        <div className="custom-card">
           <div className="flex items-center gap-2 mb-4">
             <h2 className="text-lg font-semibold text-gray-900">이탈률</h2>
           </div>
@@ -156,7 +156,7 @@ const EngagementOverview: React.FC<Props> = ({
           />
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
+        <div className="custom-card">
           <div className="flex items-center gap-2 mb-4">
             <h2 className="text-lg font-semibold text-gray-900">사용자 재방문</h2>
           </div>
@@ -216,7 +216,7 @@ const EngagementOverview: React.FC<Props> = ({
           />
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 pt-0 col-span-2">
+        <div className="custom-card col-span-2" style={{ paddingTop: 0 }}>
           <ChartWrapper
             metrics={[
               { key: 'viewCounts', label: '조회수', value: `${viewCounts.reduce((acc, d) => acc + d.totalViews, 0).toLocaleString()}` },
@@ -241,7 +241,7 @@ const EngagementOverview: React.FC<Props> = ({
           </ChartWrapper>
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 col-span-2">
+        <div className="custom-card col-span-2">
           <div className="flex items-center gap-2 mb-4">
             <h2 className="text-lg font-semibold text-gray-900">시간 경과에 따른 사용자 활동</h2>
           </div>
@@ -314,7 +314,7 @@ const EngagementOverview: React.FC<Props> = ({
           />
         </div>
 
-        {/* <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
+        {/* <div className="custom-card">
           <div className="flex items-center gap-2 mb-4">
             <h2 className="text-lg font-semibold text-gray-900">TBD</h2>
           </div>
