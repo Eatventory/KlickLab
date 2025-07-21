@@ -286,15 +286,6 @@ const HorizontalLineChart: React.FC<HorizontalLineChartProps> = ({
           {legendTooltipRenderer(hoveredLegendItem.item, hoveredLegendItem.key)}
         </div>
       )}
-
-      {legendTooltipRenderer && hoveredLegendItem && (
-        <div
-          className="fixed z-50 bg-white border border-gray-200 rounded-md shadow-lg text-sm text-gray-800 px-3 py-2 whitespace-nowrap"
-          style={{ top: tooltipPos.y, left: tooltipPos.x, pointerEvents: 'none' }}
-        >
-          {legendTooltipRenderer(hoveredLegendItem.item, hoveredLegendItem.key)}
-        </div>
-      )}
     </div>
   );
 };
