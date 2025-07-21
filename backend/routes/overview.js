@@ -13,7 +13,7 @@ router.get('/kpi', async (req, res) => {
   try {
     const { sdk_key } = req.user;
     const { date = 'today()' } = req.query;
-    
+
     if (!sdk_key) {
       return res.status(400).json({ error: 'sdk_key는 필수입니다' });
     }
@@ -32,7 +32,7 @@ router.get('/kpi', async (req, res) => {
 
     const simpleResult = await clickhouse.query({
       query: simpleQuery,
-      query_params: { sdk_key, now},
+      query_params: { sdk_key, now },
       format: 'JSONEachRow',
     });
 
@@ -143,7 +143,7 @@ router.get('/kpi', async (req, res) => {
     console.log('activeUsers:', activeUsers);
     console.log('conversions:', conversions);
     const engagedSessions = parseInt(row.engaged_sessions) || 0;
-    const conversionRate = totalSessions > 0 ? (conversions * 100 / totalSessions) : 0;
+    const conversionRate = totalSessions > 0 ? (engagedSessions * 100 / totalSessions) : 0;
 
     res.json({
       data: {
@@ -155,16 +155,16 @@ router.get('/kpi', async (req, res) => {
       changes: {
         activeUsers: calculateChange(activeUsers, parseInt(yesterdayRow.active_users_yesterday) || 0),
         avgSessionDuration: calculateChange(avgSessionDuration, parseFloat(yesterdayRow.avg_session_duration_yesterday) || 0),
-        conversionRate: calculateChange(conversionRate, 
-          yesterdayRow.total_sessions_yesterday > 0 ? 
-          (parseInt(yesterdayRow.total_conversions_yesterday) || 0) * 100 / parseInt(yesterdayRow.total_sessions_yesterday) : 0),
+        conversionRate: calculateChange(conversionRate,
+          yesterdayRow.total_sessions_yesterday > 0 ?
+            (parseInt(yesterdayRow.total_conversions_yesterday) || 0) * 100 / parseInt(yesterdayRow.total_sessions_yesterday) : 0),
         engagedSessions: calculateChange(engagedSessions, parseInt(yesterdayRow.engaged_sessions_yesterday) || 0),
       }
     });
 
   } catch (error) {
     console.error('KPI 데이터 조회 오류:', error);
-    
+
     // 오류 발생 시 기본값 반환
     res.json({
       data: {
@@ -187,77 +187,24 @@ router.get('/kpi', async (req, res) => {
 // ✅ 수정된 visitor-trend 라우트 - GROUP BY 추가
 router.get('/visitor-trend', async (req, res) => {
   try {
-    const { sdk_key } = req.user;
-    const { days = 7 } = req.query;
-    
-    if (!sdk_key) {
-      return res.status(400).json({ error: 'sdk_key는 필수입니다' });
-    }
-
-    // ✅ 집계 테이블 쿼리 수정 - GROUP BY 추가
-    const aggregatedQuery = `
-      SELECT 
-        toString(summary_date) AS date,
-        uniqMerge(visitors_state) AS visitors
-      FROM klicklab.daily_overview_agg
-      WHERE summary_date >= toDate(now(), 'Asia/Seoul') - {days:UInt8}
-        AND summary_date <= toDate(now(), 'Asia/Seoul')
-        AND sdk_key = {sdk_key:String}
-      GROUP BY summary_date  -- ✅ GROUP BY 추가!
-      ORDER BY summary_date
-    `;
-
-    try {
-      const result = await clickhouse.query({
-        query: aggregatedQuery,
-        query_params: { 
-          sdk_key,
-          days: parseInt(days)
-        },
-        format: 'JSONEachRow',
-      });
-
-      const data = await result.json();
-      
-      if (data.length > 0) {
-        const formattedData = data.map(row => ({
-          date: row.date,
-          visitors: parseInt(row.visitors) || 0
-        }));
-
-        return res.json({ data: formattedData });
-      }
-    } catch (aggregatedError) {
-      console.log('집계 데이터 조회 실패, 실시간 데이터로 대체:', aggregatedError.message);
-    }
-
-    // fallback: 실시간 데이터
-    const realtimeQuery = `
-      SELECT 
-        toString(toDate(timestamp)) AS date,
-        uniqExact(client_id) AS visitors
-      FROM klicklab.events
-      WHERE toDate(timestamp) >= toDate(now(), 'Asia/Seoul') - {days:UInt8}
-        AND toDate(timestamp) <= toDate(now(), 'Asia/Seoul')
-        AND sdk_key = {sdk_key:String}
-      GROUP BY toDate(timestamp)
-      ORDER BY date
-    `;
-
-    const realtimeResult = await clickhouse.query({
-      query: realtimeQuery,
-      query_params: { sdk_key, days: parseInt(days) },
-      format: 'JSONEachRow',
+    // 완전 하드코딩된 7일치 목데이터 (오늘 기준)
+    const today = new Date();
+    const days = 7;
+    const dateList = Array.from({ length: days }, (_, i) => {
+      const d = new Date(today);
+      d.setDate(today.getDate() - (days - 1 - i));
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     });
-
-    const realtimeData = await realtimeResult.json();
-    const formattedData = realtimeData.map(row => ({
-      date: row.date,
-      visitors: parseInt(row.visitors) || 0
-    }));
-
-    res.json({ data: formattedData });
-
+    const mockData = [
+      { date: dateList[0], visitors: 132, newVisitors: 80, returningVisitors: 52 },
+      { date: dateList[1], visitors: 145, newVisitors: 90, returningVisitors: 55 },
+      { date: dateList[2], visitors: 158, newVisitors: 95, returningVisitors: 63 },
+      { date: dateList[3], visitors: 170, newVisitors: 100, returningVisitors: 70 },
+      { date: dateList[4], visitors: 162, newVisitors: 92, returningVisitors: 70 },
+      { date: dateList[5], visitors: 180, newVisitors: 110, returningVisitors: 70 },
+      { date: dateList[6], visitors: 175, newVisitors: 105, returningVisitors: 70 },
+    ];
+    res.json({ data: mockData });
   } catch (error) {
     console.error('방문자 트렌드 조회 오류:', error);
     res.status(500).json({ error: '방문자 트렌드 데이터를 불러올 수 없습니다' });
@@ -269,7 +216,7 @@ router.get('/widgets', async (req, res) => {
   try {
     const { sdk_key } = req.user;
     const { date = 'today()' } = req.query;
-    
+
     if (!sdk_key) {
       return res.status(400).json({ error: 'sdk_key는 필수입니다' });
     }
@@ -278,31 +225,31 @@ router.get('/widgets', async (req, res) => {
 
     // 트래픽 소스별 데이터
     const trafficSourceQuery = `
-      SELECT 
-        traffic_source AS source,
-        uniqExact(client_id) AS users
-      FROM klicklab.events
-      WHERE sdk_key = {sdk_key:String}
-        AND toDate(timestamp) = ${dateCondition}
-        AND traffic_source != ''
-      GROUP BY traffic_source
-      ORDER BY users DESC
-      LIMIT 10
-    `;
+    SELECT 
+      traffic_source AS source,
+      uniqMerge(unique_users_state) AS users
+    FROM klicklab.daily_traffic_agg
+    WHERE summary_date >= toDate(now())
+      AND sdk_key = {sdk_key:String}
+      AND traffic_source != ''
+    GROUP BY traffic_source
+    ORDER BY users DESC
+    LIMIT 10
+  `;
 
     // 상위 페이지별 데이터
     const topPagesQuery = `
-      SELECT 
-        page_path AS page,
-        countIf(event_name = 'page_view') AS views
-      FROM klicklab.events
-      WHERE sdk_key = {sdk_key:String}
-        AND toDate(timestamp) = ${dateCondition}
-        AND page_path != ''
-      GROUP BY page_path
-      ORDER BY views DESC
-      LIMIT 10
-    `;
+    SELECT 
+      page_path AS page,
+      sumMerge(pageview_count_state) AS views
+    FROM klicklab.daily_page_agg
+    WHERE summary_date >= toDate(now())
+      AND sdk_key = {sdk_key:String}
+      AND page_path != ''
+    GROUP BY page_path
+    ORDER BY views DESC
+    LIMIT 10
+  `;
 
     // ✅ 상위 이벤트 요소 (element_selector 대신 page_path 사용)
     const topEventsQuery = `
@@ -369,7 +316,7 @@ router.get('/widgets', async (req, res) => {
 router.get('/realtime', async (req, res) => {
   try {
     const { sdk_key } = req.user;
-    
+
     if (!sdk_key) {
       return res.status(400).json({ error: 'sdk_key는 필수입니다' });
     }
@@ -414,7 +361,7 @@ router.get('/realtime', async (req, res) => {
 router.get('/realtime-trend', async (req, res) => {
   try {
     const { sdk_key } = req.user;
-    
+
     if (!sdk_key) {
       return res.status(400).json({ error: 'sdk_key는 필수입니다' });
     }
