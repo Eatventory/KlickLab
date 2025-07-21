@@ -544,7 +544,7 @@ export const AcquisitionDashboard: React.FC = () => {
           {/* KPI 카드 영역 (위아래로 쌓기) */}
           <div className="md:col-span-2 space-y-4 h-64">
             {/* 활성 사용자 */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4 h-[calc(50%-0.5rem)] hover:shadow-lg transition-shadow">
+            <div className="bg-white rounded-lg border border-gray-200 p-4 h-[calc(50%-0.5rem)]">
               <div className="text-center">
                 <h3 className="text-sm font-semibold text-gray-900 mb-2">활성 사용자</h3>
                 <div className="text-3xl font-bold text-gray-900 mb-1">
@@ -555,7 +555,7 @@ export const AcquisitionDashboard: React.FC = () => {
             </div>
 
             {/* 신규 유입 사용자 */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4 h-[calc(50%-0.5rem)] hover:shadow-lg transition-shadow">
+            <div className="bg-white rounded-lg border border-gray-200 p-4 h-[calc(50%-0.5rem)]">
               <div className="text-center">
                 <h3 className="text-sm font-semibold text-gray-900 mb-2">신규 유입 사용자</h3>
                 <div className="text-3xl font-bold text-gray-900 mb-1">
@@ -567,13 +567,13 @@ export const AcquisitionDashboard: React.FC = () => {
           </div>
 
           {/* 시간별 유입 트렌드 */}
-          <div className="md:col-span-6 bg-white rounded-lg border border-gray-200 p-4 h-64 hover:shadow-lg transition-shadow">
+          <div className="md:col-span-6 bg-white rounded-lg border border-gray-200 p-4 h-64">
             <h3 className="text-sm font-semibold text-gray-900 mb-2">시간별 유입 트렌드</h3>
             <HourlyTrendLineChart data={acquisitionData.hourlyTrendData} refreshKey={refreshKey} />
           </div>
 
           {/* 첫 방문 전환율 */}
-          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-4 h-64 hover:shadow-lg transition-shadow">
+          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-4 h-64">
             <h3 className="text-sm font-semibold text-gray-900 mb-2">첫 방문 전환율</h3>
             <FunnelConversionChart data={acquisitionData.funnelData} refreshKey={refreshKey} />
           </div>
@@ -619,7 +619,7 @@ export const AcquisitionDashboard: React.FC = () => {
           </div>
 
           {/* 유입 채널별 디바이스 비율 */}
-          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-4 h-[320px] hover:shadow-lg transition-shadow">
+          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-4 h-[320px]">
             <h3 className="text-sm font-semibold text-gray-900 mb-2">유입 채널별 디바이스 비율</h3>
             <ChannelGroupStackedChart 
               data={acquisitionData.channelGroupData} 
@@ -628,7 +628,7 @@ export const AcquisitionDashboard: React.FC = () => {
           </div>
 
           {/* 유입 플랫폼 분석 */}
-          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-4 h-[320px] hover:shadow-lg transition-shadow">
+          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-4 h-[320px]">
             <h3 className="text-sm font-semibold text-gray-900 mb-2">유입 플랫폼 분석</h3>
             <DeviceBrowserDonutChart 
               deviceData={acquisitionData.deviceData} 
@@ -638,7 +638,7 @@ export const AcquisitionDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* 3행: 마케팅 캠페인 유입 + 상위 지역 유입 + 전환율 표 2개 */}
+        {/* 3행: 마케팅 캠페인 유입 + 채널별 전환율 + 상위 지역 유입 */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
           {/* 마케팅 캠페인 유입 */}
           <div className="md:col-span-3 bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
@@ -649,6 +649,11 @@ export const AcquisitionDashboard: React.FC = () => {
             />
           </div>
 
+          {/* 채널별 전환율 */}
+          <div className="md:col-span-3">
+            <ChannelConversionTable />
+          </div>
+
           {/* 상위 지역 유입 */}
           <div className="md:col-span-3 bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
             <h4 className="text-sm font-semibold text-gray-900 mb-2">상위 지역 유입</h4>
@@ -656,11 +661,6 @@ export const AcquisitionDashboard: React.FC = () => {
               data={acquisitionData.realtimeData.topCountries.slice(0,10).map((c:any, index: number)=>({label:c.city,value:c.users, key: `country-${c.city}-${index}`}))}
               valueFormatter={(v)=>v.toLocaleString()+'명'}
             />
-          </div>
-
-          {/* 채널별 전환율 */}
-          <div className="md:col-span-3">
-            <ChannelConversionTable />
           </div>
         </div>
       </div>
