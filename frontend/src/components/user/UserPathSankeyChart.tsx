@@ -54,9 +54,9 @@ function createGASankeyDataWithEtc(paths: string[][], selectedPath: string[], ex
   }
   const nodes: any[] = [];
   const nodeOrder = [];
-  for (let [depth, arr] of depthMap.entries()) {
+  for (const [depth, arr] of depthMap.entries()) {
     arr.sort((a: any, b: any) => b.count - a.count);
-    let groupKey = `${depth}`;
+    const groupKey = `${depth}`;
     if (expandedGroups[groupKey]) {
       nodes.push(...arr);
       nodeOrder.push(...arr.map((n: any) => n.id));
@@ -83,10 +83,10 @@ function createGASankeyDataWithEtc(paths: string[][], selectedPath: string[], ex
   });
   // 5. 링크 생성 (source/target이 nodes에 반드시 존재)
   const nodeIdSet = new Set(nodeOrder);
-  let links: { source: string; target: string; value: number }[] = [];
+  const links: { source: string; target: string; value: number }[] = [];
   for (const l of linkArr) {
     if (nodeIdSet.has(l.source) && nodeIdSet.has(l.target)) {
-      let link = links.find(x => x.source === l.source && x.target === l.target);
+      const link = links.find(x => x.source === l.source && x.target === l.target);
       if (!link) {
         links.push({ source: l.source, target: l.target, value: 1 });
       } else {
@@ -122,11 +122,11 @@ interface UserPathSankeyChartProps {
   type?: 'event' | 'url'; // 타입 추가
 }
 const UserPathSankeyChart = ({ data, type = 'event' }: UserPathSankeyChartProps) => {
-  const svgRef = useRef();
+  const svgRef = useRef<SVGSVGElement | null>(null);
   // 디버깅을 위한 임시 로그
   // data가 없거나, paths가 없거나, paths가 2차원 배열이 아니면 mockSankeyPaths 강제 사용
-  let rawPaths = (data && Array.isArray(data.paths) && Array.isArray(data.paths[0])) ? data.paths : mockSankeyPaths;
-  const filteredPaths = useMemo(() => {
+  const rawPaths = (data && Array.isArray(data.paths) && Array.isArray(data.paths[0])) ? data.paths : mockSankeyPaths;
+  let filteredPaths = useMemo(() => {
     if (type === 'event') {
       return rawPaths.filter(path => Array.isArray(path) && path.length > 1);
     }
@@ -581,7 +581,7 @@ interface SankeyChartProps {
   splitSourceId?: string | null;
 }
 const SankeyChart: React.FC<SankeyChartProps> = ({ data, width = 800, height = 600, nodePadding = 20, onNodeClick, animateSplit, setAnimateSplit, showNodes, setShowNodes, splitSourceId }) => {
-  const svgRef = useRef();
+  const svgRef = useRef<SVGSVGElement | null>(null);
   const [tooltip, setTooltip] = useState(null);
   const [hoverNode, setHoverNode] = useState<any>(null); // hover만 담당
 
