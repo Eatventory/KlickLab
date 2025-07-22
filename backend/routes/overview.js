@@ -37,7 +37,7 @@ router.get('/kpi', async (req, res) => {
     });
 
     const simpleData = await simpleResult.json();
-    console.log('Simple query result:', simpleData);
+    // console.log('Simple query result:', simpleData);
 
     if (simpleData.length === 0) {
       // 집계 테이블에 데이터가 없으면 실시간 쿼리로 대체
