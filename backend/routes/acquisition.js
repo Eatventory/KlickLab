@@ -519,6 +519,91 @@ router.get("/top-countries", authMiddleware, async (req, res) => {
   }
 });
 
+// [10] 신규 사용자 채널 분석
+router.get("/new-user-channels", authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+  const { startDate, endDate } = req.query;
+
+  try {
+    const dateCondition =
+      startDate && endDate
+        ? `date >= toDate('${startDate}') AND date <= toDate('${endDate}')`
+        : buildQueryWhereClause("daily", 7);
+
+    // 집계 테이블에서 데이터 조회
+    const query = `
+      SELECT 
+        channel,
+        sum(users) AS users
+      FROM klicklab.new_user_channels
+      WHERE ${dateCondition}
+        AND sdk_key = '${sdk_key}'
+      GROUP BY channel
+      ORDER BY users DESC
+      LIMIT 10
+    `;
+
+    const dataRes = await clickhouse.query({ query, format: "JSONEachRow" });
+    const data = await dataRes.json();
+
+    // 집계 테이블에 데이터가 없는 경우 실시간 계산
+    if (data.length === 0) {
+      const start =
+        startDate || dayjs().subtract(7, "day").format("YYYY-MM-DD");
+      const end = endDate || dayjs().format("YYYY-MM-DD");
+
+      const realtimeQuery = `
+        SELECT
+          traffic_source AS channel,
+          count(DISTINCT client_id) AS users
+        FROM klicklab.events e
+        WHERE timestamp BETWEEN toDateTime('${start}') AND toDateTime('${end}')
+          AND sdk_key = '${sdk_key}'
+          AND traffic_source != ''
+          AND client_id IN (
+            -- 해당 기간에 처음 등장한 client_id만 선택 (신규 사용자)
+            SELECT client_id
+            FROM (
+              SELECT 
+                client_id,
+                min(toDate(timestamp)) AS first_seen_date
+              FROM klicklab.events
+              WHERE sdk_key = '${sdk_key}'
+              GROUP BY client_id
+              HAVING first_seen_date >= toDate('${start}') AND first_seen_date <= toDate('${end}')
+            )
+          )
+        GROUP BY channel
+        ORDER BY users DESC
+        LIMIT 10
+      `;
+
+      const realtimeRes = await clickhouse.query({
+        query: realtimeQuery,
+        format: "JSONEachRow",
+      });
+      const realtimeData = await realtimeRes.json();
+
+      return res.status(200).json(
+        realtimeData.map((item) => ({
+          channel: item.channel,
+          users: Number(item.users),
+        }))
+      );
+    }
+
+    res.status(200).json(
+      data.map((item) => ({
+        channel: item.channel,
+        users: Number(item.users),
+      }))
+    );
+  } catch (err) {
+    console.error("New User Channels API Error:", err);
+    res.status(500).json({ success: false, error: "Query failed" });
+  }
+});
+
 // [X] 첫 유입페이지 전환율 (명세 기반 집계)
 router.get("/landing-conversion-rate", authMiddleware, async (req, res) => {
   const { startDate, endDate } = req.query;

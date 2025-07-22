@@ -183,7 +183,15 @@ export const EngagementDashboard: React.FC = () => {
       try {
         const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
         const pathField = dropdownType === 'url' ? 'url_path' : 'event_path';
+        
+        // 날짜 파라미터 추가
         let query = `?type=${dropdownType}`;
+        if (dateRange && dateRange[0]?.startDate && dateRange[0]?.endDate) {
+          const startStr = dayjs(dateRange[0].startDate).format('YYYY-MM-DD');
+          const endStr = dayjs(dateRange[0].endDate).format('YYYY-MM-DD');
+          query += `&startDate=${startStr}&endDate=${endStr}`;
+        }
+        
         const res = await fetch(`/api/stats/sankey-paths${query}`, {
           headers: { Authorization: `Bearer ${token}` }
         });

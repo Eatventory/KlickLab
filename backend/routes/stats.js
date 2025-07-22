@@ -544,12 +544,19 @@ router.get(
 // sankey_paths_daily에서 event_path만 뽑아오는 API
 router.get("/sankey-paths", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
-  const { type } = req.query;
+  const { type, startDate, endDate } = req.query;
   const selectField = type === "url" ? "url_path" : "event_path";
+
+  // 날짜 필터 조건 추가
+  const dateCondition =
+    startDate && endDate
+      ? `day BETWEEN toDate('${startDate}') AND toDate('${endDate}')`
+      : `day = yesterday()`;
+
   const query = `
     SELECT ${selectField}
     FROM klicklab.sankey_paths_daily
-    WHERE day = yesterday()
+    WHERE ${dateCondition}
       AND sdk_key = '${sdk_key}'
   `;
   try {

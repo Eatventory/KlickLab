@@ -55,7 +55,7 @@ export const Dashboard: React.FC = () => {
     engagement: '참여도 분석',
     reports: '리포트',
     settings: '설정',
-    // conversion: '전환율',
+    conversion: '전환율',
     acquisition: '유입 분석',
   };
   const tabDescriptions: Record<string, string> = {
@@ -65,7 +65,7 @@ export const Dashboard: React.FC = () => {
     engagement: '체류시간 및 참여도 분석',
     reports: '상세 리포트 및 데이터 내보내기',
     settings: '시스템 설정 및 계정 관리',
-    // conversion: '전환율 및 퍼널 분석',
+    conversion: '전환율 및 퍼널 분석',
     acquisition: '유입 소스별 분석 및 전환율',
   };
 
