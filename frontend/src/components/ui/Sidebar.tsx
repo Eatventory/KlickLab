@@ -78,7 +78,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <div
       className={clsx(
         'fixed top-[64px] h-[calc(100vh-64px)] z-30 bg-white border-r border-gray-200 flex flex-col',
-        isCollapsed ? 'w-16' : 'w-64 shadow-lg shadow-neutral-300'
+        isCollapsed ? 'w-16' : 'w-48 shadow-lg shadow-neutral-300'
       )}
       style={{
         transition: 'width 0.4s cubic-bezier(0.77,0,0.18,1), box-shadow 0.4s cubic-bezier(0.77,0,0.18,1)',
