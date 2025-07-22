@@ -11,7 +11,6 @@ import { mockSankeyPaths } from '../../data/mockData';
 import { ConversionRateWidget } from './ConversionRateWidget';
 import { ConversionSummaryCard } from '../ConversionSummaryCard';
 import dayjs from 'dayjs';
-import dayjs from 'dayjs';
 
 const DEFAULT_EVENTS = ['page_view', 'scroll', 'auto_click', 'user_engagement'];
 const PERIOD_LABELS = { daily: '일', weekly: '주', monthly: '월' };
@@ -279,7 +278,7 @@ export const ConversionDashboard: React.FC = () => {
       }
     };
     fetchSankeyPaths();
-  }, [dropdownType]);
+  }, [dropdownType, dateRange]); // dateRange 의존성 추가
 
   // 드롭다운 핸들러
   const handleDropdownTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {

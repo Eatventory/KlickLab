@@ -213,7 +213,7 @@ export const EngagementDashboard: React.FC = () => {
       }
     };
     fetchSankeyPaths();
-  }, [dropdownType]);
+  }, [dropdownType, dateRange]); // dateRange 의존성 추가
 
   const handleDropdownTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setDropdownType(e.target.value as 'event'|'url');
