@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { addDays } from 'date-fns';
 import dayjs from 'dayjs';
-import { Calendar, Settings, Share2, MoreHorizontal, BarChart3, Target, Globe, Users, TrendingUp, Clock } from 'lucide-react';
+// import { Calendar, Settings, Share2, MoreHorizontal, BarChart3, Target, Globe, Users, TrendingUp, Clock } from 'lucide-react';
 import { useSegmentFilter } from '../../context/SegmentFilterContext';
 
 import DateRangeSelector from '../ui/DateRangeSelector';
@@ -11,13 +11,13 @@ import HorizontalBarChart from '../../components/HorizontalBarChart';
 import { FunnelConversionChart } from './FunnelConversionChart';
 import { DeviceBrowserDonutChart } from './DeviceBrowserDonutChart';
 import { HourlyTrendLineChart } from './HourlyTrendLineChart';
-import { ClickFlowSankeyChart } from './ClickFlowSankeyChart';
+// import { ClickFlowSankeyChart } from './ClickFlowSankeyChart';
 import { ChannelGroupStackedChart } from './ChannelGroupStackedChart';
-import { keyframes } from 'framer-motion';
-import { ConversionRateWidget } from '../conversion/ConversionRateWidget';
-import { ConversionSummaryCard } from '../ConversionSummaryCard';
+// import { keyframes } from 'framer-motion';
+// import { ConversionRateWidget } from '../conversion/ConversionRateWidget';
+// import { ConversionSummaryCard } from '../ConversionSummaryCard';
 import { ChannelConversionTable } from '../traffic/ChannelConversionTable';
-import { LandingConversionTable } from '../traffic/LandingConversionTable';
+// import { LandingConversionTable } from '../traffic/LandingConversionTable';
 
 // 타입 정의
 interface FilterOptions {
@@ -45,11 +45,11 @@ interface AcquisitionData {
 
 export const AcquisitionDashboard: React.FC = () => {
   const { filter: globalFilter } = useSegmentFilter();
-  const [filters, setFilters] = useState<FilterOptions>({
-    period: '1day',
-    source: 'all',
-    device: 'all'
-  });
+  // const [filters, setFilters] = useState<FilterOptions>({
+  //   period: '1day',
+  //   source: 'all',
+  //   device: 'all'
+  // });
 
   const [acquisitionData, setAcquisitionData] = useState<AcquisitionData | null>(null);
   const [kpiData, setKpiData] = useState<any>(null);
@@ -326,7 +326,7 @@ export const AcquisitionDashboard: React.FC = () => {
           {/* KPI 카드 영역 (위아래로 쌓기) */}
           <div className="md:col-span-2 space-y-4 h-64">
             {/* 활성 사용자 */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4 h-[calc(50%-0.5rem)] hover:shadow-lg transition-shadow">
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
               <div className="text-center">
                 <h3 className="text-sm font-semibold text-gray-900 mb-2">활성 사용자</h3>
                 <div className="text-3xl font-bold text-gray-900 mb-1">
@@ -337,7 +337,7 @@ export const AcquisitionDashboard: React.FC = () => {
             </div>
 
             {/* 신규 유입 사용자 */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4 h-[calc(50%-0.5rem)] hover:shadow-lg transition-shadow">
+            <div className="bg-white rounded-lg border border-gray-200 p-4 h-[calc(50%-0.5rem)]">
               <div className="text-center">
                 <h3 className="text-sm font-semibold text-gray-900 mb-2">신규 유입 사용자</h3>
                 <div className="text-3xl font-bold text-gray-900 mb-1">
@@ -349,13 +349,13 @@ export const AcquisitionDashboard: React.FC = () => {
           </div>
 
           {/* 시간별 유입 트렌드 */}
-          <div className="md:col-span-6 bg-white rounded-lg border border-gray-200 p-4 h-64 hover:shadow-lg transition-shadow">
+          <div className="md:col-span-6 bg-white rounded-lg border border-gray-200 p-4 h-64">
             <h3 className="text-sm font-semibold text-gray-900 mb-2">시간별 유입 트렌드</h3>
             <HourlyTrendLineChart data={acquisitionData.hourlyTrendData} refreshKey={refreshKey} />
           </div>
 
           {/* 첫 방문 전환율 */}
-          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-4 h-64 hover:shadow-lg transition-shadow">
+          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-4 h-64">
             <h3 className="text-sm font-semibold text-gray-900 mb-2">첫 방문 전환율</h3>
             <FunnelConversionChart data={acquisitionData.funnelData} refreshKey={refreshKey} />
           </div>
@@ -401,7 +401,7 @@ export const AcquisitionDashboard: React.FC = () => {
           </div>
 
           {/* 유입 채널별 디바이스 비율 */}
-          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-4 h-[320px] hover:shadow-lg transition-shadow">
+          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-4 h-[320px]">
             <h3 className="text-sm font-semibold text-gray-900 mb-2">유입 채널별 디바이스 비율</h3>
             <ChannelGroupStackedChart 
               data={acquisitionData.channelGroupData} 
@@ -410,7 +410,7 @@ export const AcquisitionDashboard: React.FC = () => {
           </div>
 
           {/* 유입 플랫폼 분석 */}
-          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-4 h-[320px] hover:shadow-lg transition-shadow">
+          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-4 h-[320px]">
             <h3 className="text-sm font-semibold text-gray-900 mb-2">유입 플랫폼 분석</h3>
             <DeviceBrowserDonutChart 
               deviceData={acquisitionData.deviceData} 
