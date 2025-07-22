@@ -199,6 +199,18 @@ const EngagementOverview: React.FC<Props> = ({
                     {(item.dauMauRatio * 100).toFixed(1)}%
                   </span>
                 </div>
+
+                <div
+                  className="flex items-center"
+                  style={{ opacity: hoveredLineKey && hoveredLineKey !== 'dauWauRatio' ? 0.3 : 1 }}
+                >
+                  <span className="w-2 h-0.5 bg-[#f97316]" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#f97316] border border-white mr-1" />
+                  <span className="text-xs text-gray-700">DAU/WAU</span>
+                  <span className="ml-auto font-bold text-right text-gray-900">
+                    {(item.dauWauRatio * 100).toFixed(1)}%
+                  </span>
+                </div>
               </div>
             )}
           />

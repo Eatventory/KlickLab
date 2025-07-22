@@ -47,8 +47,9 @@ export const ReportDashboard: React.FC = () => {
 
   useEffect(() => {
     if (reportData) {
-      const initialCategories = Object.values(reportData).map((section) => section.category);
-      setOpenCollapse(initialCategories);
+      // const initialCategories = Object.values(reportData).map((section) => section.category);
+      // setOpenCollapse(initialCategories);
+      setOpenCollapse(prev => [...prev, '유입 분석: 방문자 수 및 변화 추이']);
     }
   }, [reportData]);
 
