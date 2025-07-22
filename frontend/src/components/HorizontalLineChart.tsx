@@ -181,7 +181,7 @@ const HorizontalLineChart: React.FC<HorizontalLineChartProps> = ({
                   strokeDasharray={line.dash || "0"}
                   opacity={isHovered ? 1 : 0.2}
                   dot={{
-                    r: 4,
+                    r: 0,
                     stroke: line.color || defaultColors[idx % defaultColors.length],
                     strokeWidth: 2,
                     fill: '#fff',
