@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { getToken, getExpiresAt, setToken, isUsingLocalStorage, getAutoLogin } from "../../utils/storage";
 import { useAuthStore } from "../../store/useAuthStore";
 import { clearTokenAndFullLogout } from "../../utils/auth";
-import logo from '../../assets/klicklab.svg';
+import logo from '../../assets/klicklab.png';
 
 export default function HeaderBar() {
   const authState = useAuthStore((s) => s.authState);
@@ -67,12 +67,13 @@ export default function HeaderBar() {
     <div className="fixed top-0 left-0 w-full h-16 bg-white border-b flex items-center justify-between px-6 gap-4 z-40">
       {/* 타이틀 */}
       <div className="flex items-center gap-2">
-        <div className="p-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors duration-200">
+        {/* <div className="p-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors duration-200">
           <img src={logo} className="w-6 h-6" />
         </div>
         <div>
           <span className="font-bold text-lg text-blue-600 hover:text-blue-700">Klick</span><span className="font-bold text-lg text-gray-900">Lab</span>
-        </div>
+        </div> */}
+        <img src={logo} className="w-auto h-8" />
       </div>
 
       {/* 로그인 관리 */}
