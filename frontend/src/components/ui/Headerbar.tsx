@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { getToken, getExpiresAt, setToken, isUsingLocalStorage, getAutoLogin } from "../../utils/storage";
 import { useAuthStore } from "../../store/useAuthStore";
 import { clearTokenAndFullLogout } from "../../utils/auth";
-import logo from '../../assets/klicklab.svg';
+import logo from '../../assets/klicklab.png';
 
 export default function HeaderBar() {
   const authState = useAuthStore((s) => s.authState);
@@ -64,21 +64,17 @@ export default function HeaderBar() {
   };
 
   return (
-    <div className="fixed top-0 left-0 w-full h-16 bg-white border-b flex items-center justify-between px-6 gap-4 z-40">
-      {/* 타이틀 */}
-      <div className="flex items-center gap-2">
-        <div className="p-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors duration-200">
-          <img src={logo} className="w-6 h-6" />
-        </div>
-        <div>
-          <span className="font-bold text-lg text-blue-600 hover:text-blue-700">Klick</span><span className="font-bold text-lg text-gray-900">Lab</span>
-        </div>
+    <div className="fixed top-0 left-0 w-full h-16 bg-white border-b flex flex-col sm:flex-row items-center justify-between px-6 gap-4 z-40 relative">
+      {/* 클릭랩 로고 */}
+      <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
+        <img src={logo} className="h-6 sm:h-8 w-auto" />
       </div>
 
       {/* 로그인 관리 */}
-      <div className="flex gap-4">
+      <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2 sm:gap-4">
         <span className="text-gray-800 text-sm font-medium py-1 whitespace-nowrap">
-          세션 만료까지 {minutes.toString().padStart(2, "0")}:{seconds.toString().padStart(2, "0")}
+          <span className="hidden sm:inline">세션 만료까지 </span>
+          {minutes.toString().padStart(2, "0")}:{seconds.toString().padStart(2, "0")}
         </span>
         <button
           onClick={handleExtend}
