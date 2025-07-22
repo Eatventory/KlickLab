@@ -75,7 +75,7 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
     });
   }, [data, searchText, sortKey, sortOrder]);
 
-  const [itemsPerPage, setItemsPerPage] = useState(5);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const pagedData = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
@@ -189,10 +189,10 @@ const ChartTableWrapper: React.FC<ChartTableWrapperProps> = ({
               value={itemsPerPage}
               onChange={e => {
                 setCurrentPage(1);
-                setItemsPerPage(parseInt(e.target.value, 5));
+                setItemsPerPage(parseInt(e.target.value, 10));
 
               }}>
-              {[5].map(n => (
+              {[10, 20, 50, 100].map(n => (
                 <option key={n} value={n}>{n}</option>
               ))}
             </select>
