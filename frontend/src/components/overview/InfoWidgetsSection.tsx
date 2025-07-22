@@ -1,7 +1,7 @@
 import React from 'react';
 import { TopClicks } from './TopClicks';
 import { PieChart, Globe, MousePointer } from 'lucide-react';
-import { useOverviewWidgets } from '../../hooks/useOverviewWidgets';
+// import { useOverviewWidgets } from '../../hooks/useOverviewWidgets'; // 사용하지 않음
 
 // 위젯의 기본 프레임을 위한 컴포넌트
 const WidgetFrame = ({ title, children, icon: Icon }) => (
@@ -62,42 +62,42 @@ const SimpleTable = ({ data, columns, loading, showBar }) => {
   );
 };
 
-export const InfoWidgetsSection = () => {
-    const { loading, widgets } = useOverviewWidgets();
-    // 데이터 변환: API 결과를 컴포넌트에 맞게 매핑
-    const trafficSources = widgets?.trafficSources?.map((row) => ({
+export const InfoWidgetsSection = ({ trafficSources = [], topPages = [], topClicks = [], loading = false }) => {
+    // Mock 데이터를 사용하도록 수정
+    // 데이터 변환: 전달받은 props를 컴포넌트에 맞게 매핑
+    const formattedTrafficSources = trafficSources.map((row) => ({
       source: row.source,
-      users: row.users,
-    })) || [];
-    const topPages = widgets?.topPages?.map((row) => ({
-      page: row.page,
-      views: row.views,
-    })) || [];
-    const topClicks = widgets?.topClicks?.map((row) => ({
-      label: row.element,
-      value: row.clicks,
-    })) || [];
-    const topConversions = widgets?.topConversions?.map((row) => ({
-      event: row.event,
-      conversions: row.conversions,
-    })) || [];
-    const topEvents = widgets?.topEvents?.map((row) => ({
-      event: row.event,
-      count: row.count,
-    })) || [];
+      users: row.count || row.users || 0,
+    }));
+    
+    const formattedTopPages = topPages.map((row) => ({
+      page: row.title || row.path || '',
+      views: row.views || 0,
+    }));
+    
+    const formattedTopClicks = topClicks.map((row) => ({
+      label: row.element || '',
+      value: row.count || row.clicks || 0,
+    }));
+    
+    // 상위 이벤트는 클릭 데이터를 사용
+    const topEvents = topClicks.map((row) => ({
+      event: row.element || '',
+      count: row.count || 0,
+    }));
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
             {/* 왼쪽: 트래픽 소스 */}
             <div className="lg:col-span-1">
             <WidgetFrame title="소스 / 매체별 사용자" icon={PieChart}>
-                <SimpleTable data={trafficSources} columns={[{key: 'source', label: '소스'}, {key: 'users', label: '사용자'}]} loading={loading} showBar />
+                <SimpleTable data={formattedTrafficSources} columns={[{key: 'source', label: '소스'}, {key: 'users', label: '사용자'}]} loading={loading} showBar />
             </WidgetFrame>
             </div>
 
             {/* 중앙: 상위 활성 페이지 */}
             <div className="lg:col-span-1">
             <WidgetFrame title="가장 많이 본 페이지" icon={Globe}>
-                <SimpleTable data={topPages} columns={[{key: 'page', label: '페이지 경로'}, {key: 'views', label: '조회수'}]} loading={loading} showBar />
+                <SimpleTable data={formattedTopPages} columns={[{key: 'page', label: '페이지 경로'}, {key: 'views', label: '조회수'}]} loading={loading} showBar />
             </WidgetFrame>
             </div>
             

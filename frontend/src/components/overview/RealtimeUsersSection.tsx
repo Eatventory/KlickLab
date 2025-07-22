@@ -1,5 +1,5 @@
 import React from 'react';
-import { useRealtimeOverview } from '../../hooks/useRealtimeOverview';
+// import { useRealtimeOverview } from '../../hooks/useRealtimeOverview'; // 사용하지 않음
 
 // 타입 정의
 interface TrendData { time: string; users: number; }
@@ -95,17 +95,29 @@ const RealtimeChart: React.FC<{ data: TrendData[]; loading: boolean }> = ({ data
   );
 };
 
-export const RealtimeUsersSection: React.FC = () => {
-  const { loading, summary, trend, sources } = useRealtimeOverview();
+export const RealtimeUsersSection = ({ activeUsers = 0, trend = [], sources = [], loading = false }) => {
+  // props로 데이터를 받도록 수정
+  
+  // 트렌드 데이터 포맷 변환
+  const formattedTrend = trend.map((item, index) => ({
+    time: item.timestamp || `${30-index}:00`,
+    users: item.value || 0
+  }));
+  
+  // 소스 데이터 포맷 변환
+  const formattedSources = sources.map(src => ({
+    source: src.source || '',
+    users: src.count || src.users || 0
+  }));
 
   return (
     <div className="bg-white rounded-lg shadow p-8 flex flex-col justify-start">
       <div>
-        <div className="text-base font-semibold text-gray-700 mb-1">지난 30분 동안의 활성 사용자</div>
+        <div className="text-base font-semibold text-gray-700 mb-1">지난 5분 동안의 활성 사용자</div>
         <div className="text-3xl font-extrabold text-blue-700 mb-4">
-          {loading ? <div className="h-9 w-20 bg-gray-200 animate-pulse rounded"></div> : summary?.active_users_30min}
+          {loading ? <div className="h-9 w-20 bg-gray-200 animate-pulse rounded"></div> : activeUsers}
         </div>
-        <RealtimeChart data={trend as TrendData[]} loading={loading} />
+        <RealtimeChart data={formattedTrend} loading={loading} />
         <div className="text-xs text-gray-400 text-left mb-4">분당 활성 사용자</div>
       </div>
       <div className="mt-8">
@@ -117,8 +129,8 @@ export const RealtimeUsersSection: React.FC = () => {
           </div>
         ) : (
           (() => {
-            const maxUser = Math.max(...(sources as SourceData[]).map((s) => s.users), 1);
-            return (sources as SourceData[]).map((src) => (
+            const maxUser = Math.max(...formattedSources.map((s) => s.users), 1);
+            return formattedSources.map((src) => (
               <div key={src.source} className="flex items-center mb-2">
                 <span className="w-24 text-xs text-gray-600 truncate" title={src.source}>{src.source}</span>
                 <div className="flex-1 h-2 bg-blue-100 rounded w-full">
