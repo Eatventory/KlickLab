@@ -320,11 +320,11 @@ export const RegionalActiveUsers: React.FC<RegionalActiveUsersProps> = ({ dateRa
         {/* 지도 영역 */}
         <div className="bg-white rounded-lg p-0 flex-1 overflow-hidden">
           {/* 지도 SVG */}
-          <div className="relative w-full" style={{ aspectRatio: '3/4', maxWidth: '600px', maxHeight: '450px' }}>
+          <div className="relative w-full" style={{ aspectRatio: '3/4', maxWidth: '600px', maxHeight: '500px' }}>
             <svg
               width="100%"
               height="100%"
-              viewBox="0 150 560 640"
+              viewBox="0 130 560 700"
               preserveAspectRatio="xMidYMid meet"
               onMouseMove={handleMouseMove}
             >
@@ -541,14 +541,14 @@ export const RegionalActiveUsers: React.FC<RegionalActiveUsersProps> = ({ dateRa
                       className="w-2 h-2 rounded"
                       style={{ backgroundColor: region.color }}
                     />
-                    <span className="text-gray-900 font-medium">{region.name}</span>
+                    <span className="text-gray-900 font-medium">{region.name}({region.percentage}%)</span>
                   </div>
                   <div className="text-right">
                     <span className="text-gray-600">{region.users.toLocaleString()}명</span>
                   </div>
                 </div>
                 {/* 막대 그래프 */}
-                <div className="w-full bg-gray-100 rounded-full h-2 relative">
+                <div className="w-full bg-gray-100 rounded-full h-2">
                   <div 
                     className="h-2 rounded-full transition-all duration-300"
                     style={{ 
@@ -556,9 +556,6 @@ export const RegionalActiveUsers: React.FC<RegionalActiveUsersProps> = ({ dateRa
                       width: `${region.percentage * 3}%` // 최대값 조정
                     }}
                   />
-                  <span className="absolute right-1 top-0 text-xs font-medium text-gray-700" style={{ lineHeight: '8px' }}>
-                    {region.percentage}%
-                  </span>
                 </div>
               </div>
             ))}
