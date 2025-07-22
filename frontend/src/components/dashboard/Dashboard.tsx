@@ -49,7 +49,7 @@ export const Dashboard: React.FC = () => {
 
   // 탭별 타이틀/설명
   const tabTitles: Record<string, string> = {
-    overview: '대시보드',
+    overview: '전체 개요',
     users: '사용자 분석',
     // traffic: '트래픽 분석',
     engagement: '참여도 분석',
@@ -91,7 +91,7 @@ export const Dashboard: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <h1 className="text-xl font-bold text-gray-900">
-                      {tabTitles[tabPath] || '대시보드'}
+                      {tabTitles[tabPath] || '전체 개요'}
                     </h1>
                     <p className="text-sm text-gray-600 mt-1">
                       {tabDescriptions[tabPath] || '전체 개요 및 주요 지표'}
