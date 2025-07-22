@@ -71,8 +71,8 @@ export const SettingsDashboard: React.FC = () => {
             <h2 className="text-lg font-semibold text-gray-900">SDK 키 확인하기</h2>
           </div>
           <div className="space-y-6 flex justify-center">
-            <div className="relative">
-              <pre className="bg-gray-50 hover:bg-gray-100 p-4 pr-16 rounded-lg text-sm overflow-x-auto min-w-[280px]">
+            <div className="relative w-full">
+              <pre className="w-full bg-gray-50 hover:bg-gray-100 p-4 pr-16 rounded-lg text-sm overflow-x-auto min-w-[280px]">
                 <code className="block text-left">{keyData}</code>
               </pre>
               <button
