@@ -53,8 +53,8 @@ const generateMockHourlyData = () => {
     if (hour >= 0 && hour <= 6) {
       baseUsers = Math.floor(Math.random() * 80) + 30; // 30-110명
     }
-    // 오후 7시-11시: 높은 수치
-    else if (hour >= 19 && hour <= 23) {
+    // 밤 9시-10시: 높은 수치
+    else if (hour >= 21 && hour <= 22) {
       baseUsers = Math.floor(Math.random() * 120) + 200; // 200-320명
     }
     // 나머지 시간: 중간 수치
