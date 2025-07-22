@@ -21,7 +21,7 @@ const EngagementVisits: React.FC<EngagementVisitsProps> = ({ visitStats }) => {
   const [sortKey, setSortKey] = useState<string>(keys[0]);
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6" id="engagementVisits">
+    <div className="custom-card" id="engagementVisits">
       <div className="flex items-center gap-2">
         <h2 className="text-lg font-semibold text-gray-900">
           시간 경과에 따른 방문 페이지별 {labels[getKeyIndex(sortKey)]}

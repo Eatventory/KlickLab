@@ -37,12 +37,12 @@ const SimpleTable = ({ data, columns, loading, showBar }) => {
   return (
     <div className="space-y-2">
       <div className="grid grid-cols-2 font-semibold text-sm text-gray-500">
-        <span>{columns[0].label}</span>
-        <span className="text-right">{columns[1].label}</span>
+        <span className="truncate">{columns[0].label}</span>
+        <span className="text-right truncate">{columns[1].label}</span>
       </div>
       {data.map((item, index) => (
         <div key={index} className="grid grid-cols-2 text-sm text-gray-700 border-t pt-2 items-center">
-          <span>{item[columns[0].key]}</span>
+          <span className="truncate overflow-hidden whitespace-nowrap" title={item[columns[0].key]}>{item[columns[0].key]}</span>
           <span className="text-right font-medium flex items-center gap-2 justify-end">
             {showBar && (
               <div className="bg-blue-100 rounded h-2 w-20 mr-2 relative">
@@ -52,7 +52,9 @@ const SimpleTable = ({ data, columns, loading, showBar }) => {
                 />
               </div>
             )}
-            {(item[columns[1].key] ?? 0).toLocaleString()}
+            <span className="truncate max-w-[120px] overflow-hidden whitespace-nowrap">
+              {(item[columns[1].key] ?? 0).toLocaleString()}
+            </span>
           </span>
         </div>
       ))}

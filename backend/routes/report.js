@@ -58,6 +58,8 @@ router.post("/kpi-report/csv", async (req, res) => {
   // // UTF-8 with BOM 추가 (엑셀 한글 깨짐 방지)
   res.write("\uFEFF");
 
+  res.write("\uFEFF");
+
   try {
     const sections = Object.entries(reportData);
 

@@ -98,7 +98,7 @@ export const EventRuleManager: React.FC = () => {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div className="custom-card">
       <h2 className="text-lg font-semibold text-gray-900 mb-4">이벤트 생성 규칙 관리</h2>
 
       {/* 규칙 생성 폼 */}
@@ -174,7 +174,7 @@ export const EventRuleManager: React.FC = () => {
             <tr className="border-b border-gray-200">
               <th className="text-left py-3 px-4 font-medium text-gray-900">새 이벤트 이름</th>
               <th className="text-left py-3 px-4 font-medium text-gray-900">조건</th>
-              <th className="text-center py-3 px-4 font-medium text-gray-900">액션</th>
+              {/* <th className="text-center py-3 px-4 font-medium text-gray-900">액션</th> */}
             </tr>
           </thead>
           <tbody>
