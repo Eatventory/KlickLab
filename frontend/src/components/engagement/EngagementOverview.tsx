@@ -112,12 +112,12 @@ const EngagementOverview: React.FC<Props> = ({
                 <div className="text-xs text-gray-500 mb-1">{rangeText}</div>
                 <div className="text-xs font-semibold uppercase text-gray-600 mb-1">{item.label}</div>
                 <div className="text-sm font-bold text-gray-900">
-                  평균 체류시간 {item.value < 1 ? `${Math.round(item.value * 60)}초` : `${item.value.toFixed(1)}초`}
+                  평균 체류시간 {item.value < 1 ? `${Math.round(item.value * 60)}초` : `${item.value.toFixed(1)}분`}
                 </div>
               </>
             )}
             isLoading={isFirstLoad}
-            valueFormatter={(val) => `${val.toFixed(1)}초`}
+            valueFormatter={(val) => `${val.toFixed(1)}분`}
           />
         </div>
 
@@ -275,6 +275,7 @@ const EngagementOverview: React.FC<Props> = ({
                   </span>
                 </div>
 
+            
                 <div
                   className="flex items-center"
                   style={{ opacity: hoveredLineKey && hoveredLineKey !== 'weeklyUsers' ? 0.3 : 1 }}
@@ -287,6 +288,7 @@ const EngagementOverview: React.FC<Props> = ({
                   </span>
                 </div>
 
+            
                 <div
                   className="flex items-center"
                   style={{ opacity: hoveredLineKey && hoveredLineKey !== 'dailyUsers' ? 0.3 : 1 }}

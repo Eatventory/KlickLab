@@ -31,33 +31,6 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export const HourlyTrendLineChart: React.FC<HourlyTrendLineChartProps> = ({ data }) => {
-  // 00부터 23시까지 전체 시간 데이터 생성 (데이터가 없는 시간은 0으로 채움)
-  const generateFullHourData = (inputData: HourlyData[]): HourlyData[] => {
-    const fullHourData: HourlyData[] = [];
-    
-    // 00부터 23까지 24시간 생성
-    for (let hour = 0; hour < 24; hour++) {
-      const hourStr = hour.toString().padStart(2, '0');
-      const existingData = inputData?.find(item => item.hour === hourStr);
-      
-      if (existingData) {
-        fullHourData.push(existingData);
-      } else {
-        // 데이터가 없는 시간은 0으로 채움
-        fullHourData.push({
-          hour: hourStr,
-          total_users: 0,
-          new_users: 0,
-          existing_users: 0
-        });
-      }
-    }
-    
-    return fullHourData;
-  };
-
-  const processedData = generateFullHourData(data);
-
   // 데이터 검증 및 로깅
   React.useEffect(() => {
     if (data && data.length > 0) {
@@ -76,14 +49,13 @@ export const HourlyTrendLineChart: React.FC<HourlyTrendLineChartProps> = ({ data
 
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <LineChart data={processedData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+      <LineChart data={data} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
         <XAxis
           dataKey="hour"
           axisLine={false}
           tickLine={false}
           tick={{ fontSize: 12, fill: '#6B7280' }}
-          interval={0}
-          type="category"
+          interval="preserveStartEnd"
         />
         <YAxis
           axisLine={false}

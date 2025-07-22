@@ -116,7 +116,7 @@ export const ButtonEventManager: React.FC = () => {
               <th className="text-left py-3 px-4 font-medium">이벤트 이름</th>
               <th className="text-left py-3 px-4 font-medium">CSS 선택자</th>
               <th className="text-left py-3 px-4 font-medium">설명</th>
-              {/* <th className="text-center py-3 px-4 font-medium">액션</th> */}
+              <th className="text-center py-3 px-4 font-medium">액션</th>
             </tr>
           </thead>
           <tbody>
