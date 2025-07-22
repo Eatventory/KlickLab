@@ -41,121 +41,7 @@ interface AcquisitionData {
   realtimeData: {
     topCountries: any[];
   };
-  channelConversionData: any[];
 }
-
-// Mock Data 생성 함수들 (활성 사용자 3457명, 신규 유입 사용자 2505명 기준)
-const generateMockHourlyData = () => {
-  const hours = Array.from({ length: 24 }, (_, i) => i);
-  return hours.map(hour => {
-    let baseUsers;
-    // 새벽(0-6시): 낮은 수치
-    if (hour >= 0 && hour <= 6) {
-      baseUsers = Math.floor(Math.random() * 80) + 30; // 30-110명
-    }
-    // 오후 7시-11시: 높은 수치
-    else if (hour >= 19 && hour <= 23) {
-      baseUsers = Math.floor(Math.random() * 120) + 200; // 200-320명
-    }
-    // 나머지 시간: 중간 수치
-    else {
-      baseUsers = Math.floor(Math.random() * 80) + 120; // 120-200명
-    }
-    
-    const newUsers = Math.floor(baseUsers * (0.65 + Math.random() * 0.2)); // 65-85%가 신규
-    const existingUsers = baseUsers - newUsers;
-    
-    return {
-      hour: hour.toString().padStart(2, '0'),
-      total_users: baseUsers,
-      new_users: newUsers,
-      existing_users: existingUsers
-    };
-  });
-};
-
-const generateMockTopChannelData = () => [
-  { channel: 'google', users: 1730, clicks: 2684 }, // 가장 높음
-  { channel: 'naver', users: 1040, clicks: 1612 }, // 2위
-  { channel: 'kakao', users: 520, clicks: 806 },   // 3위  
-  { channel: 'direct', users: 167, clicks: 259 }   // 가장 낮음
-];
-
-const generateMockNewUserChannelData = () => [
-  { channel: 'google', users: 577 }, // 상위 유입 채널의 정확히 1/3
-  { channel: 'naver', users: 347 }, // 정확히 1/3
-  { channel: 'kakao', users: 173 }, // 정확히 1/3
-  { channel: 'direct', users: 56 }  // 정확히 1/3
-];
-
-const generateMockDeviceData = () => {
-  const total = 3457;
-  return [
-    { name: 'Mobile', value: Math.floor(total * 0.68), percentage: 68 },
-    { name: 'Desktop', value: Math.floor(total * 0.27), percentage: 27 },
-    { name: 'Tablet', value: Math.floor(total * 0.05), percentage: 5 }
-  ];
-};
-
-const generateMockBrowserData = () => {
-  const total = 3457;
-  return [
-    { name: 'Chrome', value: Math.floor(total * 0.52), percentage: 52 },
-    { name: 'Safari', value: Math.floor(total * 0.26), percentage: 26 },
-    { name: 'Edge', value: Math.floor(total * 0.17), percentage: 17 },
-    { name: 'Others', value: Math.floor(total * 0.05), percentage: 5 }
-  ];
-};
-
-const generateMockChannelGroupData = () => [
-  { channel: 'google', device: 'mobile', users: 433 }, // 75% mobile (577의 75%)
-  { channel: 'google', device: 'desktop', users: 144 }, // 25% desktop (577의 25%)
-  { channel: 'naver', device: 'mobile', users: 212 }, // 61% mobile (347의 61%)
-  { channel: 'naver', device: 'desktop', users: 135 }, // 39% desktop (347의 39%)
-  { channel: 'kakao', device: 'mobile', users: 125 }, // 72% mobile (173의 72%)
-  { channel: 'kakao', device: 'desktop', users: 48 }, // 28% desktop (173의 28%)
-  { channel: 'direct', device: 'mobile', users: 34 }, // 60% mobile (56의 60%)
-  { channel: 'direct', device: 'desktop', users: 22 }  // 40% desktop (56의 40%)
-];
-
-const generateMockFunnelData = () => [
-  { stage: '회원가입', visitors: 2457, conversionRate: 61 },
-  { stage: '구매', visitors: 561, conversionRate: 12 }
-];
-
-const generateMockCampaignData = () => [
-  { campaign: 'summer2024', description: '시즌 한정 할인 이벤트', sessions: 950 }, // 1위
-  { campaign: 'welcome_offer', description: '신규 가입 혜택 캠페인', sessions: 720 }, // 2위
-  { campaign: 'instagram_promo', description: 'SNS 리그램 이벤트', sessions: 480 }, // 3위
-  { campaign: 'Google Ads - Brand', sessions: 380 },
-  { campaign: 'Naver Search', sessions: 290 },
-  { campaign: 'Kakao Display', sessions: 220 },
-  { campaign: 'Facebook Campaign', sessions: 150 },
-  { campaign: 'YouTube Ads', sessions: 80 }
-];
-
-const generateMockCountriesData = () => [
-  { city: '서울특별시', users: 1384 },  // 40%
-  { city: '경기도', users: 518 },       // 15%
-  { city: '부산광역시', users: 311 },   // 9%
-  { city: '경상남도', users: 242 },     // 7%
-  { city: '인천광역시', users: 207 },   // 6%
-  { city: '경상북도', users: 173 },     // 5%
-  { city: '대구광역시', users: 138 },   // 4%
-  { city: '충청남도', users: 104 },     // 3%
-  { city: '전라북도', users: 104 },     // 3%
-  { city: '강원특별자치도', users: 86 }, // 2.5%
-  { city: '충청북도', users: 69 },      // 2%
-  { city: '전라남도', users: 69 },      // 2%
-  { city: '광주광역시', users: 52 },    // 1.5%
-];
-
-const generateMockChannelConversionData = () => [
-  { channel: 'google', visitors: 1730, conversions: 346, conversionRate: 20.0 }, // 1위 (20%)
-  { channel: 'naver', visitors: 1040, conversions: 182, conversionRate: 17.5 },  // 2위 (17.5%)
-  { channel: 'kakao', visitors: 520, conversions: 73, conversionRate: 14.0 },    // 3위 (14%)
-  { channel: 'direct', visitors: 167, conversions: 17, conversionRate: 10.2 }    // 4위 (10.2%)
-];
 
 export const AcquisitionDashboard: React.FC = () => {
   const { filter: globalFilter } = useSegmentFilter();
@@ -178,102 +64,6 @@ export const AcquisitionDashboard: React.FC = () => {
   const [tempRange, setTempRange] = useState(dateRange);
   const [showPicker, setShowPicker] = useState(false);
 
-  // Mock 데이터와 실제 KPI 데이터를 함께 사용하는 함수
-  const initializeMockData = () => {
-    console.log('=== MOCK DATA 로딩 시작 (활성 사용자 3457명, 신규 유입 사용자 2505명 기준) ===');
-    
-    setLoading(true);
-    setError(null);
-    
-    // 차트용 Mock 데이터 생성
-    const mockChartData: AcquisitionData = {
-      hourlyTrendData: generateMockHourlyData(),
-      topChannelData: generateMockTopChannelData(),
-      funnelData: generateMockFunnelData(),
-      deviceData: generateMockDeviceData(),
-      browserData: generateMockBrowserData(),
-      clickFlowData: { nodes: [], links: [] },
-      channelGroupData: generateMockChannelGroupData(),
-      sessionData: generateMockCampaignData(),
-      realtimeData: { topCountries: generateMockCountriesData() },
-      channelConversionData: generateMockChannelConversionData()
-    };
-    
-    console.log('=== MOCK DATA 설정 완료 ===', mockChartData);
-    
-    // Mock 차트 데이터 설정
-    setAcquisitionData(mockChartData);
-    setRefreshKey(prev => prev + 1);
-    setLoading(false);
-    
-    // 실제 KPI 데이터 가져오기 (활성 사용자, 신규 유입 사용자만)
-    tryFetchRealKpiData();
-  };
-
-  // 활성 사용자와 신규 유입 사용자만 실제 API에서 가져오기
-  const tryFetchRealKpiData = async () => {
-    try {
-      const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
-      if (!token) {
-        console.log('[KPI] 토큰 없음 - Mock KPI 사용: 활성 사용자 3457명, 신규 유입 사용자 2505명');
-        setKpiData({
-          active_users: 3457,
-          new_users: 2505
-        });
-        return;
-      }
-
-      const startDate = dateRange[0].startDate;
-      const endDate = dateRange[0].endDate;
-      const startStr = dayjs(startDate).format('YYYY-MM-DD');
-      const endStr = dayjs(endDate).format('YYYY-MM-DD');
-      const dateQuery = `startDate=${startStr}&endDate=${endStr}`;
-
-      const globalFilterParams = new URLSearchParams();
-      if (globalFilter.conditions) {
-        Object.entries(globalFilter.conditions).forEach(([key, value]) => {
-          if (value !== undefined && value !== null && value !== '') {
-            globalFilterParams.append(key, String(value));
-          }
-        });
-      }
-      
-      const globalFilterString = globalFilterParams.toString();
-      const globalFilterQuery = globalFilterString ? `&${globalFilterString}` : '';
-
-      console.log('[KPI] 실제 API 시도 (활성 사용자, 신규 유입 사용자만)...');
-      const response = await fetch(`/api/acquisition/overview?${dateQuery}${globalFilterQuery}`, { 
-        headers: { Authorization: `Bearer ${token}` },
-        signal: AbortSignal.timeout(5000)
-      });
-
-      if (response.ok) {
-        const realKpiData = await response.json();
-        console.log('[KPI] 실제 데이터 수신:', realKpiData);
-        // 실제 KPI 데이터가 있으면 사용, 없으면 Mock 사용
-        setKpiData({
-          active_users: realKpiData.active_users || 3457,
-          new_users: realKpiData.new_users || 2505
-        });
-      } else {
-        console.log('[KPI] API 응답 실패 - Mock KPI 사용');
-        setKpiData({
-          active_users: 3457,
-          new_users: 2505
-        });
-      }
-    } catch (err) {
-      console.log('[KPI] API 에러 - Mock KPI 사용:', err);
-      setKpiData({
-        active_users: 3457,
-        new_users: 2505
-      });
-    }
-  };
-
-
-
-  /* fetchAcquisitionData 함수 - Mock 모드에서는 사용하지 않음
   const fetchAcquisitionData = async (start?: Date, end?: Date) => {
     try {
       setLoading(true);
@@ -466,28 +256,21 @@ export const AcquisitionDashboard: React.FC = () => {
       setLoading(false);
     }
   };
-  */
 
-  // 컴포넌트 마운트 시 Mock 데이터 로드
   useEffect(() => {
-    console.log('🚀 컴포넌트 마운트 - Mock 데이터 로딩');
-    initializeMockData();
-  }, []); // 마운트 시에만 실행
+    const { startDate, endDate } = dateRange[0];
+    if (startDate && endDate) {
+      fetchAcquisitionData(startDate, endDate);
+    }
 
-  // 날짜 범위나 필터 변경 시 KPI만 재시도
-  useEffect(() => {
-    console.log('📅 날짜/필터 변경 - KPI 재시도');
-    tryFetchRealKpiData();
-  }, [dateRange, globalFilter]);
-
-  // 주기적 KPI 갱신 (Mock 데이터는 건드리지 않음)
-  useEffect(() => {
     const interval = setInterval(() => {
-      console.log('⏰ 주기적 KPI 갱신');
-      tryFetchRealKpiData();
-    }, 60000); // 1분마다 KPI만 시도
+      const { startDate, endDate } = dateRange[0];
+      if (startDate && endDate) {
+        fetchAcquisitionData(startDate, endDate);
+      }
+    }, 60000); // 1분마다 갱신
     return () => clearInterval(interval);
-  }, []);
+  }, [dateRange]);
 
   // channelGroupData 로그 추가
   useEffect(() => {
@@ -531,9 +314,8 @@ export const AcquisitionDashboard: React.FC = () => {
           setTempRange={(range) => setTempRange(range.map(r => ({ ...r, key: 'selection' })))}
           setShowPicker={setShowPicker}
           onApply={(start, end) => {
-            console.log('📅 날짜 범위 적용:', start, end);
             setDateRange([{ startDate: start, endDate: end, key: 'selection' }]);
-            // Mock 데이터는 그대로 유지, KPI만 새 날짜로 재시도 (useEffect에서 자동 처리)
+            fetchAcquisitionData(start, end);
           }}
         />
       </div>
@@ -544,22 +326,22 @@ export const AcquisitionDashboard: React.FC = () => {
           {/* KPI 카드 영역 (위아래로 쌓기) */}
           <div className="md:col-span-2 space-y-4 h-64">
             {/* 활성 사용자 */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4 h-[calc(50%-0.5rem)]">
+            <div className="bg-white rounded-lg border border-gray-200 p-4 h-[calc(50%-0.5rem)] hover:shadow-lg transition-shadow">
               <div className="text-center">
                 <h3 className="text-sm font-semibold text-gray-900 mb-2">활성 사용자</h3>
                 <div className="text-3xl font-bold text-gray-900 mb-1">
-                  {kpiData ? kpiData.active_users?.toLocaleString() || '3,457' : '3,457'}
+                  {kpiData ? kpiData.active_users?.toLocaleString() || '0' : '0'}
                 </div>
                 <div className="text-xs text-green-600">+8.2%</div>
               </div>
             </div>
 
             {/* 신규 유입 사용자 */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4 h-[calc(50%-0.5rem)]">
+            <div className="bg-white rounded-lg border border-gray-200 p-4 h-[calc(50%-0.5rem)] hover:shadow-lg transition-shadow">
               <div className="text-center">
                 <h3 className="text-sm font-semibold text-gray-900 mb-2">신규 유입 사용자</h3>
                 <div className="text-3xl font-bold text-gray-900 mb-1">
-                  {kpiData ? kpiData.new_users?.toLocaleString() || '2,505' : '2,505'}
+                  {kpiData ? kpiData.new_users?.toLocaleString() || '0' : '0'}
                 </div>
                 <div className="text-xs text-green-600">+12.5%</div>
               </div>
@@ -567,13 +349,13 @@ export const AcquisitionDashboard: React.FC = () => {
           </div>
 
           {/* 시간별 유입 트렌드 */}
-          <div className="md:col-span-6 bg-white rounded-lg border border-gray-200 p-4 h-64">
+          <div className="md:col-span-6 bg-white rounded-lg border border-gray-200 p-4 h-64 hover:shadow-lg transition-shadow">
             <h3 className="text-sm font-semibold text-gray-900 mb-2">시간별 유입 트렌드</h3>
             <HourlyTrendLineChart data={acquisitionData.hourlyTrendData} refreshKey={refreshKey} />
           </div>
 
           {/* 첫 방문 전환율 */}
-          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-4 h-64">
+          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-4 h-64 hover:shadow-lg transition-shadow">
             <h3 className="text-sm font-semibold text-gray-900 mb-2">첫 방문 전환율</h3>
             <FunnelConversionChart data={acquisitionData.funnelData} refreshKey={refreshKey} />
           </div>
@@ -619,7 +401,7 @@ export const AcquisitionDashboard: React.FC = () => {
           </div>
 
           {/* 유입 채널별 디바이스 비율 */}
-          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-4 h-[320px]">
+          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-4 h-[320px] hover:shadow-lg transition-shadow">
             <h3 className="text-sm font-semibold text-gray-900 mb-2">유입 채널별 디바이스 비율</h3>
             <ChannelGroupStackedChart 
               data={acquisitionData.channelGroupData} 
@@ -628,7 +410,7 @@ export const AcquisitionDashboard: React.FC = () => {
           </div>
 
           {/* 유입 플랫폼 분석 */}
-          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-4 h-[320px]">
+          <div className="md:col-span-4 bg-white rounded-lg border border-gray-200 p-4 h-[320px] hover:shadow-lg transition-shadow">
             <h3 className="text-sm font-semibold text-gray-900 mb-2">유입 플랫폼 분석</h3>
             <DeviceBrowserDonutChart 
               deviceData={acquisitionData.deviceData} 
@@ -638,7 +420,7 @@ export const AcquisitionDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* 3행: 마케팅 캠페인 유입 + 채널별 전환율 + 상위 지역 유입 */}
+        {/* 3행: 마케팅 캠페인 유입 + 상위 지역 유입 + 전환율 표 2개 */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
           {/* 마케팅 캠페인 유입 */}
           <div className="md:col-span-3 bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
@@ -649,11 +431,6 @@ export const AcquisitionDashboard: React.FC = () => {
             />
           </div>
 
-          {/* 채널별 전환율 */}
-          <div className="md:col-span-3">
-            <ChannelConversionTable />
-          </div>
-
           {/* 상위 지역 유입 */}
           <div className="md:col-span-3 bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
             <h4 className="text-sm font-semibold text-gray-900 mb-2">상위 지역 유입</h4>
@@ -661,6 +438,11 @@ export const AcquisitionDashboard: React.FC = () => {
               data={acquisitionData.realtimeData.topCountries.slice(0,10).map((c:any, index: number)=>({label:c.city,value:c.users, key: `country-${c.city}-${index}`}))}
               valueFormatter={(v)=>v.toLocaleString()+'명'}
             />
+          </div>
+
+          {/* 채널별 전환율 */}
+          <div className="md:col-span-3">
+            <ChannelConversionTable />
           </div>
         </div>
       </div>
