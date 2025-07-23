@@ -41,11 +41,21 @@ import {
 // } from '../../data/engagementTypes';
 
 // 상단에 추가 (예: import 아래)
-function filterByDate<T extends { date: string }>(data: T[], start: Date, end: Date): T[] {
+function filterByDateRaw<T extends { date: string }>(data: T[], start: Date, end: Date): T[] {
   return data.filter(d => {
     const date = new Date(d.date);
     return date >= start && date <= end;
   });
+}
+
+function downsample<T>(arr: T[], max = 500): T[] {
+  const step = Math.ceil(arr.length / max);
+  return step > 1 ? arr.filter((_, i) => i % step === 0) : arr;
+}
+
+function filterByDate<T extends { date: string }>(arr: T[], start: Date, end: Date): T[] {
+  const f = filterByDateRaw(arr, start, end);
+  return downsample(f, 400);
 }
 
 const engagementTaps: string[] = ['참여도 개요', '이벤트 보고서', '페이지 및 화면 보고서', '방문 페이지 보고서', '퍼널 분석'];
@@ -212,7 +222,7 @@ export const EngagementDashboard: React.FC = () => {
           setSankeyPaths(null);
         }
       } catch (err) {
-        setSankeyError('경로 데이터를 불러오지 못했습니다.');
+        setSankeyError(`경로 데이터를 불러오지 못했습니다. ${err}`);
         setSankeyPaths(null);
       } finally {
         setSankeyLoading(false);
@@ -231,7 +241,7 @@ export const EngagementDashboard: React.FC = () => {
     () => filterByDate(viewCounts, startDate, endDate),
     [viewCounts, startDate, endDate]
   );
-  
+
   const filteredClickCounts = useMemo(
     () => filterByDate(clickCounts, startDate, endDate),
     [clickCounts, startDate, endDate]
@@ -295,56 +305,61 @@ export const EngagementDashboard: React.FC = () => {
 
         onToggle={() => setOpenCollapse(prev => prev === engagementTaps[0] ? '' : engagementTaps[0])}
       >
-        <EngagementOverview
-          avgSessionSecs={filteredAvgSessionSecs}
-          sessionsPerUsers={filteredSessionsPerUsers}
-          pageTimes={pageTimes}
-          pageViewCounts={pageViewCounts}
-          bounceRates={bounceRates}
-          viewCounts={filteredViewCounts}
-          clickCounts={filteredClickCounts}
-          usersOverTime={filteredUsersOverTime}
-          revisit={filteredRevisit}
-          selectedMetric={selectedMetric}
-          selectedMetric2={selectedMetric2}
-          setSelectedMetric={setSelectedMetric}
-          setSelectedMetric2={setSelectedMetric2}
-          isFirstLoad={false}
-          dateRange={dateRange}
-      />
+        {openCollapse === engagementTaps[0] && (
+          <EngagementOverview
+            avgSessionSecs={filteredAvgSessionSecs}
+            sessionsPerUsers={filteredSessionsPerUsers}
+            pageTimes={pageTimes}
+            pageViewCounts={pageViewCounts}
+            bounceRates={bounceRates}
+            viewCounts={filteredViewCounts}
+            clickCounts={filteredClickCounts}
+            usersOverTime={filteredUsersOverTime}
+            revisit={filteredRevisit}
+            selectedMetric={selectedMetric}
+            selectedMetric2={selectedMetric2}
+            setSelectedMetric={setSelectedMetric}
+            setSelectedMetric2={setSelectedMetric2}
+            isFirstLoad={false}
+            dateRange={dateRange}
+          />
+        )}
       </Collapse>
 
       <Collapse
         title={engagementTaps[1]}
         isOpen={openCollapse === engagementTaps[1]}
         onToggle={() =>
-
           setOpenCollapse((prev) => (prev === engagementTaps[1] ? '' : engagementTaps[1]))
         }
       >
-        <EngagementEvents eventCounts={filteredEventCounts} />
+        {openCollapse === engagementTaps[1] && (
+          <EngagementEvents eventCounts={filteredEventCounts} />
+        )}
       </Collapse>
 
       <Collapse
         title={engagementTaps[2]}
         isOpen={openCollapse === engagementTaps[2]}
         onToggle={() =>
-
           setOpenCollapse((prev) => (prev === engagementTaps[2] ? '' : engagementTaps[2]))
         }
       >
-        <EngagementPages pageStats={filteredPageStats} />
+        {openCollapse === engagementTaps[2] && (
+          <EngagementPages pageStats={filteredPageStats} />
+        )}
       </Collapse>
 
       <Collapse
         title={engagementTaps[3]}
         isOpen={openCollapse === engagementTaps[3]}
         onToggle={() =>
-
           setOpenCollapse((prev) => (prev === engagementTaps[3] ? '' : engagementTaps[3]))
         }
       >
-        <EngagementVisits visitStats={filteredVisitStats} />
+        {openCollapse === engagementTaps[3] && (
+          <EngagementVisits visitStats={filteredVisitStats} />
+        )}
       </Collapse>
 
       {/* 퍼널 분석 하위탭 추가 */}
@@ -355,24 +370,28 @@ export const EngagementDashboard: React.FC = () => {
           setOpenCollapse((prev) => (prev === engagementTaps[4] ? '' : engagementTaps[4]))
         }
       >
-        {/* 전환율 탭의 사용자 경로 다이어그램 전체(드롭다운, 백엔드 연동 포함) */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sankey-container" style={{height: '100%', minHeight: 600, maxHeight: '90vh'}}>
-          <div className="flex items-center justify-between mb-6">
-            <h2 style={{ fontWeight: 700, fontSize: 20 }}>사용자 경로 다이어그램</h2>
-            <select
-              value={dropdownType}
-              onChange={handleDropdownTypeChange}
-              className="border rounded px-2 py-1 text-sm bg-white"
-              style={{ minWidth: 120 }}
-            >
-              <option value="event">이벤트</option>
-              <option value="url">URL</option>
-            </select>
-          </div>
-          <UserPathSankeyChart data={{ paths: sankeyPaths }} type={dropdownType} />
-          {sankeyLoading && <div style={{ color: '#888', padding: 12 }}>경로 데이터를 불러오는 중...</div>}
-          {sankeyError && <div style={{ color: 'red', padding: 12 }}>{sankeyError}</div>}
-        </div>
+        {openCollapse === engagementTaps[4] && (
+          <>
+            {/* 전환율 탭의 사용자 경로 다이어그램 전체(드롭다운, 백엔드 연동 포함) */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sankey-container" style={{height: '100%', minHeight: 600, maxHeight: '90vh'}}>
+              <div className="flex items-center justify-between mb-6">
+                <h2 style={{ fontWeight: 700, fontSize: 20 }}>사용자 경로 다이어그램</h2>
+                <select
+                  value={dropdownType}
+                  onChange={handleDropdownTypeChange}
+                  className="border rounded px-2 py-1 text-sm bg-white"
+                  style={{ minWidth: 120 }}
+                >
+                  <option value="event">이벤트</option>
+                  <option value="url">URL</option>
+                </select>
+              </div>
+              <UserPathSankeyChart data={{ paths: sankeyPaths }} type={dropdownType} />
+              {sankeyLoading && <div style={{ color: '#888', padding: 12 }}>경로 데이터를 불러오는 중...</div>}
+              {sankeyError && <div style={{ color: 'red', padding: 12 }}>{sankeyError}</div>}
+            </div>
+          </>
+        )}
       </Collapse>
     </>
   );

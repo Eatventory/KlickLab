@@ -49,7 +49,7 @@ export const EventRuleManager: React.FC = () => {
 
   const handleCreateRule = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Sending conditionType:", conditionType); // 추가된 로그
+    // console.log("Sending conditionType:", conditionType);
     try {
       const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
       const response = await fetch('/api/rules', {
