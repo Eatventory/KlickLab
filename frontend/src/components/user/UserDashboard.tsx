@@ -140,7 +140,9 @@ export const UserDashboard: React.FC = () => {
             <div className="flex gap-6 flex-1">
               <div className="flex-none w-[400px] h-[530px]">
                 <GenderActiveUsers 
-                  dateRange={dateRange[0]} 
+                  dateRange={dateRange[0]}
+                  data={apiData}
+                  loading={loading}
                 />
               </div>
               <div className="flex-none w-[400px] h-[530px]">
