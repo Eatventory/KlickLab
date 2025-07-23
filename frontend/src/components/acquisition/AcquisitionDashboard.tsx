@@ -180,7 +180,7 @@ export const AcquisitionDashboard: React.FC = () => {
 
   // Mock 데이터와 실제 KPI 데이터를 함께 사용하는 함수
   const initializeMockData = () => {
-    console.log('=== MOCK DATA 로딩 시작 (활성 사용자 3457명, 신규 유입 사용자 2505명 기준) ===');
+    // console.log('=== MOCK DATA 로딩 시작 (활성 사용자 3457명, 신규 유입 사용자 2505명 기준) ===');
     
     setLoading(true);
     setError(null);
@@ -199,7 +199,7 @@ export const AcquisitionDashboard: React.FC = () => {
       channelConversionData: generateMockChannelConversionData()
     };
     
-    console.log('=== MOCK DATA 설정 완료 ===', mockChartData);
+    // console.log('=== MOCK DATA 설정 완료 ===', mockChartData);
     
     // Mock 차트 데이터 설정
     setAcquisitionData(mockChartData);
@@ -215,7 +215,7 @@ export const AcquisitionDashboard: React.FC = () => {
     try {
       const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
       if (!token) {
-        console.log('[KPI] 토큰 없음 - Mock KPI 사용: 활성 사용자 3457명, 신규 유입 사용자 2505명');
+        // console.log('[KPI] 토큰 없음 - Mock KPI 사용: 활성 사용자 3457명, 신규 유입 사용자 2505명');
         setKpiData({
           active_users: 3457,
           new_users: 2505
@@ -241,7 +241,7 @@ export const AcquisitionDashboard: React.FC = () => {
       const globalFilterString = globalFilterParams.toString();
       const globalFilterQuery = globalFilterString ? `&${globalFilterString}` : '';
 
-      console.log('[KPI] 실제 API 시도 (활성 사용자, 신규 유입 사용자만)...');
+      // console.log('[KPI] 실제 API 시도 (활성 사용자, 신규 유입 사용자만)...');
       const response = await fetch(`/api/acquisition/overview?${dateQuery}${globalFilterQuery}`, { 
         headers: { Authorization: `Bearer ${token}` },
         signal: AbortSignal.timeout(5000)
@@ -249,21 +249,21 @@ export const AcquisitionDashboard: React.FC = () => {
 
       if (response.ok) {
         const realKpiData = await response.json();
-        console.log('[KPI] 실제 데이터 수신:', realKpiData);
+        // console.log('[KPI] 실제 데이터 수신:', realKpiData);
         // 실제 KPI 데이터가 있으면 사용, 없으면 Mock 사용
         setKpiData({
           active_users: realKpiData.active_users || 3457,
           new_users: realKpiData.new_users || 2505
         });
       } else {
-        console.log('[KPI] API 응답 실패 - Mock KPI 사용');
+        // console.log('[KPI] API 응답 실패 - Mock KPI 사용');
         setKpiData({
           active_users: 3457,
           new_users: 2505
         });
       }
     } catch (err) {
-      console.log('[KPI] API 에러 - Mock KPI 사용:', err);
+      // console.log('[KPI] API 에러 - Mock KPI 사용:', err);
       setKpiData({
         active_users: 3457,
         new_users: 2505
@@ -470,20 +470,20 @@ export const AcquisitionDashboard: React.FC = () => {
 
   // 컴포넌트 마운트 시 Mock 데이터 로드
   useEffect(() => {
-    console.log('🚀 컴포넌트 마운트 - Mock 데이터 로딩');
+    // console.log('🚀 컴포넌트 마운트 - Mock 데이터 로딩');
     initializeMockData();
   }, []); // 마운트 시에만 실행
 
   // 날짜 범위나 필터 변경 시 KPI만 재시도
   useEffect(() => {
-    console.log('📅 날짜/필터 변경 - KPI 재시도');
+    // console.log('📅 날짜/필터 변경 - KPI 재시도');
     tryFetchRealKpiData();
   }, [dateRange, globalFilter]);
 
   // 주기적 KPI 갱신 (Mock 데이터는 건드리지 않음)
   useEffect(() => {
     const interval = setInterval(() => {
-      console.log('⏰ 주기적 KPI 갱신');
+      // console.log('⏰ 주기적 KPI 갱신');
       tryFetchRealKpiData();
     }, 60000); // 1분마다 KPI만 시도
     return () => clearInterval(interval);
@@ -492,7 +492,7 @@ export const AcquisitionDashboard: React.FC = () => {
   // channelGroupData 로그 추가
   useEffect(() => {
     if (acquisitionData && acquisitionData.channelGroupData) {
-      console.log('[LOG] channelGroupData:', acquisitionData.channelGroupData);
+      // console.log('[LOG] channelGroupData:', acquisitionData.channelGroupData);
     }
   }, [acquisitionData]);
 
@@ -531,7 +531,7 @@ export const AcquisitionDashboard: React.FC = () => {
           setTempRange={(range) => setTempRange(range.map(r => ({ ...r, key: 'selection' })))}
           setShowPicker={setShowPicker}
           onApply={(start, end) => {
-            console.log('📅 날짜 범위 적용:', start, end);
+            // console.log('📅 날짜 범위 적용:', start, end);
             setDateRange([{ startDate: start, endDate: end, key: 'selection' }]);
             // Mock 데이터는 그대로 유지, KPI만 새 날짜로 재시도 (useEffect에서 자동 처리)
           }}
