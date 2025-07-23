@@ -128,7 +128,6 @@ router.get("/realtime-analytics", authMiddleware, async (req, res) => {
     let result = [];
     let todayData = [];
     let pastData = [];
-    let tenMinuteData = [];
 
     if (isOnlyToday) {
       todayData = await getTodayData(sdk_key, startDate, endDate);   // ← 여기!
@@ -155,19 +154,19 @@ router.get("/realtime-analytics", authMiddleware, async (req, res) => {
     }
 
     // 응답 데이터 생성
-    let dataSource = 'FLAT';
-    if (isOnlyToday) {
-      dataSource = (hourlyData.length > 0 || tenMinuteData.length > 0) ? 'TODAY' : 'no-data';
-    } else if (includesOnlyToday) {
-      dataSource = 'FLAT + AGG';
-    }
+    // let dataSource = 'FLAT';
+    // if (isOnlyToday) {
+    //   dataSource = (hourlyData.length > 0 || tenMinuteData.length > 0) ? 'TODAY' : 'no-data';
+    // } else if (includesOnlyToday) {
+    //   dataSource = 'FLAT + AGG';
+    // }
 
     res.status(200).json({
       data: result,
       meta: {
         isOnlyToday,
         includesOnlyToday,
-        dataSource,
+        //dataSource,
         pastRecords  : pastData.length,
         todayRecords : todayData.length,
         currentTime: `${currentHour}:${currentMinute}`

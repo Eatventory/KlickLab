@@ -119,6 +119,8 @@ export const UserDashboard: React.FC = () => {
             <div className="h-[550px] overflow-hidden">
               <RegionalActiveUsers 
                 dateRange={dateRange[0]}
+                data={apiData}
+                loading={loading}
               />
             </div>
             <div className="h-[310px] overflow-hidden">
