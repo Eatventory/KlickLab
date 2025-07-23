@@ -126,6 +126,11 @@ export const UserDashboard: React.FC = () => {
             <div className="h-[310px] overflow-hidden">
               <AgeActiveUsers 
                 dateRange={dateRange[0]}
+                data={apiData.map(row => ({
+                  segment_value: row.age_group,
+                  user_count: Number(row.users)
+                }))}
+                loading={loading}
               />
             </div>
           </div>
@@ -135,6 +140,7 @@ export const UserDashboard: React.FC = () => {
             <div>
               <UserSegmentSummary 
                 dateRange={dateRange[0]}
+                data={apiData}
               />
             </div>
             <div className="flex gap-6 flex-1">

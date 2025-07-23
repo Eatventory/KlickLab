@@ -67,11 +67,13 @@ export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({
     const ageMap: Record<string, number> = {};
     
     data.forEach((row) => {
-      if (row.segment_type === 'user_age' && row.segment_value && row.segment_value !== 'unknown') {
-        const age = row.segment_value;
-        if (!ageMap[age]) ageMap[age] = 0;
-        ageMap[age] += parseInt(row.user_count.toString());
+      let age = row.segment_value;
+      // 'unknown', null, undefined 모두 'unknown'으로 취급
+      if (!age || age === 'unknown') {
+        age = 'unknown';
       }
+      if (!ageMap[age]) ageMap[age] = 0;
+      ageMap[age] += parseInt(row.user_count.toString());
     });
 
     // 알려진 연령대와 알려지지 않은 연령대 분리
