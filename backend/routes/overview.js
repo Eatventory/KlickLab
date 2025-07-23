@@ -35,13 +35,15 @@ const getPastUserStats = async (sdkKey, startDate, endDate) => {
   const query = `
     SELECT
       summary_date,
+      summary_hour,
       sum(users) AS active_users,
       sum(sessions) AS sessions,
       sum(session_duration_sum) AS session_duration_sum
     FROM klicklab.flat_user_session_stats
     WHERE summary_date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
       AND sdk_key = '${sdkKey}'
-    GROUP BY summary_date
+    GROUP BY summary_date, summary_hour
+    ORDER BY summary_date, summary_hour
   `;
   return await executeQuery(query);
 };
@@ -67,13 +69,15 @@ const getPastTrafficStats = async (sdkKey, startDate, endDate) => {
   const query = `
     SELECT
       summary_date,
+      summary_hour,
       traffic_source,
       traffic_medium,
       sum(users) AS users
     FROM klicklab.flat_traffic_marketing_stats
     WHERE summary_date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
       AND sdk_key = '${sdkKey}'
-    GROUP BY summary_date, traffic_source, traffic_medium
+    GROUP BY summary_date, summary_hour, traffic_source, traffic_medium
+    ORDER BY summary_date, summary_hour
   `;
   return await executeQuery(query);
 };
@@ -131,6 +135,93 @@ const mergeData = (...arrays) => {
   
   return Object.values(merged);
 };
+
+// 실시간 데이터 API
+router.get("/realtime", authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+  
+  try {
+    // 현재 한국 시간 기준으로 최근 3시간 데이터 조회
+    const now = new Date();
+    const koreaTime = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+    const today = koreaTime.toISOString().slice(0, 10);
+    const currentHour = koreaTime.getHours();
+    
+    console.log('Korea time:', koreaTime.toISOString());
+    console.log('Today:', today, 'Current hour:', currentHour);
+    
+    const [trendResult, locationResult] = await Promise.all([
+      executeQuery(`
+        SELECT
+          summary_hour,
+          uniqMerge(unique_users_state) as users
+        FROM klicklab.agg_user_session_stats
+        WHERE summary_date = parseDateTimeBestEffort('${today}')
+          AND summary_hour >= ${Math.max(0, currentHour - 2)}
+          AND summary_hour <= ${currentHour}
+          AND sdk_key = '${sdk_key}'
+        GROUP BY summary_hour
+        ORDER BY summary_hour DESC
+      `),
+      executeQuery(`
+        SELECT
+          city,
+          uniqMerge(unique_users_state) as users
+        FROM klicklab.agg_user_session_stats
+        WHERE summary_date = parseDateTimeBestEffort('${today}')
+          AND summary_hour >= ${Math.max(0, currentHour - 2)}
+          AND summary_hour <= ${currentHour}
+          AND sdk_key = '${sdk_key}'
+          AND city != ''
+        GROUP BY city
+        ORDER BY users DESC
+        LIMIT 5
+      `)
+    ]);
+    
+    console.log('Trend result:', trendResult);
+    
+    // 최근 3시간의 시간별 데이터 생성
+    const trendData = [];
+    for (let i = 2; i >= 0; i--) {
+      const hour = Math.max(0, currentHour - i);
+      const hourStr = String(hour).padStart(2, '0');
+      
+      // 집계 테이블에서 반환된 데이터와 매칭
+      const dataPoint = trendResult.find(r => parseInt(r.summary_hour) === hour);
+      
+      trendData.push({
+        time: `${today}T${hourStr}:00`,
+        users: dataPoint ? parseInt(dataPoint.users) || 0 : 0
+      });
+    }
+    
+    console.log('Final trend data:', trendData);
+    
+    // 지역 데이터 포맷팅
+    const topLocations = locationResult.map(row => ({
+      location: row.city,
+      users: parseInt(row.users) || 0
+    }));
+    
+    // 실제 활성 사용자 수 계산 (최근 3시간 합계)
+    const activeUsers30min = trendResult.length > 0 
+      ? trendResult.reduce((sum, row) => sum + (parseInt(row.users) || 0), 0)
+      : 0;
+    
+    res.status(200).json({
+      data: {
+        activeUsers30min,
+        trend: trendData,
+        topLocations
+      }
+    });
+    
+  } catch (err) {
+    console.error("Realtime API ERROR:", err);
+    res.status(500).json({ error: "Failed to get realtime data" });
+  }
+});
 
 // 사용자 통계 API
 router.get("/user-stats", authMiddleware, async (req, res) => {
@@ -331,117 +422,37 @@ router.get("/page-stats", authMiddleware, async (req, res) => {
   }
 });
 
-// 실시간 데이터 API
-router.get("/realtime", authMiddleware, async (req, res) => {
-  const { sdk_key } = req.user;
-  
-  try {
-    // 현재 시간을 한국 시간으로 변환
-    const now = new Date();
-    const koreaTime = new Date(now.getTime() + (9 * 60 * 60 * 1000));
-    const thirtyMinutesAgo = new Date(koreaTime.getTime() - 30 * 60 * 1000);
-    
-    console.log('Korea time:', koreaTime.toISOString());
-    console.log('30 minutes ago:', thirtyMinutesAgo.toISOString());
-    
-    // 데이터 확인용 쿼리
-    const debugResult = await executeQuery(`
-      SELECT count() as total_events, 
-             min(timestamp) as earliest_time,
-             max(timestamp) as latest_time
-      FROM klicklab.events 
-      WHERE sdk_key = '${sdk_key}'
-    `);
-    console.log('Debug result:', debugResult);
-    
-    const [trendResult, locationResult] = await Promise.all([
-      executeQuery(`
-        SELECT
-          toStartOfMinute(timestamp, 'Asia/Seoul') as time,
-          uniq(user_id) as users
-        FROM klicklab.events
-        WHERE timestamp >= now() - INTERVAL 30 MINUTE
-          AND sdk_key = '${sdk_key}'
-        GROUP BY time
-        ORDER BY time DESC
-        LIMIT 30
-      `),
-      executeQuery(`
-        SELECT
-          city,
-          uniq(user_id) as users
-        FROM klicklab.events
-        WHERE timestamp >= now() - INTERVAL 30 MINUTE
-          AND sdk_key = '${sdk_key}'
-          AND city != ''
-        GROUP BY city
-        ORDER BY users DESC
-        LIMIT 5
-      `)
-    ]);
-    
-    console.log('Trend result:', trendResult);
-    
-    // 30분간의 분별 데이터 생성 (빈 데이터는 0으로 채움)
-    const trendData = [];
-    
-    // ClickHouse에서 반환된 데이터를 시간순으로 정렬
-    const sortedTrendResult = trendResult.sort((a, b) => new Date(a.time) - new Date(b.time));
-    
-    // 최근 30분간의 분별 데이터 생성
-    for (let i = 29; i >= 0; i--) {
-      const time = new Date(now.getTime() - i * 60 * 1000);
-      const timeStr = time.toISOString().slice(0, 16);
-      
-      // ClickHouse에서 반환된 데이터와 매칭
-      const dataPoint = sortedTrendResult.find(r => {
-        const clickhouseTime = new Date(r.time);
-        const clickhouseTimeStr = clickhouseTime.toISOString().slice(0, 16);
-        return clickhouseTimeStr === timeStr;
-      });
-      
-      trendData.push({
-        time: timeStr,
-        users: dataPoint ? parseInt(dataPoint.users) || 0 : 0
-      });
-    }
-    
-    console.log('Final trend data:', trendData);
-    
-    // 지역 데이터 포맷팅
-    const topLocations = locationResult.map(row => ({
-      location: row.city,
-      users: parseInt(row.users) || 0
-    }));
-    
-    res.status(200).json({
-      data: {
-        activeUsers30min: trendResult.reduce((sum, row) => sum + (parseInt(row.users) || 0), 0),
-        trend: trendData,
-        topLocations
-      }
-    });
-    
-  } catch (err) {
-    console.error("Realtime API ERROR:", err);
-    res.status(500).json({ error: "Failed to get realtime data" });
-  }
-});
-
 // 이벤트 통계 API
 router.get("/event-stats", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   const { startDate, endDate } = req.query;
   
   try {
+    // 성능상 이유로 이벤트 통계 비활성화하려면 아래 주석을 해제하세요
+    // return res.status(200).json({ data: { topEvents: [] } });
+    
+    // 날짜 범위를 최근 7일로 제한 (성능 최적화)
+    const now = new Date();
+    const maxDaysBack = 7;
+    const limitedStartDate = new Date(Math.max(
+      new Date(startDate).getTime(),
+      now.getTime() - maxDaysBack * 24 * 60 * 60 * 1000
+    ));
+    
+    const actualStartDate = limitedStartDate.toISOString().slice(0, 10);
+    const actualEndDate = endDate;
+    
+    console.log(`Event stats query: ${actualStartDate} to ${actualEndDate}`);
+    
     const query = `
       SELECT
         event_name,
         count() as count
       FROM klicklab.events
-      WHERE timestamp >= parseDateTimeBestEffort('${startDate} 00:00:00') 
-        AND timestamp <= parseDateTimeBestEffort('${endDate} 23:59:59')
-        AND sdk_key = '${sdk_key}'
+      WHERE sdk_key = '${sdk_key}'
+        AND timestamp >= parseDateTimeBestEffort('${actualStartDate} 00:00:00') 
+        AND timestamp <= parseDateTimeBestEffort('${actualEndDate} 23:59:59')
+        AND event_name != ''
       GROUP BY event_name
       ORDER BY count DESC
       LIMIT 10

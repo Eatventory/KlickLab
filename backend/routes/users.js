@@ -47,13 +47,14 @@ const getPastData = async (sdkKey, startDate, endDate) => {
   const flatQuery = `
     SELECT
         summary_date,
+        summary_hour,
         city,
         age_group,
         gender,
         device_type,
         device_os,
 
-        /* 이미 집계된 값을 날짜·세그먼트별로 한 번 더 SUM */
+        /* 이미 집계된 값을 날짜·시간·세그먼트별로 한 번 더 SUM */
         sum(users)                AS users,
         sum(sessions)             AS sessions,
         sum(session_duration_sum) AS session_duration_sum
@@ -62,8 +63,10 @@ const getPastData = async (sdkKey, startDate, endDate) => {
       AND sdk_key = '${sdkKey}'
     GROUP BY
         summary_date,
+        summary_hour,
         city, age_group, gender,
         device_type, device_os
+    ORDER BY summary_date, summary_hour
   `;
   return await executeQuery(flatQuery);
 };
@@ -73,7 +76,7 @@ function mergeSessionRows(...arrays) {
   const merged = {};
 
   const key = r =>
-    `${r.summary_date}|${r.city}|${r.age_group}|${r.gender}|${r.device_type}|${r.device_os}`;
+    `${r.summary_date}|${r.summary_hour || 0}|${r.city}|${r.age_group}|${r.gender}|${r.device_type}|${r.device_os}`;
 
   arrays.flat().forEach(r => {
     const k = key(r);

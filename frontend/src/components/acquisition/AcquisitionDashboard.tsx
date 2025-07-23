@@ -336,14 +336,19 @@ export const AcquisitionDashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* 신규 유입 사용자 */}
+            {/* 평균 세션 시간 */}
             <div className="bg-white rounded-lg border border-gray-200 p-4 h-[calc(50%-0.5rem)] hover:shadow-lg transition-shadow">
               <div className="text-center">
-                <h3 className="text-sm font-semibold text-gray-900 mb-2">신규 유입 사용자</h3>
+                <h3 className="text-sm font-semibold text-gray-900 mb-2">평균 세션 시간</h3>
                 <div className="text-3xl font-bold text-gray-900 mb-1">
-                  {kpiData ? kpiData.new_users?.toLocaleString() || '0' : '0'}
+                  {kpiData ? (() => {
+                    const totalSeconds = kpiData.avg_session_duration || 0;
+                    const minutes = Math.floor(totalSeconds / 60);
+                    const seconds = totalSeconds % 60;
+                    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                  })() : '0:00'}
                 </div>
-                <div className="text-xs text-green-600">+12.5%</div>
+                <div className="text-xs text-green-600">+8.7%</div>
               </div>
             </div>
           </div>
