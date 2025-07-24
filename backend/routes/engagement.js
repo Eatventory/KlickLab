@@ -9,7 +9,6 @@ const {
   getClickCountsQuery,
   getViewCountsQuery,
   getUsersOverTimeQuery,
-  getEventCountsQuery,
   getPageTimesQuery,
   getBounceRateQuery,
   getPageViewsQuery,
@@ -39,6 +38,10 @@ const {
   getTodayClickCounts,
   getPastClickCounts,
   mergeClickCountsData,
+  // 새로운 이벤트 카운트 함수들 추가
+  getTodayEventCounts,
+  getPastEventCounts,
+  mergeEventCountsData,
 } = require('../utils/engagementUtils');
 
 /* 참여도 개요 */
@@ -61,7 +64,7 @@ router.get('/overview', authMiddleware, async (req, res) => {
     if (isOnlyToday) {
       // 오늘만: agg 테이블 사용
       const todayResult = await getTodaySessionEngagement(clickhouse, sdk_key, startDate, endDate);
-      result = todayResult.data || [];
+      result = Array.isArray(todayResult) ? todayResult : (todayResult.data || []);
     } else if (includesOnlyToday) {
       // 오늘 포함: 과거 + 오늘 합치기
       const yesterday = new Date(now);
@@ -71,17 +74,17 @@ router.get('/overview', authMiddleware, async (req, res) => {
       let pastData = [];
       if (startDate <= yesterdayStr) {
         const pastResult = await getPastSessionEngagement(clickhouse, sdk_key, startDate, yesterdayStr);
-        pastData = pastResult.data || [];
+        pastData = Array.isArray(pastResult) ? pastResult : (pastResult.data || []);
       }
       
       const todayResult = await getTodaySessionEngagement(clickhouse, sdk_key, today, today);
-      const todayData = todayResult.data || [];
+      const todayData = Array.isArray(todayResult) ? todayResult : (todayResult.data || []);
       
       result = mergeSessionEngagementData(pastData, todayData);
     } else {
       // 과거만: flat 테이블 사용
       const pastResult = await getPastSessionEngagement(clickhouse, sdk_key, startDate, endDate);
-      result = pastResult.data || [];
+      result = Array.isArray(pastResult) ? pastResult : (pastResult.data || []);
     }
 
     res.status(200).json({
@@ -125,7 +128,7 @@ router.get('/page-times', authMiddleware, async (req, res) => {
     if (isOnlyToday) {
       // 오늘만 조회하는 경우 - agg 테이블만 사용
       const todayResult = await getTodayPageTimes(clickhouse, sdk_key, startDate, endDate, limit);
-      finalData = todayResult.data || [];
+      finalData = Array.isArray(todayResult) ? todayResult : (todayResult.data || []);
     } else if (includesOnlyToday) {
       // 과거 + 오늘 혼합 기간 - 두 테이블 데이터 합치기
       const pastEndDate = new Date(today);
@@ -137,11 +140,13 @@ router.get('/page-times', authMiddleware, async (req, res) => {
         getTodayPageTimes(clickhouse, sdk_key, today, endDate, limit * 2)
       ]);
       
-      finalData = mergePageTimesData(pastResult.data || [], todayResult.data || [], limit);
+      const pastData = Array.isArray(pastResult) ? pastResult : (pastResult.data || []);
+      const todayData = Array.isArray(todayResult) ? todayResult : (todayResult.data || []);
+      finalData = mergePageTimesData(pastData, todayData, limit);
     } else {
       // 과거 기간만 - flat 테이블만 사용
       const pastResult = await getPastPageTimes(clickhouse, sdk_key, startDate, endDate, limit);
-      finalData = pastResult.data || [];
+      finalData = Array.isArray(pastResult) ? pastResult : (pastResult.data || []);
     }
 
     // 기존 프론트엔드 형식에 맞게 변환
@@ -196,7 +201,7 @@ router.get('/exit-rate', authMiddleware, async (req, res) => {
     if (isOnlyToday) {
       // 오늘만: agg 테이블 사용
       const todayResult = await getTodayPageExitRate(clickhouse, sdk_key, startDate, endDate);
-      result = todayResult.data || [];
+      result = Array.isArray(todayResult) ? todayResult : (todayResult.data || []);
     } else if (includesOnlyToday) {
       // 오늘 포함: 과거 + 오늘 합치기
       const yesterday = new Date(now);
@@ -206,17 +211,17 @@ router.get('/exit-rate', authMiddleware, async (req, res) => {
       let pastData = [];
       if (startDate <= yesterdayStr) {
         const pastResult = await getPastPageExitRate(clickhouse, sdk_key, startDate, yesterdayStr);
-        pastData = pastResult.data || [];
+        pastData = Array.isArray(pastResult) ? pastResult : (pastResult.data || []);
       }
       
       const todayResult = await getTodayPageExitRate(clickhouse, sdk_key, today, today);
-      const todayData = todayResult.data || [];
+      const todayData = Array.isArray(todayResult) ? todayResult : (todayResult.data || []);
       
       result = mergePageExitData(pastData, todayData);
     } else {
       // 과거만: flat 테이블 사용
       const pastResult = await getPastPageExitRate(clickhouse, sdk_key, startDate, endDate);
-      result = pastResult.data || [];
+      result = Array.isArray(pastResult) ? pastResult : (pastResult.data || []);
     }
     
     // limit 적용 및 응답 포맷팅
@@ -256,7 +261,7 @@ router.get('/page-views', authMiddleware, async (req, res) => {
     if (isOnlyToday) {
       // 오늘만 조회하는 경우 - agg 테이블만 사용
       const todayResult = await getTodayPageViews(clickhouse, sdk_key, startDate, endDate, limit);
-      finalData = todayResult.data || [];
+      finalData = Array.isArray(todayResult) ? todayResult : (todayResult.data || []);
     } else if (includesOnlyToday) {
       // 과거 + 오늘 혼합 기간 - 두 테이블 데이터 합치기
       const pastEndDate = new Date(today);
@@ -268,11 +273,13 @@ router.get('/page-views', authMiddleware, async (req, res) => {
         getTodayPageViews(clickhouse, sdk_key, today, endDate, limit * 2)
       ]);
       
-      finalData = mergePageViewsData(pastResult.data || [], todayResult.data || [], limit);
+      const pastData = Array.isArray(pastResult) ? pastResult : (pastResult.data || []);
+      const todayData = Array.isArray(todayResult) ? todayResult : (todayResult.data || []);
+      finalData = mergePageViewsData(pastData, todayData, limit);
     } else {
       // 과거 기간만 - flat 테이블만 사용
       const pastResult = await getPastPageViews(clickhouse, sdk_key, startDate, endDate, limit);
-      finalData = pastResult.data || [];
+      finalData = Array.isArray(pastResult) ? pastResult : (pastResult.data || []);
     }
 
     // 기존 프론트엔드 형식에 맞게 변환
@@ -307,7 +314,7 @@ router.get('/view-counts', authMiddleware, async (req, res) => {
     if (isOnlyToday) {
       // 오늘만 조회하는 경우 - agg 테이블만 사용
       const todayResult = await getTodayViewCounts(clickhouse, sdk_key, startDate, endDate);
-      finalData = todayResult.data || [];
+      finalData = Array.isArray(todayResult) ? todayResult : (todayResult.data || []);
     } else if (includesOnlyToday) {
       // 과거 + 오늘 혼합 기간 - 두 테이블 데이터 합치기
       const pastEndDate = new Date(today);
@@ -319,11 +326,13 @@ router.get('/view-counts', authMiddleware, async (req, res) => {
         getTodayViewCounts(clickhouse, sdk_key, today, endDate)
       ]);
       
-      finalData = mergeViewCountsData(pastResult.data || [], todayResult.data || []);
+      const pastData = Array.isArray(pastResult) ? pastResult : (pastResult.data || []);
+      const todayData = Array.isArray(todayResult) ? todayResult : (todayResult.data || []);
+      finalData = mergeViewCountsData(pastData, todayData);
     } else {
       // 과거 기간만 - flat 테이블만 사용
       const pastResult = await getPastViewCounts(clickhouse, sdk_key, startDate, endDate);
-      finalData = pastResult.data || [];
+      finalData = Array.isArray(pastResult) ? pastResult : (pastResult.data || []);
     }
 
     // 기존 프론트엔드 형식에 맞게 변환
@@ -358,7 +367,7 @@ router.get('/click-counts', authMiddleware, async (req, res) => {
     if (isOnlyToday) {
       // 오늘만 조회하는 경우 - agg 테이블만 사용
       const todayResult = await getTodayClickCounts(clickhouse, sdk_key, startDate, endDate);
-      finalData = todayResult.data || [];
+      finalData = Array.isArray(todayResult) ? todayResult : (todayResult.data || []);
     } else if (includesOnlyToday) {
       // 과거 + 오늘 혼합 기간 - 두 테이블 데이터 합치기
       const pastEndDate = new Date(today);
@@ -370,11 +379,13 @@ router.get('/click-counts', authMiddleware, async (req, res) => {
         getTodayClickCounts(clickhouse, sdk_key, today, endDate)
       ]);
       
-      finalData = mergeClickCountsData(pastResult.data || [], todayResult.data || []);
+      const pastData = Array.isArray(pastResult) ? pastResult : (pastResult.data || []);
+      const todayData = Array.isArray(todayResult) ? todayResult : (todayResult.data || []);
+      finalData = mergeClickCountsData(pastData, todayData);
     } else {
       // 과거 기간만 - flat 테이블만 사용
       const pastResult = await getPastClickCounts(clickhouse, sdk_key, startDate, endDate);
-      finalData = pastResult.data || [];
+      finalData = Array.isArray(pastResult) ? pastResult : (pastResult.data || []);
     }
 
     // 기존 프론트엔드 형식에 맞게 변환
@@ -414,25 +425,56 @@ router.get('/users-over-time', authMiddleware, async (req, res) => {
   }
 });
 
-/* 시간 경과에 따른 이벤트 수 */
+/* 시간 경과에 따른 이벤트 수 (새로운 스키마 사용) */
 router.get('/event-counts', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   const { startDate, endDate } = req.query;
   if (!startDate || !endDate) return res.status(400).json({ error: 'Missing startDate or endDate' });
 
   try {
-    const dataRes = await clickhouse.query({
-      query: getEventCountsQuery(startDate, endDate, sdk_key),
-      format: 'JSONEachRow'
-    });
-    const data = await dataRes.json();
-    res.status(200).json(data.map(item => ({
+    const now = new Date();
+    const koreaTime = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+    const today = koreaTime.toISOString().slice(0, 10);
+    
+    const isOnlyToday = startDate === endDate && startDate === today;
+    const includesOnlyToday = startDate <= today && endDate >= today;
+    
+    let finalData = [];
+    
+    if (isOnlyToday) {
+      // 오늘만 조회하는 경우 - agg 테이블만 사용
+      const todayResult = await getTodayEventCounts(clickhouse, sdk_key, startDate, endDate);
+      finalData = Array.isArray(todayResult) ? todayResult : (todayResult.data || []);
+    } else if (includesOnlyToday) {
+      // 과거 + 오늘 혼합 기간 - 두 테이블 데이터 합치기
+      const pastEndDate = new Date(today);
+      pastEndDate.setDate(pastEndDate.getDate() - 1);
+      const pastEndDateStr = pastEndDate.toISOString().slice(0, 10);
+      
+      const [pastResult, todayResult] = await Promise.all([
+        getPastEventCounts(clickhouse, sdk_key, startDate, pastEndDateStr),
+        getTodayEventCounts(clickhouse, sdk_key, today, endDate)
+      ]);
+      
+      const pastData = Array.isArray(pastResult) ? pastResult : (pastResult.data || []);
+      const todayData = Array.isArray(todayResult) ? todayResult : (todayResult.data || []);
+      finalData = mergeEventCountsData(pastData, todayData);
+    } else {
+      // 과거 기간만 - flat 테이블만 사용
+      const pastResult = await getPastEventCounts(clickhouse, sdk_key, startDate, endDate);
+      finalData = Array.isArray(pastResult) ? pastResult : (pastResult.data || []);
+    }
+
+    // 기존 프론트엔드 형식에 맞게 변환
+    const formattedData = finalData.map(item => ({
       date: item.date,
       eventName: item.event_name,
       eventCount: Number(item.event_count),
       userCount: Number(item.user_count),
       avgEventPerUser: Number(item.avg_event_per_user),
-    })));
+    }));
+
+    res.status(200).json(formattedData);
   } catch (err) {
     console.error("Event Counts API ERROR:", err);
     res.status(500).json({ error: "Failed to get event counts data" });

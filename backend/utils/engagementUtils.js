@@ -207,6 +207,7 @@ function getUsersOverTimeQuery(startDate, endDate, sdk_key) {
   `;
 }
 
+// DEPRECATED: getEventCountsQuery - 새로운 getTodayEventCounts, getPastEventCounts, mergeEventCountsData 함수들을 사용하세요
 function getEventCountsQuery(startDate, endDate, sdk_key) {
   return `
     WITH
@@ -220,7 +221,7 @@ function getEventCountsQuery(startDate, endDate, sdk_key) {
           sumMerge(event_count_state) AS event_count,
           uniqMerge(unique_users_state) AS user_count,
           round(sumMerge(event_count_state) / uniqMerge(unique_users_state), 2) AS avg_event_per_user
-        FROM daily_event_agg
+        FROM klicklab.agg_event_stats
         WHERE sdk_key = '${sdk_key}'
           AND summary_date BETWEEN start AND end
         GROUP BY summary_date, event_name
@@ -843,22 +844,111 @@ const getPastClickCounts = async (clickhouse, sdkKey, startDate, endDate) => {
   return await result.json();
 };
 
-// 전체 클릭수 데이터 합치기 함수
+// 데이터 합치기 로직 - 클릭수
 const mergeClickCountsData = (pastData, todayData) => {
-  const merged = {};
+  const dataMap = new Map();
   
-  [...pastData, ...todayData].forEach(row => {
-    const key = row.date;
-    if (!merged[key]) {
-      merged[key] = {
-        date: row.date,
-        totalClicks: 0
-      };
-    }
-    merged[key].totalClicks += parseInt(row.totalClicks) || 0;
+  // 과거 데이터 추가
+  pastData.forEach(item => {
+    dataMap.set(item.date, {
+      date: item.date,
+      totalClicks: parseInt(item.totalClicks) || 0
+    });
   });
   
-  return Object.values(merged).sort((a, b) => new Date(a.date) - new Date(b.date));
+  // 오늘 데이터 추가 (덮어쓰기)
+  todayData.forEach(item => {
+    dataMap.set(item.date, {
+      date: item.date,
+      totalClicks: parseInt(item.totalClicks) || 0
+    });
+  });
+  
+  return Array.from(dataMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+};
+
+// 오늘 이벤트 카운트 조회 (Aggregating 테이블)
+const getTodayEventCounts = async (clickhouse, sdkKey, startDate, endDate) => {
+  const query = `
+    SELECT
+      summary_date as date,
+      event_name,
+      sumMerge(event_count_state) as event_count,
+      uniqMerge(unique_users_state) as user_count,
+      round(sumMerge(event_count_state) / nullIf(uniqMerge(unique_users_state), 0), 2) as avg_event_per_user
+    FROM klicklab.agg_event_stats
+    WHERE summary_date >= toDate('${startDate}')
+      AND summary_date <= toDate('${endDate}')
+      AND sdk_key = '${sdkKey}'
+      AND event_name != ''
+    GROUP BY summary_date, event_name
+    ORDER BY summary_date ASC, event_count DESC
+  `;
+  
+  console.log('[EVENT COUNTS DEBUG] Today query:', query);
+  const result = await clickhouse.query({ query, format: "JSON" });
+  return await result.json();
+};
+
+const getPastEventCounts = async (clickhouse, sdkKey, startDate, endDate) => {
+  const query = `
+    SELECT
+      summary_date as date,
+      event_name,
+      sum(event_count) as event_count,
+      sum(unique_users) as user_count,
+      round(sum(event_count) / greatest(sum(unique_users), 1), 2) as avg_event_per_user
+    FROM klicklab.flat_event_stats
+    WHERE summary_date >= toDate('${startDate}')
+      AND summary_date <= toDate('${endDate}')
+      AND sdk_key = '${sdkKey}'
+      AND event_name != ''
+    GROUP BY summary_date, event_name
+    ORDER BY summary_date ASC, event_count DESC
+  `;
+  
+  console.log('[EVENT COUNTS DEBUG] Past query:', query);
+  
+  try {
+    const result = await clickhouse.query({ query, format: "JSON" });
+    return await result.json();
+  } catch (error) {
+    console.error('[EVENT COUNTS ERROR]', error);
+    return { data: [] };
+  }
+};
+// 데이터 합치기 로직 - 이벤트 카운트
+const mergeEventCountsData = (pastData, todayData) => {
+  const dataMap = new Map();
+  
+  // 과거 데이터 추가
+  pastData.forEach(item => {
+    const key = `${item.date}_${item.event_name}`;
+    dataMap.set(key, {
+      date: item.date,
+      event_name: item.event_name,
+      event_count: parseInt(item.event_count) || 0,
+      user_count: parseInt(item.user_count) || 0,
+      avg_event_per_user: parseFloat(item.avg_event_per_user) || 0
+    });
+  });
+  
+  // 오늘 데이터 추가 (덮어쓰기)
+  todayData.forEach(item => {
+    const key = `${item.date}_${item.event_name}`;
+    dataMap.set(key, {
+      date: item.date,
+      event_name: item.event_name,
+      event_count: parseInt(item.event_count) || 0,
+      user_count: parseInt(item.user_count) || 0,
+      avg_event_per_user: parseFloat(item.avg_event_per_user) || 0
+    });
+  });
+  
+  return Array.from(dataMap.values()).sort((a, b) => {
+    if (a.date !== b.date) return a.date.localeCompare(b.date);
+    return b.event_count - a.event_count;
+  });
 };
 
 module.exports = {
@@ -867,7 +957,6 @@ module.exports = {
   getClickCountsQuery,
   getViewCountsQuery,
   getUsersOverTimeQuery,
-  getEventCountsQuery,
   getPageTimesQuery,
   getBounceRateQuery,
   getPageViewsQuery,
@@ -887,14 +976,18 @@ module.exports = {
   getPastPageTimes,
   mergePageTimesData,
   // 새로운 페이지 별 조회수 함수들 추가
-getTodayPageViews,
-getPastPageViews,
-mergePageViewsData,
-// 새로운 전체 조회수/클릭수 함수들 추가
-getTodayViewCounts,
-getPastViewCounts,
-mergeViewCountsData,
-getTodayClickCounts,
-getPastClickCounts,
-mergeClickCountsData,
+  getTodayPageViews,
+  getPastPageViews,
+  mergePageViewsData,
+  // 새로운 전체 조회수/클릭수 함수들 추가
+  getTodayViewCounts,
+  getPastViewCounts,
+  mergeViewCountsData,
+  getTodayClickCounts,
+  getPastClickCounts,
+  mergeClickCountsData,
+  // 새로운 이벤트 카운트 함수들 추가
+  getTodayEventCounts,
+  getPastEventCounts,
+  mergeEventCountsData,
 };
