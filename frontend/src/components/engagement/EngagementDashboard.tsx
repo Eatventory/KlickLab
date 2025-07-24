@@ -41,21 +41,11 @@ import {
 // } from '../../data/engagementTypes';
 
 // 상단에 추가 (예: import 아래)
-function filterByDateRaw<T extends { date: string }>(data: T[], start: Date, end: Date): T[] {
+function filterByDate<T extends { date: string }>(data: T[], start: Date, end: Date): T[] {
   return data.filter(d => {
     const date = new Date(d.date);
     return date >= start && date <= end;
   });
-}
-
-function downsample<T>(arr: T[], max = 500): T[] {
-  const step = Math.ceil(arr.length / max);
-  return step > 1 ? arr.filter((_, i) => i % step === 0) : arr;
-}
-
-function filterByDate<T extends { date: string }>(arr: T[], start: Date, end: Date): T[] {
-  const f = filterByDateRaw(arr, start, end);
-  return downsample(f, 400);
 }
 
 const engagementTaps: string[] = ['참여도 개요', '이벤트 보고서', '페이지 및 화면 보고서', '방문 페이지 보고서', '퍼널 분석'];
@@ -222,7 +212,7 @@ export const EngagementDashboard: React.FC = () => {
           setSankeyPaths(null);
         }
       } catch (err) {
-        setSankeyError(`경로 데이터를 불러오지 못했습니다. ${err}`);
+        setSankeyError('경로 데이터를 불러오지 못했습니다.');
         setSankeyPaths(null);
       } finally {
         setSankeyLoading(false);
@@ -241,7 +231,7 @@ export const EngagementDashboard: React.FC = () => {
     () => filterByDate(viewCounts, startDate, endDate),
     [viewCounts, startDate, endDate]
   );
-
+  
   const filteredClickCounts = useMemo(
     () => filterByDate(clickCounts, startDate, endDate),
     [clickCounts, startDate, endDate]
