@@ -98,7 +98,7 @@ export const ChannelGroupStackedChart: React.FC<ChannelGroupStackedChartProps> =
     if (!data || data.length === 0) return [];
 
     // 원본 데이터 로깅
-    console.log('원본 데이터:', data);
+    // console.log('원본 데이터:', data);
 
     const channelTotals = data.reduce((acc, item) => {
       acc[item.channel] = (acc[item.channel] || 0) + item.users;
@@ -110,7 +110,7 @@ export const ChannelGroupStackedChart: React.FC<ChannelGroupStackedChartProps> =
       .slice(0, 5)
       .map(([channel]) => channel);
 
-    console.log('상위 채널:', topChannels);
+    // console.log('상위 채널:', topChannels);
 
     const filteredData = data.filter(
       item =>
@@ -119,7 +119,7 @@ export const ChannelGroupStackedChart: React.FC<ChannelGroupStackedChartProps> =
         item.channel.trim() !== ''
     );
 
-    console.log('필터링된 데이터:', filteredData);
+    // console.log('필터링된 데이터:', filteredData);
 
     const groupedByChannel = filteredData.reduce((acc, item) => {
       if (!acc[item.channel]) acc[item.channel] = {};
@@ -127,7 +127,7 @@ export const ChannelGroupStackedChart: React.FC<ChannelGroupStackedChartProps> =
       return acc;
     }, {} as Record<string, Record<string, number>>);
 
-    console.log('채널별 그룹화:', groupedByChannel);
+    // console.log('채널별 그룹화:', groupedByChannel);
 
     const allDeviceTypes = ['mobile', 'desktop'];
 
@@ -138,11 +138,11 @@ export const ChannelGroupStackedChart: React.FC<ChannelGroupStackedChartProps> =
         const desktopUsers = Number(devices['desktop'] || 0);
         const total = mobileUsers + desktopUsers;
 
-        console.log(`${channel} 채널:`, {
-          mobile: mobileUsers,
-          desktop: desktopUsers,
-          total: total
-        });
+        // console.log(`${channel} 채널:`, {
+        //   mobile: mobileUsers,
+        //   desktop: desktopUsers,
+        //   total: total
+        // });
 
         const row: any = {
           channel: channel.trim(),
@@ -164,7 +164,7 @@ export const ChannelGroupStackedChart: React.FC<ChannelGroupStackedChartProps> =
         return row;
       });
 
-    console.log('최종 처리된 데이터:', result);
+    // console.log('최종 처리된 데이터:', result);
     return result;
   }, [data, refreshKey]);
 

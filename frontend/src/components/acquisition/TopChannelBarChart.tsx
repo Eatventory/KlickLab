@@ -55,7 +55,7 @@ const CustomizedAxisTick = (props: any) => {
 
 export const TopChannelBarChart: React.FC<TopChannelBarChartProps> = ({ data }) => {
   useEffect(() => {
-    console.log('[TopChannel Data]', data);
+    // console.log('[TopChannel Data]', data);
   }, [data]);
   const topChannels = data.slice(0, 5);
 

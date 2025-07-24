@@ -80,7 +80,7 @@ export const EngagementDashboard: React.FC = () => {
     const startStr = dayjs(start).format('YYYY-MM-DD');
     const endStr = dayjs(end).format('YYYY-MM-DD');
     if (!force && fetchCache[tab]?.start === startStr && fetchCache[tab]?.end === endStr) {
-      console.log(`[SKIP] ${tab} - 캐시 hit`);
+      // console.log(`[SKIP] ${tab} - 캐시 hit`);
       return;
     }
 
