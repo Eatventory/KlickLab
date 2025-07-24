@@ -43,16 +43,18 @@ export const DeviceBrowserDonutChart: React.FC<DeviceBrowserDonutChartProps> = (
 
   const CustomLegend = ({ payload }: any) => {
     return (
-      <div className="flex flex-wrap gap-2 mt-4 justify-center">
-        {payload?.map((entry: any, index: number) => (
-          <div key={index} className="flex items-center gap-1 text-xs">
-            <div 
-              className="w-3 h-3 rounded-full" 
-              style={{ backgroundColor: entry.color }}
-            />
-            <span className="text-gray-700">{entry.value}</span>
-          </div>
-        ))}
+      <div className="h-16 flex items-center justify-center mt-4">
+        <div className="flex flex-wrap gap-2 justify-center">
+          {payload?.map((entry: any, index: number) => (
+            <div key={index} className="flex items-center gap-1 text-xs">
+              <div 
+                className="w-3 h-3 rounded-full" 
+                style={{ backgroundColor: entry.color }}
+              />
+              <span className="text-gray-700">{entry.value}</span>
+            </div>
+          ))}
+        </div>
       </div>
     );
   };
@@ -61,19 +63,19 @@ export const DeviceBrowserDonutChart: React.FC<DeviceBrowserDonutChartProps> = (
     <div className="h-full w-full">
       <div className="grid grid-cols-2 gap-4 h-full pt-4">
         {/* 디바이스 차트 */}
-        <div className="h-full">
+        <div className="h-full flex flex-col">
           <div className="text-center mb-2">
             <h4 className="text-sm font-semibold text-gray-900">디바이스</h4>
           </div>
-          <div className="h-44">
+          <div className="h-60 flex-1">
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+              <PieChart margin={{ top: 20, right: 0, bottom: 60, left: 0 }}>
                 <Pie
                   data={deviceData}
                   cx="50%"
-                  cy="50%"
-                  innerRadius={36}
-                  outerRadius={72}
+                  cy="45%"
+                  innerRadius={30}
+                  outerRadius={55}
                   paddingAngle={2}
                   dataKey="value"
                 >
@@ -89,19 +91,19 @@ export const DeviceBrowserDonutChart: React.FC<DeviceBrowserDonutChartProps> = (
         </div>
 
         {/* 브라우저 차트 */}
-        <div className="h-full">
+        <div className="h-full flex flex-col">
           <div className="text-center mb-2">
             <h4 className="text-sm font-semibold text-gray-900">브라우저</h4>
           </div>
-          <div className="h-44">
+          <div className="h-60 flex-1">
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+              <PieChart margin={{ top: 20, right: 0, bottom: 60, left: 0 }}>
                 <Pie
                   data={browserData}
                   cx="50%"
-                  cy="50%"
-                  innerRadius={36}
-                  outerRadius={72}
+                  cy="45%"
+                  innerRadius={30}
+                  outerRadius={55}
                   paddingAngle={2}
                   dataKey="value"
                 >

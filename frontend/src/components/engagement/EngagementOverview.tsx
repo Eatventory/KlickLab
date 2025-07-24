@@ -106,7 +106,7 @@ const EngagementOverview: React.FC<Props> = ({
             <h2 className="text-lg font-semibold text-gray-900">페이지 평균 체류시간</h2>
           </div>
           <HorizontalBarChart
-            data={pageTimes.map((d) => ({ label: d.page, value: d.averageTime, raw: d }))}
+            data={pageTimes.slice(0, 5).map((d) => ({ label: d.page, value: d.averageTime, raw: d }))}
             tooltipRenderer={(item) => (
               <>
                 <div className="text-xs text-gray-500 mb-1">{rangeText}</div>
@@ -126,7 +126,7 @@ const EngagementOverview: React.FC<Props> = ({
             <h2 className="text-lg font-semibold text-gray-900">페이지 별 조회수</h2>
           </div>
           <HorizontalBarChart
-            data={pageViewCounts.map((d) => ({ label: d.page, value: d.totalViews, raw: d }))}
+            data={pageViewCounts.slice(0, 5).map((d) => ({ label: d.page, value: d.totalViews, raw: d }))}
             tooltipRenderer={(item) => (
               <>
                 <div className="text-xs text-gray-500 mb-1">{rangeText}</div>
@@ -144,7 +144,7 @@ const EngagementOverview: React.FC<Props> = ({
             <h2 className="text-lg font-semibold text-gray-900">이탈률</h2>
           </div>
           <HorizontalBarChart
-            data={bounceRates.map((item) => ({ label: item.page_path, value: item.bounce_rate, raw: item }))}
+            data={bounceRates.slice(0, 5).map((item) => ({ label: item.page_path, value: item.bounce_rate, raw: item }))}
             tooltipRenderer={(item) => (
               <>
                 <div className="text-sm text-gray-500 mb-1">{rangeText}</div>

@@ -25,6 +25,7 @@ const getTodayUserSessionStats = async (sdkKey, startDate, endDate) => {
       gender,
       device_type,
       device_os,
+      browser,
       uniqMerge(unique_users_state) as unique_users,
       uniqMerge(sessions_state) as sessions,
       sumMerge(session_duration_sum_state) as session_duration_sum
@@ -32,7 +33,7 @@ const getTodayUserSessionStats = async (sdkKey, startDate, endDate) => {
     WHERE summary_date >= parseDateTimeBestEffort('${startDate}')
       AND summary_date <= parseDateTimeBestEffort('${endDate}')
       AND sdk_key = '${sdkKey}'
-    GROUP BY date, hour, city, age_group, gender, device_type, device_os
+    GROUP BY date, hour, city, age_group, gender, device_type, device_os, browser
     ORDER BY date, hour
   `;
   return await executeQuery(query);
@@ -65,7 +66,7 @@ const getTodayTrafficMarketingStats = async (sdkKey, startDate, endDate) => {
   return await executeQuery(query);
 };
 
-// 과거 데이터 조회 (Flat 테이블)
+// 과거 데이터 조회 (Flat 테이블) - 세부 속성 포함 (다른 그래프들을 위해)
 const getPastUserSessionStats = async (sdkKey, startDate, endDate) => {
   const query = `
     SELECT
@@ -76,6 +77,7 @@ const getPastUserSessionStats = async (sdkKey, startDate, endDate) => {
       gender,
       device_type,
       device_os,
+      browser,
       users as unique_users,
       sessions,
       session_duration_sum
@@ -159,33 +161,57 @@ router.get("/overview", authMiddleware, async (req, res) => {
       trafficResult = await getPastTrafficMarketingStats(sdk_key, startDate, endDate);
     }
     
-    // KPI 계산
-    const totalUsers = userResult.reduce((sum, row) => sum + (parseInt(row.unique_users) || 0), 0);
-    const totalSessions = userResult.reduce((sum, row) => sum + (parseInt(row.sessions) || 0), 0);
-    const avgSessionDuration = userResult.length > 0 
-      ? userResult.reduce((sum, row) => sum + (parseInt(row.session_duration_sum) || 0), 0) / totalSessions
-      : 0;
+    // 유입 관련 KPI 계산 (trafficResult 기반)
+    const trafficDateGrouped = {};
+    const directTrafficByDate = {};
     
-    // 전환 관련 지표 계산
-    const convertedUsers = trafficResult.reduce((sum, row) => sum + (parseInt(row.funnel_converted) || 0), 0);
-    const engagedUsers = trafficResult.reduce((sum, row) => sum + (parseInt(row.funnel_engaged) || 0), 0);
+    trafficResult.forEach(row => {
+      const date = row.date;
+      const isDirectTraffic = (row.traffic_source === 'direct' || row.traffic_source === '(direct)' || !row.traffic_source);
+      
+      if (!trafficDateGrouped[date]) {
+        trafficDateGrouped[date] = { visits: 0, engaged: 0, converted: 0 };
+        directTrafficByDate[date] = 0;
+      }
+      
+      // 마케팅 관점: Direct를 제외한 마케팅 채널만 유입으로 계산
+      if (!isDirectTraffic) {
+        trafficDateGrouped[date].visits += parseInt(row.funnel_visits) || 0;
+        trafficDateGrouped[date].engaged += parseInt(row.funnel_engaged) || 0;
+        trafficDateGrouped[date].converted += parseInt(row.funnel_converted) || 0;
+      }
+      
+      if (isDirectTraffic) {
+        directTrafficByDate[date] += parseInt(row.funnel_visits) || 0;
+      }
+    });
+
+    const totalVisits = Object.values(trafficDateGrouped).reduce((sum, data) => sum + data.visits, 0);
+    const totalEngaged = Object.values(trafficDateGrouped).reduce((sum, data) => sum + data.engaged, 0);
+    const totalConverted = Object.values(trafficDateGrouped).reduce((sum, data) => sum + data.converted, 0);
+    const totalDirectVisits = Object.values(directTrafficByDate).reduce((sum, visits) => sum + visits, 0);
+    
+    // 유입 관련 지표 계산
+    const engagementRate = totalVisits > 0 ? Math.round((totalEngaged / totalVisits) * 100) : 0;
+    const directTrafficRate = totalVisits > 0 ? Math.round((totalDirectVisits / totalVisits) * 100) : 0;
     
     res.status(200).json({
-      // 프론트엔드 KPI 카드용 필드
-      active_users: totalUsers,           // 활성 사용자
-      converted_users: convertedUsers,    // 전환 사용자 (new_users 대신)
+      // 프론트엔드 KPI 카드용 필드 - 유입 관련 지표로 변경
+      active_users: totalVisits,          // 유입 사용자 (유입 창구를 통해 들어온 사용자)
+      converted_users: totalConverted,    // 전환 사용자
       
-      // 추가 유용한 지표들
-      engaged_users: engagedUsers,        // 참여 사용자
-      total_sessions: totalSessions,      // 총 세션 수
-      avg_session_duration: Math.round(avgSessionDuration), // 평균 세션 시간(초)
-      bounce_rate: totalSessions > 0 ? Math.round((totalSessions - totalUsers) / totalSessions * 100) : 0,
+      // 추가 유입 관련 지표들
+      engaged_users: totalEngaged,        // 참여 사용자
+      engagement_rate: engagementRate,    // 참여율 (%)
+      direct_traffic_rate: directTrafficRate, // 직접 유입 비율 (%)
+      total_visits: totalVisits,          // 총 방문 수
+      direct_visits: totalDirectVisits,   // 직접 유입 방문 수
       
       // 기존 필드 유지 (호환성)
-      totalUsers,
-      totalSessions,
-      avgSessionDuration: Math.round(avgSessionDuration),
-      bounceRate: totalSessions > 0 ? Math.round((totalSessions - totalUsers) / totalSessions * 100) : 0
+      totalUsers: totalVisits,            // 유입 사용자로 변경
+      totalSessions: totalVisits,         // 유입 방문으로 변경
+      avgSessionDuration: engagementRate, // 참여율로 변경
+      bounceRate: directTrafficRate       // 직접 유입 비율 (%)
     });
     
   } catch (err) {
@@ -385,15 +411,7 @@ router.get("/platform-analysis", authMiddleware, async (req, res) => {
       'unknown': 'desktop'
     };
     
-    // OS를 브라우저로 매핑
-    const osToBrowserMapping = {
-      'Windows': 'Chrome',
-      'macOS': 'Safari', 
-      'iOS': 'Safari',
-      'Android': 'Chrome',
-      'Linux': 'Firefox',
-      'unknown': 'Chrome'
-    };
+    // 실제 브라우저 데이터 사용 (OS 매핑 제거)
     
     // 디바이스별 집계
     const deviceStats = {};
@@ -401,7 +419,7 @@ router.get("/platform-analysis", authMiddleware, async (req, res) => {
     
     result.forEach(row => {
       const deviceType = row.device_type || 'unknown';
-      const deviceOs = row.device_os || 'unknown';
+      const browserName = row.browser || 'Unknown';  // 실제 브라우저 데이터 사용
       const users = parseInt(row.unique_users) || 0;
       
       if (users > 0) {
@@ -415,8 +433,7 @@ router.get("/platform-analysis", authMiddleware, async (req, res) => {
         }
         deviceStats[mappedDevice].users += users;
         
-        // 브라우저 통계 (OS를 브라우저로 매핑)
-        const browserName = osToBrowserMapping[deviceOs] || 'Chrome';
+        // 브라우저 통계 (실제 브라우저 데이터 사용)
         if (!browserStats[browserName]) {
           browserStats[browserName] = {
             name: browserName,
@@ -738,6 +755,83 @@ router.get("/click-flow", authMiddleware, async (req, res) => {
   } catch (err) {
     console.error("Click Flow API ERROR:", err);
     res.status(500).json({ error: "Failed to get click flow data" });
+  }
+});
+
+// 상위 방문 페이지 API (Top Landing Pages)
+router.get("/landing-pages", authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+  const { startDate, endDate } = req.query;
+  
+  try {
+    const now = new Date();
+    const koreaTime = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+    const today = koreaTime.toISOString().slice(0, 10);
+    
+    const isOnlyToday = startDate === endDate && startDate === today;
+    const includesOnlyToday = startDate <= today && endDate >= today;
+    
+    let result = [];
+    
+    if (isOnlyToday) {
+      result = await getTodayTrafficMarketingStats(sdk_key, startDate, endDate);
+    } else if (includesOnlyToday) {
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().slice(0, 10);
+      
+      let pastData = [];
+      if (startDate <= yesterdayStr) {
+        pastData = await getPastTrafficMarketingStats(sdk_key, startDate, yesterdayStr);
+      }
+      
+      const todayData = await getTodayTrafficMarketingStats(sdk_key, today, today);
+      result = mergeData(pastData, todayData);
+    } else {
+      result = await getPastTrafficMarketingStats(sdk_key, startDate, endDate);
+    }
+
+    // 랜딩 페이지별 집계
+    const pageStats = {};
+    result.forEach(row => {
+      const page = row.landing_page || '/';
+      
+      if (!pageStats[page]) {
+        pageStats[page] = {
+          page: page,
+          sessions: 0,
+          users: 0,
+          visits: 0,
+          engaged: 0,
+          converted: 0,
+          bounced: 0
+        };
+      }
+      
+      pageStats[page].sessions += parseInt(row.sessions) || 0;
+      pageStats[page].users += parseInt(row.users) || 0;
+      pageStats[page].visits += parseInt(row.funnel_visits) || 0;
+      pageStats[page].engaged += parseInt(row.funnel_engaged) || 0;
+      pageStats[page].converted += parseInt(row.funnel_converted) || 0;
+      pageStats[page].bounced += parseInt(row.bounced_sessions) || 0;
+    });
+
+    // 계산된 지표 추가 및 정렬
+    const landingPages = Object.values(pageStats)
+      .map(page => ({
+        ...page,
+        engagement_rate: page.visits > 0 ? Math.round((page.engaged / page.visits) * 100) : 0,
+        conversion_rate: page.visits > 0 ? Math.round((page.converted / page.visits) * 100) : 0,
+        bounce_rate: page.sessions > 0 ? Math.round((page.bounced / page.sessions) * 100) : 0
+      }))
+      .sort((a, b) => b.sessions - a.sessions)
+      .slice(0, 10);
+
+    res.status(200).json(landingPages);
+    
+  } catch (err) {
+    console.error("Landing Pages API ERROR:", err);
+    res.status(500).json({ error: "Failed to get landing pages data" });
   }
 });
 

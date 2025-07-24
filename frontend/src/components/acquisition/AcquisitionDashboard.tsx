@@ -13,6 +13,7 @@ import { DeviceBrowserDonutChart } from './DeviceBrowserDonutChart';
 import { HourlyTrendLineChart } from './HourlyTrendLineChart';
 import { ClickFlowSankeyChart } from './ClickFlowSankeyChart';
 import { ChannelGroupStackedChart } from './ChannelGroupStackedChart';
+import { TopLandingPages } from './TopLandingPages';
 import { keyframes } from 'framer-motion';
 import { ConversionRateWidget } from '../conversion/ConversionRateWidget';
 import { ConversionSummaryCard } from '../ConversionSummaryCard';
@@ -36,6 +37,7 @@ interface AcquisitionData {
     nodes: any[];
     links: any[];
   };
+  landingPagesData: any[];
   channelGroupData: any[];
   sessionData: any[];
   realtimeData: {
@@ -109,6 +111,7 @@ export const AcquisitionDashboard: React.FC = () => {
         funnelRes,
         platformRes,
         clickFlowRes,
+        landingPagesRes,
         channelGroupsRes,
         campaignsRes,
         countriesRes
@@ -119,6 +122,7 @@ export const AcquisitionDashboard: React.FC = () => {
         fetch(`/api/acquisition/funnel-conversion?${dateQuery}${globalFilterQuery}`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`/api/acquisition/platform-analysis?${dateQuery}${globalFilterQuery}`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`/api/acquisition/click-flow?${dateQuery}${globalFilterQuery}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/acquisition/landing-pages?${dateQuery}${globalFilterQuery}`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`/api/acquisition/channel-groups?${dateQuery}${globalFilterQuery}`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`/api/acquisition/campaigns?${dateQuery}${globalFilterQuery}`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`/api/acquisition/top-countries?${dateQuery}${globalFilterQuery}`, { headers: { Authorization: `Bearer ${token}` } })
@@ -131,6 +135,7 @@ export const AcquisitionDashboard: React.FC = () => {
       if (!funnelRes.ok) throw new Error('Funnel 데이터를 불러오지 못했습니다.');
       if (!platformRes.ok) throw new Error('Platform 데이터를 불러오지 못했습니다.');
       if (!clickFlowRes.ok) throw new Error('Click Flow 데이터를 불러오지 못했습니다.');
+      if (!landingPagesRes.ok) throw new Error('Landing Pages 데이터를 불러오지 못했습니다.');
       if (!channelGroupsRes.ok) throw new Error('Channel Groups 데이터를 불러오지 못했습니다.');
       if (!campaignsRes.ok) throw new Error('Campaigns 데이터를 불러오지 못했습니다.');
       if (!countriesRes.ok) throw new Error('Countries 데이터를 불러오지 못했습니다.');
@@ -143,6 +148,7 @@ export const AcquisitionDashboard: React.FC = () => {
         funnelData,
         platformData,
         clickFlowData,
+        landingPagesData,
         channelGroupsData,
         campaignsData,
         countriesData
@@ -153,6 +159,7 @@ export const AcquisitionDashboard: React.FC = () => {
         funnelRes.json(),
         platformRes.json(),
         clickFlowRes.json(),
+        landingPagesRes.json(),
         channelGroupsRes.json(),
         campaignsRes.json(),
         countriesRes.json()
@@ -220,6 +227,14 @@ export const AcquisitionDashboard: React.FC = () => {
             value: item.count
           }))
         },
+        landingPagesData: landingPagesData.map((item: any) => ({
+          page: item.page,
+          sessions: item.sessions,
+          users: item.users,
+          engagement_rate: item.engagement_rate,
+          conversion_rate: item.conversion_rate,
+          bounce_rate: item.bounce_rate
+        })),
         channelGroupData: channelGroupsData.map((item: any) => ({
           channel: item.channel,
           device: item.device,
@@ -272,8 +287,11 @@ export const AcquisitionDashboard: React.FC = () => {
     return () => clearInterval(interval);
   }, [dateRange]);
 
-  // channelGroupData 로그 추가
+  // landingPagesData 로그 추가
   useEffect(() => {
+    if (acquisitionData && acquisitionData.landingPagesData) {
+      console.log('[LOG] landingPagesData:', acquisitionData.landingPagesData);
+    }
     if (acquisitionData && acquisitionData.channelGroupData) {
       console.log('[LOG] channelGroupData:', acquisitionData.channelGroupData);
     }
@@ -325,10 +343,10 @@ export const AcquisitionDashboard: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
           {/* KPI 카드 영역 (위아래로 쌓기) */}
           <div className="md:col-span-2 space-y-4 h-64">
-            {/* 활성 사용자 */}
+            {/* 유입 사용자 */}
             <div className="bg-white rounded-lg border border-gray-200 p-4 h-[calc(50%-0.5rem)] hover:shadow-lg transition-shadow">
               <div className="text-center">
-                <h3 className="text-sm font-semibold text-gray-900 mb-2">활성 사용자</h3>
+                <h3 className="text-sm font-semibold text-gray-900 mb-2">유입 사용자</h3>
                 <div className="text-3xl font-bold text-gray-900 mb-1">
                   {kpiData ? kpiData.active_users?.toLocaleString() || '0' : '0'}
                 </div>
@@ -336,17 +354,12 @@ export const AcquisitionDashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* 평균 세션 시간 */}
+            {/* 직접 유입 비율 */}
             <div className="bg-white rounded-lg border border-gray-200 p-4 h-[calc(50%-0.5rem)] hover:shadow-lg transition-shadow">
               <div className="text-center">
-                <h3 className="text-sm font-semibold text-gray-900 mb-2">평균 세션 시간</h3>
+                <h3 className="text-sm font-semibold text-gray-900 mb-2">직접 유입 비율</h3>
                 <div className="text-3xl font-bold text-gray-900 mb-1">
-                  {kpiData ? (() => {
-                    const totalSeconds = kpiData.avg_session_duration || 0;
-                    const minutes = Math.floor(totalSeconds / 60);
-                    const seconds = totalSeconds % 60;
-                    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-                  })() : '0:00'}
+                  {kpiData ? `${kpiData.direct_traffic_rate || kpiData.bounceRate || 0}%` : '0%'}
                 </div>
                 <div className="text-xs text-green-600">+8.7%</div>
               </div>
@@ -372,37 +385,20 @@ export const AcquisitionDashboard: React.FC = () => {
           <div className="md:col-span-2 bg-white rounded-lg border border-gray-200 p-4 h-[320px] shadow-sm">
             <h3 className="text-sm font-semibold text-gray-900 mb-2">상위 유입 채널</h3>
             <HorizontalBarChart
-              data={acquisitionData.topChannelData.map((d:any, index: number)=>({label:d.channel,value:d.users, key: `${d.channel}-${index}`}))}
+              data={acquisitionData.topChannelData.slice(0, 5).map((d:any, index: number)=>({label:d.channel,value:d.users, key: `${d.channel}-${index}`}))}
               valueFormatter={(v)=>v.toLocaleString() + '명'}
             />
           </div>
 
-          {/* 신규 사용자 채널 */}
+          {/* 상위 방문 페이지 */}
           <div className="md:col-span-2 bg-white rounded-lg border border-gray-200 p-4 h-[320px] shadow-sm">
-            <h4 className="text-sm font-semibold text-gray-900 mb-2">신규 사용자 채널</h4>
-            <HorizontalBarChart
-              data={(() => {
-                // 채널별로 사용자 수 집계
-                const channelTotals = acquisitionData.channelGroupData.reduce((acc: any, item: any) => {
-                  if (!acc[item.channel]) {
-                    acc[item.channel] = 0;
-                  }
-                  acc[item.channel] += item.users || 0;
-                  return acc;
-                }, {});
-                
-                // 상위 10개 채널 선택
-                return Object.entries(channelTotals)
-                  .sort(([, a]: any, [, b]: any) => b - a)
-                  .slice(0, 10)
-                  .map(([channel, users]: any, index: number) => ({
-                    label: channel,
-                    value: users,
-                    key: `new-${channel}-${index}`
-                  }));
-              })()}
-              valueFormatter={(v)=>v.toLocaleString()+'명'}
-            />
+            <h4 className="text-sm font-semibold text-gray-900 mb-2">상위 방문 페이지</h4>
+            <div className="h-[280px]">
+              <TopLandingPages 
+                data={acquisitionData.landingPagesData} 
+                refreshKey={refreshKey} 
+              />
+            </div>
           </div>
 
           {/* 유입 채널별 디바이스 비율 */}
@@ -431,23 +427,23 @@ export const AcquisitionDashboard: React.FC = () => {
           <div className="md:col-span-3 bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
             <h4 className="text-sm font-semibold text-gray-900 mb-2">마케팅 캠페인 유입</h4>
             <HorizontalBarChart
-              data={acquisitionData.sessionData.slice(0,10).map((c:any, index: number)=>({label:c.campaign,value:c.sessions, key: `campaign-${c.campaign}-${index}`}))}
+              data={acquisitionData.sessionData.slice(0, 5).map((c:any, index: number)=>({label:c.campaign,value:c.sessions, key: `campaign-${c.campaign}-${index}`}))}
               valueFormatter={(v)=>v.toLocaleString()+'회'}
-            />
-          </div>
-
-          {/* 상위 지역 유입 */}
-          <div className="md:col-span-3 bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-            <h4 className="text-sm font-semibold text-gray-900 mb-2">상위 지역 유입</h4>
-            <HorizontalBarChart
-              data={acquisitionData.realtimeData.topCountries.slice(0,10).map((c:any, index: number)=>({label:c.city,value:c.users, key: `country-${c.city}-${index}`}))}
-              valueFormatter={(v)=>v.toLocaleString()+'명'}
             />
           </div>
 
           {/* 채널별 전환율 */}
           <div className="md:col-span-3">
             <ChannelConversionTable />
+          </div>
+
+                    {/* 상위 지역 유입 */}
+                    <div className="md:col-span-3 bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+            <h4 className="text-sm font-semibold text-gray-900 mb-2">상위 지역 유입</h4>
+            <HorizontalBarChart
+              data={acquisitionData.realtimeData.topCountries.slice(0, 5).map((c:any, index: number)=>({label:c.city,value:c.users, key: `country-${c.city}-${index}`}))}
+              valueFormatter={(v)=>v.toLocaleString()+'명'}
+            />
           </div>
         </div>
       </div>
