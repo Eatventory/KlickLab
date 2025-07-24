@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { Dashboard } from './components/dashboard/Dashboard';
 import { useAuthStore } from './store/useAuthStore';
 import { setToken, attemptAutoLogin, isUsingLocalStorage } from './utils/storage';
-import SessionTimer from './components/ui/SessionTimer';
-import LoginForm from './components/auth/LoginForm';
-import RegisterForm from './components/auth/RegisterForm';
+import LoginPage from './components/auth/LoginPage';
+import RegisterPage from './components/auth/RegisterPage';
 import ErrorPage from "./Error";
 import './App.css';
 import { ConversionEventProvider } from './context/ConversionEventContext';
@@ -21,11 +20,11 @@ function AppRoutesWithProviders({ authState }: { authState: string }) {
           minHeight: '100vh',
         }}
       >
-        <SessionTimer />
         <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/login" element={<Navigate to="/" />} />
-          <Route path="/register" element={<Navigate to="/" />} />
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard/*" element={<Dashboard />} />
+          <Route path="/login" element={<Navigate to="/dashboard" />} />
+          <Route path="/register" element={<Navigate to="/dashboard" />} />
           <Route path="*" element={<ErrorPage />} />
         </Routes>
       </div>
@@ -42,12 +41,12 @@ function AppRoutesWithProviders({ authState }: { authState: string }) {
   );
 }
 
-function AppRoutesWithoutProviders({ authState }: { authState: string }) {
+function AppRoutesWithoutProviders() {
   return (
     <div className="App">
       <Routes>
-        <Route path="/login" element={<LoginForm />} />
-        <Route path="/register" element={<RegisterForm />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </div>
@@ -129,7 +128,7 @@ function App() {
   }, [setAuthState]);
   
   if (authState === 'checking') {
-    return <div>로딩 중...</div>;
+    return;
   }
 
   return (

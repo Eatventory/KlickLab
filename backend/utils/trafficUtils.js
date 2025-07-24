@@ -69,8 +69,7 @@ function getWhereClause({
   startDateStr,
   endDateStr,
   gender,
-  ageGroup,
-  getAgeCondition,
+  ageGroup
 }) {
   let where = [
     `timestamp >= toDateTime('${startDateStr}')`,
@@ -171,38 +170,48 @@ function getCacheKey({ sdk_key, period, gender, ageGroup }) {
 }
 
 function getVisitorTrendQuery(period, sdk_key, gender, ageGroup, startDateStr, endDateStr) {
-  const genderCond = gender !== "all" ? `AND user_gender = '${gender}'` : "";
-  const ageCond = ageGroup !== "all" ? `AND ${getAgeCondition(ageGroup)}` : "";
+  let sumCond = '';
+  if (gender !== 'all' && ageGroup !== 'all') { // 교집합 조건: gender + ageGroup
+    sumCond = `segment_type = 'user_gender' AND segment_value = '${gender}' AND dist_type = 'ageGroup' AND dist_value = '${ageGroup}'`;
+  } else if (gender !== 'all') { // 성별만 필터
+    sumCond = `segment_type = 'user_gender' AND segment_value = '${gender}'`;
+  } else if (ageGroup !== 'all') { // 연령만 필터 (segment_type에 있음)
+    sumCond = `segment_type = 'user_age' AND segment_value = '${ageGroup}'`;
+  } else { // 모두 all이면 기본 기준은 user_age
+    sumCond = `segment_type = 'user_age'`;
+  }
 
-  if (period === "weekly") {
+  if (period === 'weekly') {
     return `
       SELECT
-        concat(formatDateTime(date, '%m'), '월 ', toString(toRelativeWeekNum(date) - toRelativeWeekNum(toStartOfMonth(date)) + 1), '주차') AS date_str,
-        sum(visitors) AS visitors,
-        sum(new_visitors) AS newVisitors,
-        sum(existing_visitors) AS returningVisitors
-      FROM daily_metrics
-      WHERE date >= toStartOfWeek(toDate('${startDateStr}'))
+        concat(
+          formatDateTime(date, '%m'), '월 ',
+          toString(toRelativeWeekNum(date) - toRelativeWeekNum(toStartOfMonth(date)) + 1),
+          '주차'
+        ) AS date_str,
+        sumIf(user_count, ${sumCond}) AS visitors,
+        0 AS newVisitors,
+        0 AS returningVisitors
+      FROM daily_user_distribution
+      WHERE sdk_key = '${sdk_key}'
+        AND date >= toStartOfWeek(toDate('${startDateStr}'))
         AND date <= toDate('${endDateStr}')
-        ${genderCond} ${ageCond}
-        AND sdk_key = '${sdk_key}'
       GROUP BY date_str
       ORDER BY date_str ASC
     `;
   }
 
-  if (period === "monthly") {
+  if (period === 'monthly') {
     return `
       SELECT
         formatDateTime(date, '%Y-%m') AS date_str,
-        sum(visitors) AS visitors,
-        sum(new_visitors) AS newVisitors,
-        sum(existing_visitors) AS returningVisitors
-      FROM daily_metrics
-      WHERE date >= toStartOfMonth(toDate('${startDateStr}'))
+        sumIf(user_count, ${sumCond}) AS visitors,
+        0 AS newVisitors,
+        0 AS returningVisitors
+      FROM daily_user_distribution
+      WHERE sdk_key = '${sdk_key}'
+        AND date >= toStartOfMonth(toDate('${startDateStr}'))
         AND date <= toDate('${endDateStr}')
-        ${genderCond} ${ageCond}
-        AND sdk_key = '${sdk_key}'
       GROUP BY date_str
       ORDER BY date_str ASC
     `;
@@ -212,78 +221,62 @@ function getVisitorTrendQuery(period, sdk_key, gender, ageGroup, startDateStr, e
     return `
       SELECT
         formatDateTime(date, '%Y-%m-%d') AS date_str,
-        sum(toUInt64(visitors)) AS visitors,
-        sum(toUInt64(new_visitors)) AS newVisitors,
-        sum(toUInt64(existing_visitors)) AS returningVisitors
+        sumIf(user_count, ${sumCond}) AS visitors,
+        0, 0
       FROM (
-        -- 이전 날짜: daily_metrics만 사용
-        SELECT
-          date,
-          visitors,
-          new_visitors,
-          existing_visitors
-        FROM daily_metrics
-        WHERE date BETWEEN toDate('${localNow}') - 6 AND toDate('${localNow}') - 1
-          AND sdk_key = '${sdk_key}'
-
+        SELECT date, segment_type, segment_value, dist_type, dist_value, user_count
+        FROM daily_user_distribution
+        WHERE sdk_key = '${sdk_key}'
+          AND date BETWEEN toDate('${localNow}') - 6 AND toDate('${localNow}')
         UNION ALL
-
-        -- 오늘 날짜: 실시간 계산 (hourly + minutes)
-        SELECT
-          toDate(date_time) AS date,
-          visitors,
-          new_visitors,
-          existing_visitors
-        FROM hourly_metrics
-        WHERE date_time >= toDateTime('${todayStart}')
+        SELECT toDate(date_time), segment_type, segment_value, dist_type, dist_value, user_count
+        FROM hourly_user_distribution
+        WHERE sdk_key = '${sdk_key}'
+          AND date_time >= toDateTime('${todayStart}')
           AND date_time <= toDateTime('${oneHourFloor}')
-          AND sdk_key = '${sdk_key}'
-
         UNION ALL
-
-        SELECT
-          toDate(date_time) AS date,
-          visitors,
-          new_visitors,
-          existing_visitors
-        FROM minutes_metrics
-        WHERE date_time > toDateTime('${oneHourFloor}')
+        SELECT toDate(date_time), segment_type, segment_value, dist_type, dist_value, user_count
+        FROM minutes_user_distribution
+        WHERE sdk_key = '${sdk_key}'
+          AND date_time > toDateTime('${oneHourFloor}')
           AND date_time <= toDateTime('${tenMinutesFloor}')
-          AND sdk_key = '${sdk_key}'
       )
       GROUP BY date
-      ORDER BY date ASC
+      ORDER BY date_str ASC
     `;
   }
 
   if (period === "hourly") {
     return `
       SELECT *
-        FROM (
-          SELECT
-            formatDateTime(date_time, '%Y-%m-%d %H') AS date_str,
-            visitors,
-            new_visitors,
-            existing_visitors AS returningVisitors
-          FROM hourly_metrics
-          WHERE date_time >= toDateTime('${isoNow}') - INTERVAL 24 HOUR
-            AND date_time < toDateTime('${nearestHourFloor}')
-            AND sdk_key = '${sdk_key}'
-
-          UNION ALL
-
-          SELECT
-            formatDateTime(toStartOfHour(date_time), '%Y-%m-%d %H') AS date_str,
-            sum(visitors) AS visitors,
-            sum(new_visitors) AS new_visitors,
-            sum(existing_visitors) AS returningVisitors
-          FROM minutes_metrics
-          WHERE date_time > toDateTime('${nearestHourFloor}')
-            AND date_time < toDateTime('${isoNow}')
-            AND sdk_key = '${sdk_key}'
-          GROUP BY toStartOfHour(date_time)
-        )
-        ORDER BY date_str ASC
+      FROM (
+        -- 1. 지난 23시간: hourly_user_distribution
+        SELECT
+          formatDateTime(date_time, '%Y-%m-%d %H') AS date_str,
+          sumIf(user_count, ${sumCond}) AS visitors,
+          0 AS newVisitors,
+          0 AS returningVisitors
+        FROM hourly_user_distribution
+        WHERE sdk_key = '${sdk_key}'
+          AND date_time >= toDateTime('${isoNow}') - INTERVAL 24 HOUR
+          AND date_time < toDateTime('${nearestHourFloor}')
+        GROUP BY date_time
+  
+        UNION ALL
+  
+        -- 2. 최근 1시간: minutes_user_distribution
+        SELECT
+          formatDateTime(toStartOfHour(date_time), '%Y-%m-%d %H') AS date_str,
+          sumIf(user_count, ${sumCond}) AS visitors,
+          0 AS newVisitors,
+          0 AS returningVisitors
+        FROM minutes_user_distribution
+        WHERE sdk_key = '${sdk_key}'
+          AND date_time >= toDateTime('${nearestHourFloor}')
+          AND date_time < toDateTime('${isoNow}')
+        GROUP BY toStartOfHour(date_time)
+      )
+      ORDER BY date_str ASC
     `;
   }
 
