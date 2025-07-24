@@ -88,10 +88,17 @@ router.get("/get-domain", authMiddleware, async (req, res) => {
     const auxRes = await clickhouse.query({
       query: `
         SELECT
-          (SELECT count() FROM events
-            WHERE sdk_key = '${sdk_key}' AND toDate(timestamp) = today()) AS cnt,
-          (SELECT formatDateTime(max(timestamp), '%Y-%m-%d %H:%i:%S', 'Asia/Seoul') FROM events
-            WHERE sdk_key = '${sdk_key}' AND timestamp <= now()) AS latest
+          (
+            SELECT count() FROM events
+            WHERE sdk_key = '${sdk_key}' AND toDate(timestamp) = today()
+          ) AS cnt,
+          (
+            SELECT formatDateTime(timestamp, '%Y-%m-%d %H:%i:%S')
+            FROM events
+            WHERE sdk_key = '${sdk_key}'
+            ORDER BY timestamp DESC
+            LIMIT 1
+          ) AS latest
       `,
       format: "JSON",
     });
