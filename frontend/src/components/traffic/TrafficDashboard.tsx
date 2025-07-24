@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { addDays } from 'date-fns';
+import dayjs from 'dayjs';
 import { VisitorChart } from './VisitorChart';
 import { TopPageFromMainPage } from './TopPageFromMainPage';
 import { ChannelConversionTable } from './ChannelConversionTable';
@@ -7,6 +9,7 @@ import { TrendingUp, Globe, Clock } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line } from 'recharts';
 import PathExplorer from './PathExplorer';
 import { useSegmentFilter } from '../../context/SegmentFilterContext';
+import DateRangeSelector from '../ui/DateRangeSelector';
 
 // 타입 정의
 interface FilterOptions {
@@ -91,13 +94,41 @@ function formatKoreanNumber(value: number) {
 
 export const TrafficDashboard: React.FC = () => {
   const { filter: globalFilter } = useSegmentFilter();
+  
+  // DateRangeSelector 상태 추가
+  const [dateRange, setDateRange] = useState([
+    { startDate: addDays(new Date(), -6), endDate: new Date(), key: 'selection' }
+  ]);
+  const [tempRange, setTempRange] = useState(dateRange);
+  const [showPicker, setShowPicker] = useState(false);
+  
   const [filters, setFilters] = useState<FilterOptions>({
-    period: 'hourly',
+    period: 'daily',
     gender: 'all',
-    ageGroup: 'all'
+    ageGroup: 'all',
   });
-  const [trafficData, setTrafficData] = useState<TrafficData | null>(null);
-  const [loading, setLoading] = useState(true);
+
+  const [trafficData, setTrafficData] = useState<TrafficData | null>(mockDashboardData);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // DateRange 관련 핸들러들
+  const handleDateRangeChange = (range: { startDate: Date; endDate: Date }[]) => {
+    setDateRange(range.map(r => ({ ...r, key: 'selection' })));
+  };
+
+  const handleTempRangeChange = (range: { startDate: Date; endDate: Date }[]) => {
+    setTempRange(range.map(r => ({ ...r, key: 'selection' })));
+  };
+
+  const handleDateRangeApply = (start: Date, end: Date) => {
+    setDateRange([{ startDate: start, endDate: end, key: 'selection' }]);
+    setShowPicker(false);
+  };
+
+  const handleShowPickerToggle = (val: boolean) => {
+    setShowPicker(val);
+  };
 
   const handleFilterChange = (key: keyof FilterOptions, value: string) => {
     setFilters(prev => ({
@@ -134,8 +165,8 @@ export const TrafficDashboard: React.FC = () => {
         });
 
         const response = await fetch(`/api/traffic?${queryParams}${globalFilterQuery}`, { headers: { Authorization: `Bearer ${token}` } });
-        const data: TrafficData = await response.json();
-        setTrafficData(data);
+        const result: TrafficData = await response.json();
+        setTrafficData(result);
       } catch (error) {
         console.error('Failed to fetch traffic data:', error);
         setTrafficData(null); // mock 데이터 fallback 제거
@@ -169,73 +200,90 @@ export const TrafficDashboard: React.FC = () => {
   }
 
   // 각 차트 데이터: 실제 데이터가 없으면 mock 데이터 사용
-  const visitorTrendData = trafficData.visitorTrend && trafficData.visitorTrend.length > 0
+  const chartVisitorTrendData = trafficData?.visitorTrend && trafficData.visitorTrend.length > 0
     ? trafficData.visitorTrend
     : mockDashboardData.visitorTrend;
-  const entryPageData = trafficData.entryPageDistribution && trafficData.entryPageDistribution.length > 0
+  const entryPageData = trafficData?.entryPageDistribution && trafficData.entryPageDistribution.length > 0
     ? trafficData.entryPageDistribution
     : mockDashboardData.entryPageDistribution;
-  const hourlyTrafficData = trafficData.hourlyTraffic && trafficData.hourlyTraffic.length > 0
+  const hourlyTrafficData = trafficData?.hourlyTraffic && trafficData.hourlyTraffic.length > 0
     ? trafficData.hourlyTraffic
     : mockDashboardData.hourlyTraffic;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 bg-gray-50 min-h-screen p-6">
+      {/* 날짜 선택기 */}
+      <div className="w-full flex justify-end border-b-2 border-dashed mb-6">
+        <DateRangeSelector
+          dateRange={dateRange}
+          tempRange={tempRange}
+          showPicker={showPicker}
+          setDateRange={handleDateRangeChange}
+          setTempRange={handleTempRangeChange}
+          setShowPicker={handleShowPickerToggle}
+          onApply={handleDateRangeApply}
+        />
+      </div>
 
-      {/* 필터 */}
+      {/* 필터 컨트롤 */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <TrendingUp className="w-5 h-5 text-gray-600" />
-          <h2 className="text-lg font-semibold text-gray-900">트래픽 분석 필터</h2>
-        </div>
-        <div className="flex gap-4">
-          <select
-            value={filters.period}
-            onChange={(e) => handleFilterChange('period', e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md text-sm"
-          >
-            <option value="hourly">시간별</option>
-            <option value="daily">일별</option>
-            <option value="weekly">주별</option>
-            <option value="monthly">월별</option>
-          </select>
-          <select
-            value={filters.gender}
-            onChange={(e) => handleFilterChange('gender', e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md text-sm"
-          >
-            <option value="all">전체 성별</option>
-            <option value="male">남성</option>
-            <option value="female">여성</option>
-          </select>
-          <select
-            value={filters.ageGroup}
-            onChange={(e) => handleFilterChange('ageGroup', e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md text-sm"
-          >
-            <option value="all">전체 나이대</option>
-            <option value="10s">10대</option>
-            <option value="20s">20대</option>
-            <option value="30s">30대</option>
-            <option value="40s">40대</option>
-            <option value="50s">50대</option>
-            <option value="60s+">60대 이상</option>
-          </select>
+        <div className="flex items-center gap-4">
+          <label className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-700">기간:</span>
+            <select
+              value={filters.period}
+              onChange={(e) => handleFilterChange('period', e.target.value)}
+              className="px-3 py-1 border border-gray-300 rounded-md text-sm"
+            >
+              <option value="hourly">시간별</option>
+              <option value="daily">일별</option>
+              <option value="weekly">주별</option>
+              <option value="monthly">월별</option>
+            </select>
+          </label>
+          <label className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-700">성별:</span>
+            <select
+              value={filters.gender}
+              onChange={(e) => handleFilterChange('gender', e.target.value)}
+              className="px-3 py-1 border border-gray-300 rounded-md text-sm"
+            >
+              <option value="all">전체</option>
+              <option value="male">남성</option>
+              <option value="female">여성</option>
+            </select>
+          </label>
+          <label className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-700">연령대:</span>
+            <select
+              value={filters.ageGroup}
+              onChange={(e) => handleFilterChange('ageGroup', e.target.value)}
+              className="px-3 py-1 border border-gray-300 rounded-md text-sm"
+            >
+              <option value="all">전체</option>
+              <option value="10s">10대</option>
+              <option value="20s">20대</option>
+              <option value="30s">30대</option>
+              <option value="40s">40대</option>
+              <option value="50s">50대</option>
+              <option value="60s+">60세 이상</option>
+            </select>
+          </label>
         </div>
       </div>
 
-      {/* 방문자 수 트렌드 */}
+      {/* 방문자 수 트렌드 차트 */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex items-center gap-2 mb-4">
           <TrendingUp className="w-5 h-5 text-gray-600" />
           <h2 className="text-lg font-semibold text-gray-900">방문자 수 트렌드</h2>
         </div>
-        <VisitorChart data={visitorTrendData} period={filters.period} />
+        <VisitorChart data={chartVisitorTrendData} period={filters.period} />
       </div>
 
       {/* 채널별 전환율 + 첫 유입페이지 전환율 테이블 */}
       <div className="flex flex-col lg:flex-row gap-6">
-        <ChannelConversionTable />
+        <ChannelConversionTable dateRange={dateRange[0]} />
         <LandingConversionTable />
       </div>
 
@@ -287,7 +335,7 @@ export const TrafficDashboard: React.FC = () => {
 
       {/* 메인 페이지에서 이동하는 페이지 Top */}
       <TopPageFromMainPage
-        data={trafficData.mainPageNavigation}
+        data={trafficData?.mainPageNavigation}
         period={filters.period}
         gender={filters.gender}
         ageGroup={filters.ageGroup}

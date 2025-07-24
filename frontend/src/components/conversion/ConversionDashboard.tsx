@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { addDays } from 'date-fns';
+import dayjs from 'dayjs';
 import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart } from 'recharts';
 import { UserPathSankeyChart } from '../user/UserPathSankeyChart';
 import { SankeyFunnel } from './SankeyFunnel';
@@ -10,12 +12,20 @@ import HorizontalLineChart from '../HorizontalLineChart';
 import { mockSankeyPaths } from '../../data/mockData';
 import { ConversionRateWidget } from './ConversionRateWidget';
 import { ConversionSummaryCard } from '../ConversionSummaryCard';
+import DateRangeSelector from '../ui/DateRangeSelector';
 
 const DEFAULT_EVENTS = ['page_view', 'scroll', 'auto_click', 'user_engagement'];
 const PERIOD_LABELS = { daily: '일', weekly: '주', monthly: '월' };
 const COLORS = ['#3366cc', '#dc3912', '#ff9900', '#109618', '#990099', '#0099c6', '#dd4477', '#66aa00'];
 
 export const ConversionDashboard: React.FC = () => {
+  // DateRangeSelector 상태 추가
+  const [dateRange, setDateRange] = useState([
+    { startDate: addDays(new Date(), -6), endDate: new Date(), key: 'selection' }
+  ]);
+  const [tempRange, setTempRange] = useState(dateRange);
+  const [showPicker, setShowPicker] = useState(false);
+
   const [allEvents, setAllEvents] = useState<string[]>(DEFAULT_EVENTS);
   const [selectedEvents, setSelectedEvents] = useState<string[]>(DEFAULT_EVENTS);
   const [trendData, setTrendData] = useState<any[]>([]);
@@ -47,6 +57,24 @@ export const ConversionDashboard: React.FC = () => {
   const [eventOptions, setEventOptions] = useState<string[]>([]);
   const [urlOptions, setUrlOptions] = useState<string[]>([]);
   const [selectedValue, setSelectedValue] = useState<string>('');
+
+  // DateRange 관련 핸들러들
+  const handleDateRangeChange = (range: { startDate: Date; endDate: Date }[]) => {
+    setDateRange(range.map(r => ({ ...r, key: 'selection' })));
+  };
+
+  const handleTempRangeChange = (range: { startDate: Date; endDate: Date }[]) => {
+    setTempRange(range.map(r => ({ ...r, key: 'selection' })));
+  };
+
+  const handleDateRangeApply = (start: Date, end: Date) => {
+    setDateRange([{ startDate: start, endDate: end, key: 'selection' }]);
+    setShowPicker(false);
+  };
+
+  const handleShowPickerToggle = (val: boolean) => {
+    setShowPicker(val);
+  };
 
   // 기간별 데이터 범위 설정 함수 추가
   const getPeriodRange = (period: 'daily'|'weekly'|'monthly') => {
@@ -281,162 +309,280 @@ export const ConversionDashboard: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8">
-      {/* 전환율 요약 카드 3종 하단에 추가 */}
-      {/* 시간 경과에 따른 이벤트 분석 */}
-      <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">
-            시간 경과에 따른 {addMode === 'event' ? '이벤트 이름별' : 'URL별'} 이벤트 수
-          </h2>
-          <select
-            value={addMode}
-            onChange={e => setAddMode(e.target.value as 'event'|'url')}
-            className="border rounded px-2 py-1 text-sm bg-white"
-          >
-            <option value="event">이벤트</option>
-            <option value="url">URL</option>
-          </select>
-        </div>
-
-        <ChartTableWrapper
-          data={(() => {
-            if (addMode === 'event') {
-              // 이벤트 모드: summaryData에서 숫자 변환 보장
-              const map: Record<string, { eventCount: number; userCount: number; avgEventPerUser: number }> = {};
-              summaryData
-                .filter(({ event }) => event && event !== '')
-                .forEach(({ event, count, users }) => {
-                  if (!map[event]) {
-                    map[event] = { eventCount: 0, userCount: 0, avgEventPerUser: 0 };
-                  }
-                  // 숫자 변환 보장
-                  const eventCount = Number(count) || 0;
-                  const userCount = Number(users) || 0;
-                  map[event].eventCount += eventCount;
-                  map[event].userCount += userCount;
-                });
-              
-              return Object.entries(map).map(([event, { eventCount, userCount }]) => ({
-                key: event,
-                label: event,
-                values: {
-                  eventCount,
-                  userCount,
-                  avgEventPerUser: userCount > 0 ? Number((eventCount / userCount).toFixed(3)) : 0,
-                },
-              }));
-            } else {
-              // URL 모드: urlSummaryData에서 숫자 변환 보장
-              const map: Record<string, { pageViews: number; sessions: number; avgPageViewsPerSession: number }> = {};
-              urlSummaryData
-                .filter(({ url }) => url && url !== '')
-                .forEach(({ url, pageViews, sessions }) => {
-                  if (!map[url]) {
-                    map[url] = { pageViews: 0, sessions: 0, avgPageViewsPerSession: 0 };
-                  }
-                  // 숫자 변환 보장
-                  const pageViewsNum = Number(pageViews) || 0;
-                  const sessionsNum = Number(sessions) || 0;
-                  map[url].pageViews += pageViewsNum;
-                  map[url].sessions += sessionsNum;
-                });
-              
-              return Object.entries(map).map(([url, { pageViews, sessions }]) => ({
-                key: url,
-                label: url,
-                values: {
-                  pageViews,
-                  sessions,
-                  avgPageViewsPerSession: sessions > 0 ? Number((pageViews / sessions).toFixed(3)) : 0,
-                },
-              }));
-            }
-          })()}
-          valueKeys={addMode === 'event' 
-            ? [
-                { key: 'eventCount', label: '이벤트 수', showPercent: true },
-                { key: 'userCount', label: '사용자 수', showPercent: true },
-                { key: 'avgEventPerUser', label: '사용자당 이벤트 수' }
-              ]
-            : [
-                { key: 'pageViews', label: '페이지뷰', showPercent: true },
-                { key: 'sessions', label: '세션 수', showPercent: true },
-                { key: 'avgPageViewsPerSession', label: '세션당 페이지뷰' }
-              ]
-          }
-          autoSelectBy={addMode === 'event' ? 'eventCount' : 'pageViews'}
-          title={addMode === 'event' ? '이벤트 이름' : 'URL'}
-          onSortChange={(key) => {
-            // 정렬 변경 시 처리
-          }}
-        >
-          {(selectedKeys, chartData, lineDefs, unit) => (
-            <HorizontalLineChart
-              data={(() => {
-                const sourceData = addMode === 'event' ? trendData : urlTrendData;
-                if (!Array.isArray(sourceData) || sourceData.length === 0) {
-                  return [];
-                }
-                
-                const uniqueDates = [...new Set(sourceData.map(d => d.date))].sort();
-                return uniqueDates.map(date => {
-                  const row: Record<string, any> = { date };
-                  let sum = 0;
-                  
-                  selectedKeys.forEach(key => {
-                    if (key === 'SUM') return;
-                    const match = sourceData.find(d => d.date === date && (addMode === 'event' ? d.event === key : d.url === key));
-                    const val = match ? Number(addMode === 'event' ? match.count : match.pageViews) || 0 : 0;
-                    row[key] = val;
-                    sum += val;
-                  });
-                  
-                  if (selectedKeys.includes('SUM')) {
-                    row['SUM'] = sum;
-                  }
-                  return row;
-                });
-              })()}
-              lines={[
-                ...selectedKeys
-                  .filter(k => k !== 'SUM')
-                  .map(k => ({ key: k, name: k })),
-                ...(selectedKeys.includes('SUM')
-                  ? [{ key: 'SUM', name: '합계', color: '#2596be', dash: '3 3' }]
-                  : []),
-              ]}
-              areas={
-                selectedKeys.includes('SUM')
-                  ? [{ key: 'SUM', name: '합계', color: '#2596be' }]
-                  : []
-              }
-              height={400}
-              unit={unit}
-              showLegendBottom={true}
-            />
-          )}
-        </ChartTableWrapper>
+    <div className="space-y-6 bg-gray-50 min-h-screen p-6">
+      {/* 날짜 선택기 */}
+      <div className="w-full flex justify-end border-b-2 border-dashed mb-6">
+        <DateRangeSelector
+          dateRange={dateRange}
+          tempRange={tempRange}
+          showPicker={showPicker}
+          setDateRange={handleDateRangeChange}
+          setTempRange={handleTempRangeChange}
+          setShowPicker={handleShowPickerToggle}
+          onApply={handleDateRangeApply}
+        />
       </div>
 
-      {/* 맨 아래, 사키 다이어그램 바깥쪽 div(사각형 칸) 완전히 삭제, 내부 칸만 남김 */}
-      {/* 실제 데이터가 있다면 paths로, 없으면 mockSankeyPaths로 fallback */}
-      {/* 사용자 경로 다이어그램 섹션 */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sankey-container" style={{height: '100%', minHeight: 600, maxHeight: '90vh'}}>
-        <div className="flex items-center justify-between mb-6">
-          <h2 style={{ fontWeight: 700, fontSize: 20 }}>사용자 경로 다이어그램</h2>
+      <ConversionRateWidget />
+      <ConversionSummaryCard />
+
+      {/* 이벤트 트렌드 섹션 */}
+      <div className="flex space-x-4 items-center">
+        <h2 className="text-xl font-bold text-gray-900">이벤트별 전환율 추이</h2>
+        <div className="flex items-center space-x-2">
           <select
-            value={dropdownType}
-            onChange={handleDropdownTypeChange}
-            className="border rounded px-2 py-1 text-sm bg-white"
-            style={{ minWidth: 120 }}
+            value={period}
+            onChange={(e) => setPeriod(e.target.value as 'daily'|'weekly'|'monthly')}
+            className="px-3 py-1 border border-gray-300 rounded-md text-sm"
           >
-            <option value="event">이벤트</option>
-            <option value="url">URL</option>
+            <option value="daily">일별</option>
+            <option value="weekly">주별</option>
+            <option value="monthly">월별</option>
           </select>
         </div>
-        {/* 내부 카드/제목 완전히 삭제! 바로 그래프만 */}
-        <UserPathSankeyChart data={{ paths: sankeyPaths && sankeyPaths.length > 0 ? sankeyPaths : mockSankeyPaths }} type={dropdownType} />
+      </div>
+
+      {/* Event/URL 탭 전환 */}
+      <div className="flex">
+        <button
+          onClick={() => setAddMode('event')}
+          className={`px-4 py-2 text-sm font-medium rounded-l-md border ${
+            addMode === 'event'
+              ? 'bg-blue-500 text-white border-blue-500'
+              : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+          }`}
+        >
+          이벤트별 분석
+        </button>
+        <button
+          onClick={() => setAddMode('url')}
+          className={`px-4 py-2 text-sm font-medium rounded-r-md border-t border-r border-b ${
+            addMode === 'url'
+              ? 'bg-blue-500 text-white border-blue-500'
+              : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+          }`}
+        >
+          URL별 분석
+        </button>
+      </div>
+
+      {/* 이벤트 기반 컨텐츠 */}
+      {addMode === 'event' && (
+        <div className="space-y-6">
+          {/* 이벤트 선택 영역 */}
+          <ChartTableWrapper
+            title="이벤트 선택"
+            onAdd={() => fetchAllEvents()}
+            addButtonText="이벤트 새로고침"
+            loading={loading}
+            error={error}
+          >
+            <div className="space-y-2 max-h-32 overflow-y-auto">
+              {allEvents.map((event) => (
+                <label key={event} className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={selectedEvents.includes(event)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedEvents([...selectedEvents, event]);
+                      } else {
+                        setSelectedEvents(selectedEvents.filter(e => e !== event));
+                      }
+                    }}
+                    className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                  />
+                  <span className="text-sm text-gray-700">{event}</span>
+                </label>
+              ))}
+            </div>
+          </ChartTableWrapper>
+
+          {/* 이벤트 요약 정보 */}
+          <ChartTableWrapper
+            title="선택된 이벤트 요약"
+            loading={loading}
+            error={error}
+          >
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">이벤트</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">총 발생</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">유니크 사용자</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">평균 값</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {summaryData.map((item, index) => (
+                    <tr key={index}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.event_name}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-500">{item.total_count?.toLocaleString() || 0}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-500">{item.unique_users?.toLocaleString() || 0}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-500">{item.avg_value?.toFixed(2) || '0.00'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </ChartTableWrapper>
+
+          {/* 이벤트 트렌드 차트 */}
+          <ChartTableWrapper title={`이벤트별 트렌드 (${PERIOD_LABELS[period]}별)`} loading={loading} error={error}>
+            <div style={{ width: '100%', height: 400 }}>
+              <ResponsiveContainer>
+                <LineChart data={trendData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="period" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  {selectedEvents.map((event, index) => (
+                    <Line
+                      key={event}
+                      type="monotone"
+                      dataKey={event}
+                      stroke={COLORS[index % COLORS.length]}
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </ChartTableWrapper>
+        </div>
+      )}
+
+      {/* URL 기반 컨텐츠 */}
+      {addMode === 'url' && (
+        <div className="space-y-6">
+          {/* URL 선택 영역 */}
+          <ChartTableWrapper
+            title="URL 선택"
+            onAdd={() => fetchAllUrls()}
+            addButtonText="URL 새로고침"
+            loading={urlSummaryLoading}
+            error={urlSummaryError}
+          >
+            <div className="space-y-2 max-h-32 overflow-y-auto">
+              {allUrls.slice(0, 20).map((url) => (
+                <label key={url} className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={selectedEvents.includes(url)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedEvents([...selectedEvents, url]);
+                      } else {
+                        setSelectedEvents(selectedEvents.filter(e => e !== url));
+                      }
+                    }}
+                    className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                  />
+                  <span className="text-sm text-gray-700">{url}</span>
+                </label>
+              ))}
+            </div>
+          </ChartTableWrapper>
+
+          {/* URL 요약 정보 */}
+          <ChartTableWrapper
+            title="선택된 URL 요약"
+            loading={urlSummaryLoading}
+            error={urlSummaryError}
+          >
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">URL</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">총 페이지뷰</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">유니크 방문자</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">평균 체류시간</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {urlSummaryData.map((item, index) => (
+                    <tr key={index}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.url}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-500">{item.total_views?.toLocaleString() || 0}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-500">{item.unique_visitors?.toLocaleString() || 0}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-500">{item.avg_duration?.toFixed(2) || '0.00'}초</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </ChartTableWrapper>
+
+          {/* URL 트렌드 차트 */}
+          <ChartTableWrapper title={`URL별 페이지뷰 트렌드 (${PERIOD_LABELS[period]}별)`} loading={urlTrendLoading} error={urlTrendError}>
+            <div style={{ width: '100%', height: 400 }}>
+              <ResponsiveContainer>
+                <LineChart data={urlTrendData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="period" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  {selectedEvents.map((url, index) => (
+                    <Line
+                      key={url}
+                      type="monotone"
+                      dataKey={url}
+                      stroke={COLORS[index % COLORS.length]}
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </ChartTableWrapper>
+        </div>
+      )}
+
+      {/* Sankey 퍼널 섹션 */}
+      <div className="bg-white p-6 rounded-lg border">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">사용자 전환 경로</h3>
+          <div className="flex items-center space-x-4">
+            {/* 드롭다운 타입 선택 */}
+            <select
+              value={dropdownType}
+              onChange={(e) => {
+                setDropdownType(e.target.value as 'event'|'url');
+                setSelectedValue('');
+              }}
+              className="px-3 py-1 border border-gray-300 rounded-md text-sm"
+            >
+              <option value="event">이벤트 기준</option>
+              <option value="url">URL 기준</option>
+            </select>
+
+            {/* 드롭다운 옵션 선택 */}
+            <select
+              value={selectedValue}
+              onChange={(e) => setSelectedValue(e.target.value)}
+              className="px-3 py-1 border border-gray-300 rounded-md text-sm"
+            >
+              <option value="">선택하세요</option>
+              {(dropdownType === 'event' ? eventOptions : urlOptions).map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+
+            <button
+              onClick={fetchSankeyData}
+              disabled={!selectedValue || sankeyLoading}
+              className="px-4 py-2 bg-blue-500 text-white rounded-md text-sm hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {sankeyLoading ? '로딩 중...' : '경로 조회'}
+            </button>
+          </div>
+        </div>
         {sankeyLoading && <div style={{ color: '#888', padding: 12 }}>경로 데이터를 불러오는 중...</div>}
         {sankeyError && <div style={{ color: 'red', padding: 12 }}>{sankeyError}</div>}
       </div>
@@ -447,7 +593,7 @@ export const ConversionDashboard: React.FC = () => {
         </div>
         <div className="flex flex-row gap-3 h-[520px]" style={{ minWidth: 800 }}>
           <div className="h-[520px] flex-1">
-            <ChannelConversionTable />
+            <ChannelConversionTable dateRange={dateRange[0]} />
           </div>
           <div className="h-[520px] flex-1">
             <LandingConversionTable />

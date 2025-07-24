@@ -127,6 +127,7 @@ export const UserDashboard: React.FC = () => {
               <AgeActiveUsers 
                 dateRange={dateRange[0]}
                 data={apiData.map(row => ({
+                  segment_type: 'user_age',
                   segment_value: row.age_group,
                   user_count: Number(row.users)
                 }))}

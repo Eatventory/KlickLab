@@ -16,6 +16,7 @@ interface RealtimeUsersSectionProps {
   trend?: TrendData[];
   locations?: any[];
   loading?: boolean;
+  showLocations?: boolean;
 }
 
 // 호버 가능한 실시간 차트 컴포넌트
@@ -116,7 +117,8 @@ export const RealtimeUsersSection: React.FC<RealtimeUsersSectionProps> = ({
   activeUsers = 0, 
   trend = [], 
   locations = [], 
-  loading = false 
+  loading = false,
+  showLocations = true 
 }) => {
   if (loading) {
     return (
@@ -148,7 +150,7 @@ export const RealtimeUsersSection: React.FC<RealtimeUsersSectionProps> = ({
     <div className="bg-white rounded-lg shadow p-6">
       <div className="mb-4">
         <h2 className="text-lg font-semibold text-gray-800 mb-2">실시간 활성 사용자</h2>
-        <div className="text-3xl font-bold text-blue-600">
+        <div className="text-xl font-bold text-blue-600">
           {displayUsers.toLocaleString()}명
         </div>
         <p className="text-sm text-gray-500 mt-1">최근 30분간 활성 사용자</p>
@@ -158,7 +160,7 @@ export const RealtimeUsersSection: React.FC<RealtimeUsersSectionProps> = ({
       <RealtimeChart data={displayTrend} loading={loading} />
 
       {/* 주요 지역 요약 */}
-      {displayLocations.length > 0 && (
+      {showLocations && displayLocations.length > 0 && (
         <div className="mt-4">
           <h3 className="text-sm font-medium text-gray-700 mb-2">주요 지역</h3>
           <div className="space-y-1">

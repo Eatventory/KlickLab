@@ -54,7 +54,21 @@ export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({
 
     const ageMap: Record<string, number> = {};
     data.forEach((row) => {
-      const ageGroup = convertAgeToGroup(row.segment_value);
+      // 백엔드에서 숫자 형식('10', '11', ...)과 그룹 형식('10s', '20s', ...)이 혼재되어 있음
+      // 따라서 convertAgeToGroup 함수를 사용하여 표준화 필요
+      let ageGroup;
+      const segmentValue = row.segment_value;
+      
+      if (!segmentValue || segmentValue === 'unknown' || segmentValue === '') {
+        ageGroup = 'unknown';
+      } else if (segmentValue.endsWith('s')) {
+        // 이미 그룹 형식인 경우 (10s, 20s, 30s, 40s, 50s)
+        ageGroup = segmentValue;
+      } else {
+        // 숫자 형식인 경우 (10, 11, 12, ..., 59) -> 그룹으로 변환
+        ageGroup = convertAgeToGroup(segmentValue);
+      }
+      
       if (!ageMap[ageGroup]) {
         ageMap[ageGroup] = 0;
       }
