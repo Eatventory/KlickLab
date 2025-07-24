@@ -471,19 +471,12 @@ const getPastPageExitRate = async (clickhouse, sdkKey, startDate, endDate) => {
       page_views,
       exits,
       round((exits * 100.0) / nullIf(page_views, 0), 2) as exit_rate
-    FROM (
-      SELECT
-        page_path,
-        sum(page_views) as page_views,
-        sum(exits) as exits
-      FROM klicklab.flat_page_content_stats
-      WHERE summary_date >= toDate('${startDate}')
-        AND summary_date <= toDate('${endDate}')
-        AND sdk_key = '${sdkKey}'
-        AND page_path != ''
-      GROUP BY page_path
-      HAVING page_views > 0
-    )
+    FROM klicklab.flat_page_content_stats
+    WHERE summary_date >= toDate('${startDate}')
+      AND summary_date <= toDate('${endDate}')
+      AND sdk_key = '${sdkKey}'
+      AND page_path != ''
+      AND page_views > 0
     ORDER BY exit_rate DESC
   `;
   
@@ -547,16 +540,15 @@ const getPastSessionEngagement = async (clickhouse, sdkKey, startDate, endDate) 
   const query = `
     SELECT
       summary_date as date,
-      sum(toFloat64(session_duration_sum)) as total_session_duration,
-      sum(toUInt64(sessions)) as total_sessions,
-      sum(toUInt64(users)) as total_users,
-      round(sum(toFloat64(session_duration_sum)) / nullIf(sum(toUInt64(sessions)), 0), 2) as avg_session_seconds,
-      round(sum(toUInt64(sessions)) / nullIf(sum(toUInt64(users)), 0), 2) as sessions_per_user
+      session_duration_sum as total_session_duration,
+      sessions as total_sessions,
+      users as total_users,
+      round(session_duration_sum / nullIf(sessions, 0), 2) as avg_session_seconds,
+      round(sessions / nullIf(users, 0), 2) as sessions_per_user
     FROM klicklab.flat_user_session_stats
     WHERE summary_date >= toDate('${startDate}')
       AND summary_date <= toDate('${endDate}')
       AND sdk_key = '${sdkKey}'
-    GROUP BY summary_date
     ORDER BY summary_date ASC
   `;
   
@@ -716,14 +708,13 @@ const getPastPageViews = async (clickhouse, sdkKey, startDate, endDate, limit = 
   const query = `
     SELECT
       page_path,
-      sum(toUInt64(page_views)) as total_views
+      page_views as total_views
     FROM klicklab.flat_page_content_stats
     WHERE summary_date >= toDate('${startDate}')
       AND summary_date <= toDate('${endDate}')
       AND sdk_key = '${sdkKey}'
       AND page_path != ''
-    GROUP BY page_path
-    HAVING total_views > 0
+      AND page_views > 0
     ORDER BY total_views DESC
     LIMIT ${limit}
   `;
@@ -775,12 +766,11 @@ const getPastViewCounts = async (clickhouse, sdkKey, startDate, endDate) => {
   const query = `
     SELECT
       summary_date as date,
-      sum(toUInt64(ifNull(page_views, 0))) as totalViews
+      page_views as totalViews
     FROM klicklab.flat_page_content_stats
     WHERE summary_date >= toDate('${startDate}')
       AND summary_date <= toDate('${endDate}')
       AND sdk_key = '${sdkKey}'
-    GROUP BY summary_date
     ORDER BY summary_date ASC
   `;
   
@@ -830,13 +820,12 @@ const getPastClickCounts = async (clickhouse, sdkKey, startDate, endDate) => {
   const query = `
     SELECT
       summary_date as date,
-      sum(toUInt64(ifNull(event_count, 0))) as totalClicks
+      event_count as totalClicks
     FROM klicklab.flat_event_stats
     WHERE summary_date >= toDate('${startDate}')
       AND summary_date <= toDate('${endDate}')
       AND sdk_key = '${sdkKey}'
       AND event_name IN ('auto_click', 'user_click', 'click')
-    GROUP BY summary_date
     ORDER BY summary_date ASC
   `;
   
@@ -895,15 +884,14 @@ const getPastEventCounts = async (clickhouse, sdkKey, startDate, endDate) => {
     SELECT
       summary_date as date,
       event_name,
-      sum(event_count) as event_count,
-      sum(unique_users) as user_count,
-      round(sum(event_count) / greatest(sum(unique_users), 1), 2) as avg_event_per_user
+      event_count,
+      unique_users as user_count,
+      round(event_count / greatest(unique_users, 1), 2) as avg_event_per_user
     FROM klicklab.flat_event_stats
     WHERE summary_date >= toDate('${startDate}')
       AND summary_date <= toDate('${endDate}')
       AND sdk_key = '${sdkKey}'
       AND event_name != ''
-    GROUP BY summary_date, event_name
     ORDER BY summary_date ASC, event_count DESC
   `;
   
