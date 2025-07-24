@@ -6,6 +6,7 @@ import { RealtimeUsersSection } from './RealtimeUsersSection';
 import { InfoWidgetsSection } from './InfoWidgetsSection';
 import DateRangeSelector from '../ui/DateRangeSelector';
 
+// 필터 관련 데이터 가져오기 (날짜 범위에 따라 변경)
 async function fetchOverviewData(startDate: string, endDate: string) {
   const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
   
@@ -18,32 +19,53 @@ async function fetchOverviewData(startDate: string, endDate: string) {
     'Content-Type': 'application/json'
   };
 
-  const [userStatsRes, trafficStatsRes, pageStatsRes, realtimeRes, eventStatsRes] = await Promise.all([
+  const [userStatsRes, trafficStatsRes, pageStatsRes, eventStatsRes] = await Promise.all([
     fetch(`/api/overview/user-stats?startDate=${startDate}&endDate=${endDate}`, { headers }),
     fetch(`/api/overview/traffic-stats?startDate=${startDate}&endDate=${endDate}`, { headers }),
     fetch(`/api/overview/page-stats?startDate=${startDate}&endDate=${endDate}`, { headers }),
-    fetch('/api/overview/realtime', { headers }),
     fetch(`/api/overview/event-stats?startDate=${startDate}&endDate=${endDate}`, { headers })
   ]);
 
-  if (!userStatsRes.ok || !trafficStatsRes.ok || !pageStatsRes.ok || !realtimeRes.ok || !eventStatsRes.ok) {
+  if (!userStatsRes.ok || !trafficStatsRes.ok || !pageStatsRes.ok || !eventStatsRes.ok) {
     throw new Error('개요 데이터 조회에 실패했습니다.');
   }
 
   const userStats = await userStatsRes.json();
   const trafficStats = await trafficStatsRes.json();
   const pageStats = await pageStatsRes.json();
-  const realtime = await realtimeRes.json();
   const eventStats = await eventStatsRes.json();
   
   return {
     userStats: userStats.data,
     userChanges: userStats.changes,
+    userTrend: userStats.trend,
     trafficStats: trafficStats.data,
     pageStats: pageStats.data,
-    realtime: realtime.data,
     eventStats: eventStats.data
   };
+}
+
+// 실시간 데이터만 가져오기 (필터와 무관)
+async function fetchRealtimeData() {
+  const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+  
+  if (!token) {
+    throw new Error('인증 토큰이 필요합니다');
+  }
+
+  const headers = {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json'
+  };
+
+  const realtimeRes = await fetch('/api/overview/realtime', { headers });
+
+  if (!realtimeRes.ok) {
+    throw new Error('실시간 데이터 조회에 실패했습니다.');
+  }
+
+  const realtime = await realtimeRes.json();
+  return realtime.data;
 }
 
 // Google Analytics 스타일의 개요 대시보드
@@ -75,28 +97,36 @@ export const OverviewDashboard = forwardRef((props, ref) => {
     setShowPicker(val);
   }, []);
 
+  // 메인 개요 데이터 상태
   const [overviewData, setOverviewData] = useState<{
-    realtimeUsers: number;
-    realtimeTrend: any[];
     trafficSources: any[];
     topPages: any[];
     topClicks: any[];
     kpiData: any[];
     visitorTrendData: any[];
-    topLocations: any[];
   }>({
-    realtimeUsers: 0,
-    realtimeTrend: [],
     trafficSources: [],
     topPages: [],
     topClicks: [],
     kpiData: [],
-    visitorTrendData: [],
-    topLocations: []
+    visitorTrendData: []
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // 실시간 데이터 별도 상태
+  const [realtimeData, setRealtimeData] = useState<{
+    realtimeUsers: number;
+    realtimeTrend: any[];
+    topLocations: any[];
+  }>({
+    realtimeUsers: 0,
+    realtimeTrend: [],
+    topLocations: []
+  });
+  const [realtimeLoading, setRealtimeLoading] = useState(true);
+
+  // 필터에 따른 메인 데이터 가져오기
   useEffect(() => {
     const getOverviewData = async () => {
       try {
@@ -104,7 +134,7 @@ export const OverviewDashboard = forwardRef((props, ref) => {
         const startDate = dayjs(dateRange[0].startDate).format('YYYY-MM-DD');
         const endDate = dayjs(dateRange[0].endDate).format('YYYY-MM-DD');
         
-        const { userStats, userChanges, trafficStats, pageStats, realtime, eventStats } = await fetchOverviewData(startDate, endDate);
+        const { userStats, userChanges, userTrend, trafficStats, pageStats, eventStats } = await fetchOverviewData(startDate, endDate);
         
         // KPI 데이터 포맷팅
         const formattedKpiData = [
@@ -142,9 +172,15 @@ export const OverviewDashboard = forwardRef((props, ref) => {
           }
         ];
 
+        // 방문자 추이 데이터 변환 (VisitorChart 형태에 맞게)
+        const formattedVisitorTrend = (userTrend || []).map((item: any) => ({
+          date: item.date,
+          visitors: item.users || 0,
+          newVisitors: Math.round((item.users || 0) * 0.6), // 임시로 60%를 신규 방문자로 가정
+          returningVisitors: Math.round((item.users || 0) * 0.4) // 나머지 40%를 재방문자로 가정
+        }));
+
         setOverviewData({
-          realtimeUsers: parseInt(realtime.activeUsers30min) || 0,
-          realtimeTrend: realtime.trend || [],
           trafficSources: trafficStats.trafficSources || [],
           topPages: pageStats.topPages || [],
           topClicks: eventStats.topEvents?.map((event: any) => ({
@@ -152,8 +188,7 @@ export const OverviewDashboard = forwardRef((props, ref) => {
             count: event.count
           })) || [],
           kpiData: formattedKpiData,
-          visitorTrendData: [], // 임시로 빈 배열
-          topLocations: realtime.topLocations || []
+          visitorTrendData: formattedVisitorTrend
         });
         setError(null);
       } catch (err) {
@@ -165,10 +200,36 @@ export const OverviewDashboard = forwardRef((props, ref) => {
     };
 
     getOverviewData();
-    const intervalId = setInterval(getOverviewData, 60000); // 1분마다 데이터 갱신
+  }, [dateRange]); // dateRange가 변경될 때만 실행
 
-    return () => clearInterval(intervalId);
-  }, [dateRange]);
+  // 실시간 데이터 별도 업데이트 (1분마다)
+  useEffect(() => {
+    const getRealtimeData = async () => {
+      try {
+        setRealtimeLoading(true);
+        const realtime = await fetchRealtimeData();
+        
+        setRealtimeData({
+          realtimeUsers: parseInt(realtime.activeUsers30min) || 0,
+          realtimeTrend: realtime.trend || [],
+          topLocations: realtime.topLocations || []
+        });
+      } catch (err) {
+        console.error('실시간 데이터 조회 실패:', err);
+        // 실시간 데이터 조회 실패는 전체 에러로 처리하지 않음
+      } finally {
+        setRealtimeLoading(false);
+      }
+    };
+
+    // 초기 로드
+    getRealtimeData();
+    
+    // 1분마다 실시간 데이터만 새로고침
+    const realtimeInterval = setInterval(getRealtimeData, 60000);
+
+    return () => clearInterval(realtimeInterval);
+  }, []); // 빈 의존성 배열 = 컴포넌트 마운트시에만 실행
 
   if (error) {
     return (
@@ -201,10 +262,10 @@ export const OverviewDashboard = forwardRef((props, ref) => {
           loading={loading}
         />
         <RealtimeUsersSection 
-          activeUsers={overviewData.realtimeUsers}
-          trend={overviewData.realtimeTrend}
-          locations={overviewData.topLocations}
-          loading={loading}
+          activeUsers={realtimeData.realtimeUsers}
+          trend={realtimeData.realtimeTrend}
+          locations={realtimeData.topLocations}
+          loading={realtimeLoading}
         />
       </div>
       {/* 이하 기존 하단 위젯 그리드 등은 그대로 유지 */}

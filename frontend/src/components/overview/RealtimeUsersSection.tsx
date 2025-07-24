@@ -1,4 +1,5 @@
 import React from 'react';
+import { aggregateRegionData } from '../../utils/regionUtils';
 
 // 타입 정의
 interface TrendData { time: string; users: number; }
@@ -67,19 +68,19 @@ const RealtimeChart: React.FC<{ data: TrendData[]; loading: boolean }> = ({ data
           <div>
             {(() => {
               const idx = hoveredBar;
-              if (idx === 0) return '30분 전';
-              if (idx === data.length - 1) return '1분 미만';
-              return `${30 - idx}분 전`;
+              const minutesAgo = 29 - idx; // 29분 전부터 0분 전까지
+              if (minutesAgo === 0) return '지금';
+              if (minutesAgo === 1) return '1분 전';
+              return `${minutesAgo}분 전`;
             })()}
             &nbsp;({(() => {
-              // DB 시간을 한국 시간으로 변환 (+9)
+              // DB 데이터가 이미 한국시간이므로 직접 사용
               const dbTime = new Date(data[hoveredBar].time);
-              const koreaTime = new Date(dbTime.getTime() + (9 * 60 * 60 * 1000));
-              const year = koreaTime.getFullYear();
-              const month = String(koreaTime.getMonth() + 1).padStart(2, '0');
-              const day = String(koreaTime.getDate()).padStart(2, '0');
-              const hours = String(koreaTime.getHours()).padStart(2, '0');
-              const minutes = String(koreaTime.getMinutes()).padStart(2, '0');
+              const year = dbTime.getFullYear();
+              const month = String(dbTime.getMonth() + 1).padStart(2, '0');
+              const day = String(dbTime.getDate()).padStart(2, '0');
+              const hours = String(dbTime.getHours()).padStart(2, '0');
+              const minutes = String(dbTime.getMinutes()).padStart(2, '0');
               return `${year}-${month}-${day} ${hours}:${minutes}`;
             })()})
           </div>
@@ -135,10 +136,13 @@ export const RealtimeUsersSection: React.FC<RealtimeUsersSectionProps> = ({
     time: item.time,
     users: parseInt(item.users?.toString()) || 0
   }));
-  const displayLocations = locations.map((location: any) => ({
+  
+  // 지역 데이터 정규화 및 집계
+  const rawLocations = locations.map((location: any) => ({
     location: location.location,
     users: parseInt(location.users?.toString()) || 0
   }));
+  const displayLocations = aggregateRegionData(rawLocations);
 
   return (
     <div className="bg-white rounded-lg shadow p-6">

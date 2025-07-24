@@ -43,25 +43,14 @@ const REGION_NAME_MAPPING: Record<string, string> = {
   "Jeollanam-do": "전라남도",
   "Gyeongsangbuk-do": "경상북도",
   "Gyeongsangnam-do": "경상남도",
-  "Jeju-do": "제주특별자치도"
-
-  // 'Seoul': '서울특별시',
-  // 'Gyeonggi': '경기도',
-  // 'Busan': '부산광역시',
-  // 'South_Gyeongsang': '경상남도',
-  // 'Incheon': '인천광역시',
-  // 'North_Gyeongsang': '경상북도',
-  // 'South_Chungcheong': '충청남도',
-  // 'Gangwon': '강원특별자치도',
-  // 'North_Jeolla': '전라북도',
-  // 'South_Jeolla': '전라남도',
-  // 'North_Chungcheong': '충청북도',
-  // 'Daegu': '대구광역시',
-  // 'Gwangju': '광주광역시',
-  // 'Daejeon': '대전광역시',
-  // 'Ulsan': '울산광역시',
-  // 'Sejong': '세종특별자치시',
-  // 'Jeju': '제주특별자치도'
+  "Jeju-do": "제주특별자치도",
+  "South_Gyeongsang": "경상남도",
+  'North_Gyeongsang': '경상북도',
+  'South_Chungcheong': '충청남도',
+  'North_Jeolla': '전라북도',
+  'South_Jeolla': '전라남도',
+  'North_Chungcheong': '충청북도',
+  'Jeju': '제주특별자치도'
 };
 
 // 지역 메타데이터 (ID, 이름, 색상만 포함)
