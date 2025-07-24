@@ -25,7 +25,7 @@ export const SettingsDashboard: React.FC = () => {
     getKey();
   }, []);
 
-  const sdkCode = `<script type="module" src="https://klicklab-sdk.pages.dev/klicklab_sdk.js" data-sdk-key="${keyData}"></script>`;
+  const sdkCode = `<script src="https://klicklab-sdk.pages.dev/klicklab_sdk.js" data-sdk-key="${keyData}"></script>`;
 
   const [showToast, setShowToast] = useState(false);
 
