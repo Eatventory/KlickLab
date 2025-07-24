@@ -25,7 +25,10 @@ export const REGION_MAPPING: Record<string, string> = {
   'South_Jeolla': '전라남도',
   'North_Chungcheong': '충청북도',
   'Jeju': '제주도',
-  'Gyeonggi': '경기도' // 추가 매핑
+  'Gyeonggi': '경기도', // 추가 매핑
+  
+  // 데이터베이스에서 발견된 추가 매핑들 (중복 제거됨)
+  'Gangwon': '강원도'
 };
 
 // 지역명 정규화 함수

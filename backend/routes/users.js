@@ -42,7 +42,7 @@ const getTodayData = async (sdkKey, startDate, endDate) => {
   return await executeQuery(dailyQuery);
 };
 
-// 과거 데이터 조회 함수, FLAT 테이블에서 조회
+// 과거 데이터 조회 함수, FLAT 테이블에서 조회 (시간별 데이터 유지)
 const getPastData = async (sdkKey, startDate, endDate) => {
   const flatQuery = `
     SELECT
@@ -54,24 +54,19 @@ const getPastData = async (sdkKey, startDate, endDate) => {
         device_type,
         device_os,
 
-        /* 이미 집계된 값을 날짜·시간·세그먼트별로 한 번 더 SUM */
-        sum(users)                AS users,
-        sum(sessions)             AS sessions,
-        sum(session_duration_sum) AS session_duration_sum
+        /* 시간별 집계된 값을 그대로 사용 (중복 방지) */
+        users,
+        sessions,
+        session_duration_sum
     FROM klicklab.flat_user_session_stats
     WHERE summary_date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
       AND sdk_key = '${sdkKey}'
-    GROUP BY
-        summary_date,
-        summary_hour,
-        city, age_group, gender,
-        device_type, device_os
     ORDER BY summary_date, summary_hour
   `;
   return await executeQuery(flatQuery);
 };
 
-// flat과 aggregate 합치는 함수
+// flat과 aggregate 합치는 함수 (시간별 데이터 유지)
 function mergeSessionRows(...arrays) {
   const merged = {};
 

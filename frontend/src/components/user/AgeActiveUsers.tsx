@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { getRangeLabel } from '../../utils/getRangeLabel';
+import { AGE_GROUP_ORDER, AGE_GROUP_LABELS, convertAgeToGroup } from '../../utils/ageUtils';
 import dayjs from 'dayjs';
 
 // 타입 정의
@@ -29,26 +30,11 @@ interface AgeActiveUsersProps {
   loading?: boolean;
 }
 
-// 연령대 순서 및 라벨 매핑
-const ageOrder = ['10s', '20s', '30s', '40s', '50s', '60s+'];
-
-const ageLabels: Record<string, string> = {
-  '10s': '10대',
-  '20s': '20대', 
-  '30s': '30대',
-  '40s': '40대',
-  '50s': '50대',
-  '60s+': '60+'
-};
-
-const ageLabelsSummary: Record<string, string> = {
-  '10s': '10대',
-  '20s': '20대', 
-  '30s': '30대',
-  '40s': '40대',
-  '50s': '50대',
-  '60s+': '60대 이상'
-};
+// 이제 ageUtils.ts에서 import한 값들을 사용합니다
+// 하위 호환성을 위해 기존 변수들을 유지하되, 새로운 유틸리티 함수들을 참조합니다
+const ageOrder = AGE_GROUP_ORDER.slice(0, -1); // 'unknown' 제외
+const ageLabels = AGE_GROUP_LABELS;
+const ageLabelsSummary = AGE_GROUP_LABELS;
 
 export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({ 
   dateRange, 
@@ -67,23 +53,19 @@ export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({
     const ageMap: Record<string, number> = {};
     
     data.forEach((row) => {
-      let age = row.segment_value;
-      // 'unknown', null, undefined 모두 'unknown'으로 취급
-      if (!age || age === 'unknown') {
-        age = 'unknown';
-      }
-      if (!ageMap[age]) ageMap[age] = 0;
-      ageMap[age] += parseInt(row.user_count.toString());
+      // 구체적 나이를 연령대 그룹으로 변환
+      const ageGroup = convertAgeToGroup(row.segment_value);
+      
+      if (!ageMap[ageGroup]) ageMap[ageGroup] = 0;
+      ageMap[ageGroup] += parseInt(row.user_count.toString());
     });
 
     // 알려진 연령대와 알려지지 않은 연령대 분리
     const knownAgeUsers = Object.entries(ageMap)
-      .filter(([age]) => ageOrder.includes(age))
+      .filter(([age]) => AGE_GROUP_ORDER.slice(0, -1).includes(age)) // 'unknown' 제외
       .reduce((sum, [, count]) => sum + count, 0);
 
-    const unknownAgeUsers = Object.entries(ageMap)
-      .filter(([age]) => !ageOrder.includes(age))
-      .reduce((sum, [, count]) => sum + count, 0);
+    const unknownAgeUsers = ageMap['unknown'] || 0;
 
     // 알려지지 않은 연령대들 로그 출력
     const unknownAges = Object.entries(ageMap)

@@ -50,7 +50,11 @@ const REGION_NAME_MAPPING: Record<string, string> = {
   'North_Jeolla': '전라북도',
   'South_Jeolla': '전라남도',
   'North_Chungcheong': '충청북도',
-  'Jeju': '제주특별자치도'
+  'Jeju': '제주특별자치도',
+  
+  // 데이터베이스에서 발견된 누락 매핑들
+  'Gyeonggi': '경기도', // 3,188명의 사용자!
+  'Gangwon': '강원특별자치도'
 };
 
 // 지역 메타데이터 (ID, 이름, 색상만 포함)
