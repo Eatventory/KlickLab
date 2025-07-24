@@ -18,6 +18,7 @@ type KpiReportResponse = {
 export const ReportDashboard: React.FC = () => {
   const [reportData, setReportData] = useState<KpiReportResponse | null>(null);
   const [openCollapse, setOpenCollapse] = useState<string[]>([]);
+  const [exportFormat, setExportFormat] = useState<string>('csv');
 
   const [dateRange, setDateRange] = useState([{ startDate: addDays(new Date(), -29), endDate: new Date(), key: 'selection' }]);
   const [tempRange, setTempRange] = useState(dateRange);
@@ -58,7 +59,7 @@ export const ReportDashboard: React.FC = () => {
     fetchReport(startDate, endDate);
   }, [dateRange]);
 
-  const handleExport = async () => {
+  const handleExportCSV = async () => {
     try {
       const blobResponse = await fetch('/api/report/kpi-report/csv', {
         method: 'POST',
@@ -88,6 +89,113 @@ export const ReportDashboard: React.FC = () => {
     }
   };
 
+  const handleExportTxt = async () => {
+    const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+    if (!token) throw new Error("No token");
+  
+    const { startDate, endDate } = dateRange[0];
+    const startStr = dayjs(startDate).format('YYYY-MM-DD');
+    const endStr = dayjs(endDate).format('YYYY-MM-DD');
+  
+    try {
+      const res = await fetch(`/api/report/kpi-report/txt?startDate=${startStr}&endDate=${endStr}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+  
+      const text = await res.text();
+  
+      const contentDisposition = res.headers.get('Content-Disposition');
+      const filenameMatch = contentDisposition?.match(/filename="(.+?)"/);
+      const filename = filenameMatch?.[1] || `kpi-report_${startStr}_to_${endStr}.txt`;
+  
+      const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(true);
+      console.error("TXT 다운로드 실패", err);
+    }
+  };
+
+  const handleExportMD = async () => {
+    const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+    if (!token) {
+      console.error('Token missing');
+      return;
+    }
+  
+    const { startDate, endDate } = dateRange[0];
+    const startStr = dayjs(startDate).format('YYYY-MM-DD');
+    const endStr = dayjs(endDate).format('YYYY-MM-DD');
+  
+    try {
+      const res = await fetch(`/api/report/kpi-report/md?startDate=${startStr}&endDate=${endStr}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+  
+      if (!res.ok) throw new Error('응답 실패');
+  
+      const markdown = await res.text();
+  
+      const contentDisposition = res.headers.get('Content-Disposition');
+      const filenameMatch = contentDisposition?.match(/filename="(.+?)"/);
+      const filename = filenameMatch?.[1] || `kpi-report_${startStr}_to_${endStr}.md`;
+  
+      const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+      const url = window.URL.createObjectURL(blob);
+  
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(true);
+      console.error('Markdown 다운로드 실패:', err);
+    }
+  };
+
+  const handleExportHTML = async () => {
+    const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+    if (!token) return;
+  
+    const { startDate, endDate } = dateRange[0];
+    const startStr = dayjs(startDate).format('YYYY-MM-DD');
+    const endStr = dayjs(endDate).format('YYYY-MM-DD');
+  
+    try {
+      const res = await fetch(`/api/report/kpi-report/html?startDate=${startStr}&endDate=${endStr}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+  
+      const html = await res.text();
+  
+      const contentDisposition = res.headers.get('Content-Disposition');
+      const filenameMatch = contentDisposition?.match(/filename="(.+?)"/);
+      const filename = filenameMatch?.[1] || `kpi-report_${startStr}_to_${endStr}.html`;
+  
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(true);
+      console.error("HTML 다운로드 실패", err);
+    }
+  };
+
   return (
     <div>
       <div className='w-full flex justify-end border-b-2 border-dashed'>
@@ -113,10 +221,25 @@ export const ReportDashboard: React.FC = () => {
               <FileText className="w-5 h-5 text-gray-600" />
               <h2 className="text-lg font-semibold text-gray-900">KPI 요약 리포트</h2>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
+              <select
+                value={exportFormat}
+                onChange={(e) => setExportFormat(e.target.value)}
+                className="border border-gray-300 rounded px-2 py-1 text-sm"
+              >
+                <option value="csv">CSV 파일</option>
+                <option value="txt">TXT 파일</option>
+                <option value="md">Markdown 파일</option>
+                <option value="html">HTML 파일</option>
+              </select>
               <button
-                onClick={() => handleExport()}
-                className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                onClick={() =>
+                  exportFormat === 'csv' ? handleExportCSV() : 
+                  exportFormat === 'txt' ? handleExportTxt() : 
+                  exportFormat === 'md' ? handleExportMD() : 
+                  handleExportHTML()
+                }
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
               >
                 <Download className="w-4 h-4" />
                 다운로드
