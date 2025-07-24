@@ -48,45 +48,31 @@ export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({
 
   // 연령 데이터 처리 (메모화)
   const ageData = useMemo(() => {
-    if (!data || !Array.isArray(data)) return [];
+    if (!data || !Array.isArray(data) || data.length === 0) {
+      return [];
+    }
 
     const ageMap: Record<string, number> = {};
-    
     data.forEach((row) => {
-      // 구체적 나이를 연령대 그룹으로 변환
       const ageGroup = convertAgeToGroup(row.segment_value);
-      
-      if (!ageMap[ageGroup]) ageMap[ageGroup] = 0;
-      ageMap[ageGroup] += parseInt(row.user_count.toString());
+      if (!ageMap[ageGroup]) {
+        ageMap[ageGroup] = 0;
+      }
+      ageMap[ageGroup] += parseInt(row.user_count.toString(), 10);
     });
 
-    // 알려진 연령대와 알려지지 않은 연령대 분리
-    const knownAgeUsers = Object.entries(ageMap)
-      .filter(([age]) => AGE_GROUP_ORDER.slice(0, -1).includes(age)) // 'unknown' 제외
-      .reduce((sum, [, count]) => sum + count, 0);
+    const formattedData: AgeData[] = ageOrder.map((age, index) => ({
+      id: age,
+      ageRange: ageLabels[age],
+      users: ageMap[age] || 0,
+      color: `hsl(220, 70%, ${85 - index * 10}%)`,
+    }));
 
-    const unknownAgeUsers = ageMap['unknown'] || 0;
-
-    // 알려지지 않은 연령대들 로그 출력
-    const unknownAges = Object.entries(ageMap)
-      .filter(([age]) => !ageOrder.includes(age));
-
-    // 연령대 순서에 따라 데이터 정렬 및 변환 (알려진 연령대만)
-    const formattedData: AgeData[] = ageOrder
-      .filter(age => ageMap[age] && ageMap[age] > 0)
-      .map((age, index) => ({
-        id: age,
-        ageRange: ageLabels[age],
-        users: ageMap[age] || 0,
-        color: `hsl(220, 70%, ${85 - (index * 10)}%)`
-      }));
-
-    // "알 수 없음" 연령대 항상 추가 (데이터가 없어도 0으로 표시)
     formattedData.push({
       id: 'unknown',
       ageRange: '알 수 없음',
-      users: unknownAgeUsers,
-      color: '#9ca3af' // 회색 색상
+      users: ageMap['unknown'] || 0,
+      color: '#9ca3af',
     });
 
     return formattedData;

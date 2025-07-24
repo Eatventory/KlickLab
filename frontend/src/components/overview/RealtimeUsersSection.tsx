@@ -162,7 +162,7 @@ export const RealtimeUsersSection: React.FC<RealtimeUsersSectionProps> = ({
         <div className="mt-4">
           <h3 className="text-sm font-medium text-gray-700 mb-2">주요 지역</h3>
           <div className="space-y-1">
-            {displayLocations.slice(0, 3).map((location, index) => (
+            {displayLocations.slice(0, 7).map((location, index) => (
               <div key={index} className="flex justify-between text-sm">
                 <span className="text-gray-600">{location.location}</span>
                 <span className="font-medium">{location.users.toLocaleString()}명</span>
