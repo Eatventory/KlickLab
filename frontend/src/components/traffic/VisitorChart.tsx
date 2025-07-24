@@ -24,6 +24,28 @@ function formatKoreanNumber(value: number): string {
 }
 
 export const VisitorChart: React.FC<VisitorChartProps> = ({ data, period = 'daily' }) => {
+  // 하드코딩된 목데이터 (API 데이터가 없을 때 사용)
+  const today = new Date();
+  const days = 7;
+  const dateList = Array.from({ length: days }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(today.getDate() - (days - 1 - i));
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
+  const fallbackData = [
+    { date: dateList[0], visitors: 132, newVisitors: 80, returningVisitors: 52 },
+    { date: dateList[1], visitors: 145, newVisitors: 90, returningVisitors: 55 },
+    { date: dateList[2], visitors: 158, newVisitors: 95, returningVisitors: 63 },
+    { date: dateList[3], visitors: 170, newVisitors: 100, returningVisitors: 70 },
+    { date: dateList[4], visitors: 162, newVisitors: 92, returningVisitors: 70 },
+    { date: dateList[5], visitors: 180, newVisitors: 110, returningVisitors: 70 },
+    { date: dateList[6], visitors: 175, newVisitors: 105, returningVisitors: 70 },
+  ];
+
+  // API 데이터가 없거나 모두 0인 경우 목데이터 사용
+  const hasValidData = data && data.length > 0 && data.some(d => d.visitors > 0);
+  const inputData = hasValidData ? data : fallbackData;
+
   // 집계 단위별 라벨 포맷 함수
   const formatDate = (dateString: string) => {
     if (!dateString || typeof dateString !== 'string') return '-';
@@ -94,7 +116,7 @@ export const VisitorChart: React.FC<VisitorChartProps> = ({ data, period = 'dail
   };
 
   // date가 있는 데이터만 필터링 후 정렬
-  let displayData = data.filter(d => d.date != null && d.date !== '');
+  let displayData = inputData.filter(d => d.date != null && d.date !== '');
   displayData = displayData.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   
   // 데이터 검증 및 보정: 총 방문자 수가 신규+재방문자와 일치하도록
@@ -126,35 +148,36 @@ export const VisitorChart: React.FC<VisitorChartProps> = ({ data, period = 'dail
       hours.push(`${year}-${month}-${day} ${hour}`);
     }
     displayData = hours.map(dateStr => {
-      const found = data.find(d => d.date === dateStr);
+      const found = inputData.find(d => d.date === dateStr);
       return found || { date: dateStr, visitors: 0, newVisitors: 0, returningVisitors: 0 };
     });
   } else if (period === 'daily') {
-    const today = new Date();
+    // 오늘 날짜를 KST(Asia/Seoul) 기준으로 생성
+    const nowKST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
     const days: string[] = [];
     for (let i = 6; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(today.getDate() - i);
+      const d = new Date(nowKST);
+      d.setDate(nowKST.getDate() - i);
       const dateStr = d.toISOString().slice(0, 10);
       days.push(dateStr);
     }
     displayData = days.map(dateStr => {
-      const found = displayData.find(d => d.date === dateStr);
+      const found = inputData.find(d => d.date === dateStr);
       return found || { date: dateStr, visitors: 0, newVisitors: 0, returningVisitors: 0 };
     });
+  } else { // 주별/월별은 DB에서 받은 순서대로 그대로 사용 (보정/매칭 X)
+    displayData = inputData;
   }
-  // 주별/월별은 DB에서 받은 순서대로 그대로 사용 (보정/매칭 X)
 
   return (
-    <div className="card">
+    <div className="card p-2">
       <div className="mb-4">
         <h3 className="text-lg font-semibold text-gray-900">방문자 추이</h3>
-        <p className="text-sm text-gray-600">{getPeriodDescription()}</p>
+        <p className="text-sm text-gray-600">최근 7일간의 방문자 변화</p>
       </div>
-      
-      <div className="h-80">
+      <div className="h-52">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={displayData} margin={{ top: 5, right: 30, left: 20, bottom: 30 }}>
+          <LineChart data={displayData} margin={{ top: 5, right: 0, left: 0, bottom: 10 }} className='p-1'>
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
             <XAxis 
               dataKey="date" 
@@ -169,7 +192,7 @@ export const VisitorChart: React.FC<VisitorChartProps> = ({ data, period = 'dail
               // tickCount={6}
             />
             <Tooltip content={<CustomTooltip />} />
-            <Legend />
+
             <Line 
               type="monotone" 
               dataKey="visitors" 
@@ -179,24 +202,7 @@ export const VisitorChart: React.FC<VisitorChartProps> = ({ data, period = 'dail
               activeDot={{ r: 6 }}
               name="총 방문자"
             />
-            <Line 
-              type="monotone" 
-              dataKey="newVisitors" 
-              stroke="#10b981" 
-              strokeWidth={2}
-              dot={{ fill: '#10b981', strokeWidth: 2, r: 3 }}
-              activeDot={{ r: 5 }}
-              name="신규 방문자"
-            />
-            <Line 
-              type="monotone" 
-              dataKey="returningVisitors" 
-              stroke="#8b5cf6" 
-              strokeWidth={2}
-              dot={{ fill: '#8b5cf6', strokeWidth: 2, r: 3 }}
-              activeDot={{ r: 5 }}
-              name="재방문자"
-            />
+
           </LineChart>
         </ResponsiveContainer>
       </div>

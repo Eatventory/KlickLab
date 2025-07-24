@@ -1,395 +1,262 @@
 const express = require("express");
 const router = express.Router();
 const clickhouse = require("../src/config/clickhouse");
-const {
-  buildFilterCondition,
-  buildUserDistributionFilter,
-} = require("../utils/filter");
 const authMiddleware = require("../middlewares/authMiddleware");
-const { formatLocalDateTime } = require("../utils/formatLocalDateTime");
-const {
-  getLocalNow,
-  getIsoNow,
-  floorToNearest10Min,
-  getNearestHourFloor,
-  getOneHourAgo,
-  getTodayStart,
-} = require("../utils/timeUtils");
 
-const localNow = getLocalNow();
-const isoNow = getIsoNow();
-const tenMinutesFloor = formatLocalDateTime(floorToNearest10Min());
-const NearestHourFloor = formatLocalDateTime(getNearestHourFloor());
-const oneHourFloor = formatLocalDateTime(getOneHourAgo());
-const todayStart = formatLocalDateTime(getTodayStart());
 
-const users_if = "DISTINCT if(user_id IS NULL, client_id, toString(user_id))";
+// 상수 정의
+const GENDER_FILTER = "AND (segment_type != 'user_gender' OR (segment_type = 'user_gender' AND segment_value != 'unknown'))";
+const UNKNOWN_FILTER = "AND segment_value != 'unknown'";
+const SELECT_FIELDS = "segment_type, segment_value, dist_type, dist_value, sum(user_count) as user_count";
+const GROUP_BY_FIELDS = "GROUP BY segment_type, segment_value, dist_type, dist_value";
 
-router.get("/top-clicks", authMiddleware, async (req, res) => {
-  const { sdk_key } = req.user;
-  try {
-    const segment = req.query.filter;
-    const validSegments = [
-      "user_gender",
-      "user_age",
-      "traffic_source",
-      "device_type",
-    ];
-
-    if (!validSegments.includes(segment)) {
-      return res.status(400).json({ error: "Invalid user segment" });
-    }
-
-    const today = new Date();
-    const fromDate = new Date(today);
-    fromDate.setDate(today.getDate() - 6);
-    const fromDateStr = fromDate.toISOString().slice(0, 10); // 'YYYY-MM-DD'
-
-    // 1. 클릭 요약
-    const summaryQuery = `
-      SELECT
-        segment_value AS segment,
-        sum(total_clicks) AS totalClicks,
-        sum(total_users) AS totalUsers,
-        round(sum(total_clicks) / sum(total_users), 1) AS avgClicksPerUser
-      FROM daily_click_summary
-      WHERE segment_type = '${segment}' AND date >= toDate('${localNow}') - INTERVAL 6 DAY
-        AND sdk_key = '${sdk_key}'
-      GROUP BY segment
-    `;
-
-    // 2. Top 클릭 요소
-    const topQuery = `
-      SELECT
-        segment_value AS segment,
-        element,
-        sum(total_clicks) AS totalClicks,
-        sum(user_count) AS userCount
-      FROM daily_top_elements
-      WHERE segment_type = '${segment}' AND date >= toDate('${localNow}') - INTERVAL 6 DAY
-        AND sdk_key = '${sdk_key}'
-      GROUP BY segment, element
-      ORDER BY segment, totalClicks DESC
-    `;
-
-    // 3. 유저 분포
-    const distQuery = `
-      SELECT
-        segment_value AS segment,
-        dist_type,
-        dist_value,
-        sum(user_count) AS count
-      FROM daily_user_distribution
-      WHERE segment_type = '${segment}' AND date >= toDate('${localNow}') - INTERVAL 6 DAY
-        AND sdk_key = '${sdk_key}'
-      GROUP BY segment, dist_type, dist_value
-    `;
-
-    const [summaryRes, topRes, distRes] = await Promise.all([
-      clickhouse
-        .query({ query: summaryQuery, format: "JSON" })
-        .then((r) => r.json()),
-      clickhouse
-        .query({ query: topQuery, format: "JSON" })
-        .then((r) => r.json()),
-      clickhouse
-        .query({ query: distQuery, format: "JSON" })
-        .then((r) => r.json()),
-    ]);
-
-    // 분포 가공
-    const ageDistBySegment = {};
-    const deviceDistBySegment = {};
-    for (const row of distRes.data) {
-      const seg = row.segment;
-      const distType = row.dist_type;
-      const value = row.dist_value;
-      const count = row.count;
-
-      if (distType === "ageGroup") {
-        if (!ageDistBySegment[seg]) ageDistBySegment[seg] = {};
-        ageDistBySegment[seg][value] = count;
-      } else if (distType === "device") {
-        if (!deviceDistBySegment[seg]) deviceDistBySegment[seg] = {};
-        deviceDistBySegment[seg][value] = count;
-      }
-    }
-
-    // Top 요소 가공
-    const topElementsBySegment = {};
-    for (const row of topRes.data) {
-      const seg = row.segment;
-      if (!topElementsBySegment[seg]) topElementsBySegment[seg] = [];
-      topElementsBySegment[seg].push(row);
-    }
-
-    // 종합 조립
-    const result = [];
-    for (const row of summaryRes.data) {
-      const seg = row.segment;
-      const topList = (topElementsBySegment[seg] || []).slice(0, 3);
-      const total = row.totalClicks;
-
-      const topElements = topList.map((el) => ({
-        element: el.element,
-        totalClicks: el.totalClicks,
-        percentage:
-          total > 0 ? Math.round((el.totalClicks / total) * 1000) / 10 : 0,
-        userCount: el.userCount,
-      }));
-
-      result.push({
-        segmentValue: seg,
-        totalUsers: row.totalUsers,
-        totalClicks: row.totalClicks,
-        averageClicksPerUser: row.avgClicksPerUser,
-        topElements,
-        userDistribution: {
-          ageGroup: ageDistBySegment[seg] || {},
-          device: deviceDistBySegment[seg] || {},
-        },
-      });
-    }
-
-    res.status(200).json({ data: result });
-  } catch (err) {
-    console.error("Top Clicks API ERROR:", err);
-    res.status(500).json({ error: "Failed to get top clicks data" });
-  }
-});
-
-router.get("/user-type-summary", authMiddleware, async (req, res) => {
-  const { sdk_key } = req.user;
-  const { period = "1day", userType = "all", device = "all" } = req.query;
-
-  const condition = buildUserDistributionFilter({ period, userType, device });
-
-  const query = `
-    WITH union_data AS (
-      SELECT * FROM hourly_user_distribution
-      WHERE ${condition}
-        AND date_time >= toDateTime('${todayStart}')
-        AND date_time <= toDateTime('${oneHourFloor}')
-        AND sdk_key = '${sdk_key}'
-      UNION ALL
-      SELECT * FROM minutes_user_distribution
-      WHERE ${condition}
-        AND date_time >= toDateTime('${NearestHourFloor}')
-        AND date_time < toDateTime('${tenMinutesFloor}')
-        AND sdk_key = '${sdk_key}'
-    )
-    SELECT
-      dist_type,
-      sum(user_count) AS count
-    FROM union_data
-    GROUP BY dist_type
-  `;
+// 공통 쿼리 실행 함수
+const executeQuery = async (query) => {
 
   try {
-    const result = await clickhouse
-      .query({ query, format: "JSON" })
-      .then((r) => r.json());
-    const rows = result.data || [];
-
-    const old_users = rows.find((r) => r.dist_type === "existing")?.count || 0;
-    const new_users = rows.find((r) => r.dist_type === "new")?.count || 0;
-
-    res.status(200).json({
-      data: [
-        { type: "신규 유저", value: Number(new_users) },
-        { type: "기존 유저", value: Number(old_users) },
-      ],
-    });
+    const result = await clickhouse.query({ query, format: "JSON" }).then(r => r.json());
+    return result.data || [];
   } catch (err) {
-    console.error("User Type API ERROR:", err);
-    res.status(500).json({ error: "Failed to get user type data" });
+    console.error(`Query execution failed:`, err.message);
+    return [];
   }
-});
+};
 
-router.get("/os-type-summary", authMiddleware, async (req, res) => {
-  const { sdk_key } = req.user;
-  const { period, userType, device } = req.query;
-  const condition = buildFilterCondition({ period, userType, device });
-
-  const query = `
-    SELECT 
-      device_os AS os, 
-      count(${users_if}) AS users
-    FROM events
-    WHERE user_id IS NOT NULL AND length(device_os) > 0 AND ${condition}
-      AND sdk_key = '${sdk_key}'
-    GROUP BY device_os
-  `;
-
-  try {
-    const resultRes = await clickhouse.query({ query, format: "JSON" });
-    const result = await resultRes.json();
-
-    const osCategoryMap = {
-      Android: "mobile",
-      iOS: "mobile",
-      Windows: "desktop",
-      macOS: "desktop",
-      Linux: "desktop",
-    };
-
-    const data = result.data.map((item) => ({
-      os: item.os,
-      users: Number(item.users),
-      category: osCategoryMap[item.os] || "unknown",
-    }));
-
-    res.status(200).json({ data });
-  } catch (err) {
-    console.error("OS Type API ERROR:", err);
-    res.status(500).json({ error: "Failed to get os type data" });
-  }
-});
-
-router.get("/browser-type-summary", authMiddleware, async (req, res) => {
-  const { sdk_key } = req.user;
-  const { period, userType, device } = req.query;
-  const condition = buildFilterCondition({ period, userType, device });
-
-  const query = `
-    SELECT 
-      browser,
-      device_type,
-      count(${users_if}) AS users
-    FROM events
-    WHERE toDate(timestamp) = today()
-      AND user_id IS NOT NULL AND ${condition}
-      AND length(browser) > 0 AND length(device_type) > 0
-      AND sdk_key = '${sdk_key}'
-    GROUP BY browser, device_type
-  `;
-
-  try {
-    const resultRes = await clickhouse.query({ query, format: "JSON" });
-    const result = await resultRes.json();
-
-    const convertBrowser = (browser, deviceType) => {
-      const mapping = {
-        Chrome: { desktop: "Chrome", mobile: "Chrome Mobile" },
-        Safari: { desktop: "Safari", mobile: "Safari Mobile" },
-        Edge: { desktop: "Edge" },
-        Firefox: { desktop: "Firefox" },
-        "Samsung Internet": { mobile: "Samsung Internet" },
-      };
-      const name = mapping[browser]?.[deviceType] || "기타";
-      const category = deviceType === "mobile" ? "mobile" : "desktop";
-      return { name, category };
-    };
-
-    const grouped = {};
-
-    for (const row of result.data) {
-      const { name, category } = convertBrowser(row.browser, row.device_type);
-      if (!grouped[name]) {
-        grouped[name] = { browser: name, users: 0, category };
-      }
-      grouped[name].users += Number(row.users);
-    }
-
-    res.status(200).json({ data: Object.values(grouped) });
-  } catch (err) {
-    console.error("Device Type API ERROR:", err);
-    res.status(500).json({ error: "Failed to get device type data" });
-  }
-});
-
-// 재방문율 = 최근 7일 중 2일 이상 방문한 user_id 수 ÷ 전체 방문 user_id 수
-router.get("/returning", authMiddleware, async (req, res) => {
-  const { sdk_key } = req.user;
-  const { period, userType, device } = req.query;
-  const periodDays = { "5min": 1, "1hour": 1, "1day": 1, "1week": 7 };
-  const dayRange = periodDays[period] || 1;
-  const deviceFilter = device !== "all" ? `AND device_type = '${device}'` : "";
-
-  const condition = `user_id IS NOT NULL ${deviceFilter}`;
-
-  const query = `
-    SELECT
-      countIf(days_visited > 1) AS returning_users,
-      count() AS total_users
-    FROM (
-      SELECT
-        user_id,
-        count(DISTINCT toDate(timestamp)) AS days_visited
-      FROM events
-      WHERE ${condition}
-        AND toDate(timestamp) BETWEEN today() - interval ${
-          dayRange - 1
-        } day AND today()
-        AND sdk_key = '${sdk_key}'
-      GROUP BY user_id
-    )
-  `;
-
-  try {
-    const resultRes = await clickhouse.query({ query, format: "JSON" });
-    const result = await resultRes.json();
-    const row = result.data[0] || { returning_users: 0, total_users: 0 };
-
-    const rate =
-      row.total_users > 0
-        ? Math.round((row.returning_users / row.total_users) * 1000) / 10
-        : 0;
-
-    res.status(200).json({
-      data: {
-        returningUsers: Number(row.returning_users),
-        totalUsers: Number(row.total_users),
-        returnRatePercent: rate,
-      },
-    });
-  } catch (err) {
-    console.error("returning Rate API ERROR:", err);
-    res.status(500).json({ error: "Failed to get returning rate data" });
-  }
-});
-
-async function getBackwardPath(sdkKey, toPage, depth = 3) {
-  let currentTarget = toPage;
-  const path = [toPage];
-
-  for (let i = 0; i < depth; i++) {
-    const query = `
-      SELECT source
-      FROM funnel_links_daily
-      WHERE event_date >= toDate('${localNow}') - INTERVAL 6 DAY
-        AND target = '${currentTarget}'
+// 시간별 데이터 조회 함수
+const getHourlyData = async (sdkKey, availableTimes) => {
+  const hourlyData = [];
+  
+  for (const availableTime of availableTimes) {
+    const hourlyQuery = `
+      SELECT ${SELECT_FIELDS}
+      FROM klicklab.hourly_user_distribution
+      WHERE date_time = '${availableTime}'
         AND sdk_key = '${sdkKey}'
-      GROUP BY source
-      ORDER BY sum(sessions) DESC
-      LIMIT 1;
+        ${UNKNOWN_FILTER}
+        ${GENDER_FILTER}
+      ${GROUP_BY_FIELDS}
     `;
+    
+    try {
+      const result = await executeQuery(hourlyQuery);
+      hourlyData.push(...result);
+    } catch (err) {
+      console.warn(`Failed to fetch hourly data for ${availableTime}:`, err.message);
+    }
+  }
+  
+  return hourlyData;
+};
 
-    const res = await clickhouse
-      .query({ query, format: "JSON" })
-      .then((r) => r.json());
-    const topSource = res.data?.[0]?.source;
-    if (!topSource) break;
-
-    path.unshift(topSource);
-    currentTarget = topSource;
+// 10분 단위 데이터 조회 함수
+const getTenMinuteData = async (sdkKey, startDate, currentHour, currentMinute) => {
+  const tenMinuteData = [];
+  const currentHourString = currentHour.toString().padStart(2, '0');
+  
+  // 현재 시간의 0분, 10분, 20분, 30분, 40분, 50분대 데이터만 조회
+  for (let minute = 0; minute <= 50; minute += 10) {
+    if (minute > currentMinute) break; // 현재 시각 이후는 조회하지 않음
+    
+    const minuteString = minute.toString().padStart(2, '0');
+    const dateTime = `${startDate} ${currentHourString}:${minuteString}:00`;
+    
+    const tenMinuteQuery = `
+      SELECT ${SELECT_FIELDS}
+      FROM klicklab.minutes_user_distribution
+      WHERE date_time = '${dateTime}'
+        AND sdk_key = '${sdkKey}'
+        ${UNKNOWN_FILTER}
+        ${GENDER_FILTER}
+      ${GROUP_BY_FIELDS}
+    `;
+    
+    try {
+      const result = await executeQuery(tenMinuteQuery);
+      tenMinuteData.push(...result);
+    } catch (err) {
+      console.warn(`Failed to fetch 10-minute data for ${currentHour}:${currentMinute}:`, err.message);
+    }
   }
 
-  return path;
-}
+  
+  return tenMinuteData;
+};
 
-/* 전환자 공통 흐름 카드 */
-router.get("/common-paths", authMiddleware, async (req, res) => {
+// 일별 데이터 조회 함수
+const getDailyData = async (sdkKey, startDate, endDate) => {
+  const dailyQuery = `
+    SELECT ${SELECT_FIELDS}
+    FROM klicklab.daily_user_distribution
+    WHERE date >= '${startDate}' AND date <= '${endDate}'
+      AND sdk_key = '${sdkKey}'
+      ${UNKNOWN_FILTER}
+      ${GENDER_FILTER}
+    ${GROUP_BY_FIELDS}
+  `;
+  
+  return await executeQuery(dailyQuery);
+};
+
+// 폴백 데이터 조회 함수
+const getFallbackData = async (sdkKey, startDate) => {
+  // 먼저 오늘 일별 데이터 시도
+  const dailyFallbackQuery = `
+    SELECT ${SELECT_FIELDS}
+    FROM klicklab.daily_user_distribution
+    WHERE date = toDate('${startDate}')
+      AND sdk_key = '${sdkKey}'
+      ${UNKNOWN_FILTER}
+      ${GENDER_FILTER}
+    ${GROUP_BY_FIELDS}
+  `;
+  
+  let result = await executeQuery(dailyFallbackQuery);
+  
+  // 오늘 일별 데이터도 없으면 최근 7일 중 가장 최근 데이터 사용
+  if (result.length === 0) {
+    const recent7DaysQuery = `
+      SELECT ${SELECT_FIELDS}
+      FROM klicklab.daily_user_distribution
+      WHERE date >= toDate('${startDate}') - INTERVAL 7 DAY
+        AND date < toDate('${startDate}')
+        AND sdk_key = '${sdkKey}'
+        ${UNKNOWN_FILTER}
+        ${GENDER_FILTER}
+      ${GROUP_BY_FIELDS}
+      ORDER BY segment_type, segment_value
+    `;
+    
+    result = await executeQuery(recent7DaysQuery);
+  }
+  
+  return result;
+};
+
+// 데이터 집계 함수 (일별, 시간별, 십분별 데이터 모두 합산)
+const aggregateData = (dailyData, hourlyData, tenMinuteData) => {
+  const aggregatedData = {};
+  
+  [...dailyData, ...hourlyData, ...tenMinuteData].forEach(item => {
+    const key = `${item.segment_type}-${item.segment_value}-${item.dist_type || 'none'}-${item.dist_value || 'none'}`;
+    
+    if (!aggregatedData[key]) {
+      aggregatedData[key] = { ...item };
+    } else {
+      aggregatedData[key].user_count = parseInt(aggregatedData[key].user_count) + parseInt(item.user_count);
+    }
+  });
+  
+  return Object.values(aggregatedData);
+};
+
+// 실시간 사용자 분석 데이터 (시간별/10분별/일별 집계)
+router.get("/realtime-analytics", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
-  const toPage = req.query.to || "/checkout/success";
-
+  
   try {
-    const path = await getBackwardPath(sdk_key, toPage, 3);
-    res.status(200).json({ success: true, data: path });
+    const { startDate, endDate } = req.query;
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    // 한국 시간대(UTC+9) 기준으로 today 계산
+    const koreaTime = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+    const today = koreaTime.toISOString().slice(0, 10);
+    
+    // 날짜 조건 확인
+    const isOnlyToday = startDate === endDate && startDate === today;
+    const includesOnlyToday = startDate <= today && endDate >= today;
+    
+    let result = [];
+    let dailyData = [];
+    let hourlyData = [];
+    let tenMinuteData = [];
+    
+    if (isOnlyToday) {
+      // 오늘만 선택된 경우 - 시간별/십분별 데이터만 사용
+      const availableTimesQuery = `
+        SELECT DISTINCT date_time
+        FROM klicklab.hourly_user_distribution
+        WHERE toDate(date_time) = toDate('${startDate}')
+          AND sdk_key = '${sdk_key}'
+        ORDER BY date_time DESC
+      `;
+      
+      const availableTimes = await executeQuery(availableTimesQuery);
+      const timesList = availableTimes.map(row => row.date_time);
+      
+      // 시간별 데이터 수집
+      hourlyData = await getHourlyData(sdk_key, timesList);
+      
+      // 10분 단위 데이터 수집
+      tenMinuteData = await getTenMinuteData(sdk_key, startDate, currentHour, currentMinute);
+      
+      // 데이터 집계 (일별 데이터 없음)
+      result = aggregateData([], hourlyData, tenMinuteData);
+      
+    } else if (includesOnlyToday) {
+      // 기간에 오늘이 포함된 경우 - 과거는 일별, 오늘은 시간별/십분별
+      
+      // 1. 과거 날짜들(startDate ~ 어제까지)의 일별 데이터 조회
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().slice(0, 10);
+      
+      if (startDate <= yesterdayStr) {
+        dailyData = await getDailyData(sdk_key, startDate, yesterdayStr);
+      }
+      
+      // 2. 오늘의 시간별/십분별 데이터 조회
+      const availableTimesQuery = `
+        SELECT DISTINCT date_time
+        FROM klicklab.hourly_user_distribution
+        WHERE toDate(date_time) = toDate('${today}')
+          AND sdk_key = '${sdk_key}'
+        ORDER BY date_time DESC
+      `;
+      
+      const availableTimes = await executeQuery(availableTimesQuery);
+      const timesList = availableTimes.map(row => row.date_time);
+      
+      // 시간별 데이터 수집
+      hourlyData = await getHourlyData(sdk_key, timesList);
+      
+      // 10분 단위 데이터 수집
+      tenMinuteData = await getTenMinuteData(sdk_key, today, currentHour, currentMinute);
+      
+      // 모든 데이터 집계
+      result = aggregateData(dailyData, hourlyData, tenMinuteData);
+      
+    } else {
+      // 과거 기간만 선택된 경우 - 일별 데이터만 사용
+      result = await getDailyData(sdk_key, startDate, endDate);
+    }
+    
+    // 응답 데이터 생성
+    let dataSource = 'daily';
+    if (isOnlyToday) {
+      dataSource = (hourlyData.length > 0 || tenMinuteData.length > 0) ? 'hourly+10min' : 'no-data';
+    } else if (includesOnlyToday) {
+      dataSource = 'daily+hourly+10min';
+    }
+
+    res.status(200).json({ 
+      data: result,
+      meta: {
+        isOnlyToday,
+        includesOnlyToday,
+        dataSource,
+        dailyRecords: dailyData.length,
+        hourlyRecords: hourlyData.length,
+        tenMinuteRecords: tenMinuteData.length,
+        currentTime: `${currentHour}:${currentMinute}`
+      }
+    });
+    
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: "경로 추적 실패" });
+    console.error("Realtime Analytics API ERROR:", err);
+    res.status(500).json({ error: "Failed to get realtime analytics data" });
   }
+
 });
 
 module.exports = router;

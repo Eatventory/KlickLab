@@ -1,201 +1,107 @@
-import { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
-import { StatCard } from './StatCard';
-import { Summary } from './Summary';
-import { TopClicks } from './TopClicks';
-import { ClickTrend } from './ClickTrend';
-import { UserPathSankeyChart } from '../user/UserPathSankeyChart';
-import { DropoffInsightsCard } from '../engagement/DropoffInsightsCard';
-import { getPageLabel } from '../../utils/getPageLabel';
-import { AverageSessionDurationCard } from './AverageSessionDurationCard';
-import { ConversionSummaryCard } from './ConversionSummaryCard';
-import ConversionPathsCard from './ConversionPathsCard';
-import { VisitorChart } from '../traffic/VisitorChart';
-import { TrendingUp } from 'lucide-react';
-import { useSegmentFilter } from '../../context/SegmentFilterContext';
+import React, { forwardRef, useState, useEffect } from 'react';
+import { KpiAndTrendSection } from './KpiAndTrendSection';
+import { RealtimeUsersSection } from './RealtimeUsersSection';
+import { InfoWidgetsSection } from './InfoWidgetsSection';
+import { useAuthStore } from '../../store/useAuthStore';
 
-interface PathData {
-  from: string;
-  to: string;
-  value: number;
-}
-
-interface VisitorsData {
-  today: number;
-  yesterday: number;
-  trend?: { date: string; visitors: number }[];
-}
-
-interface ClicksData {
-  today: number;
-  yesterday: number;
-}
-
-export const OverviewDashboard = forwardRef<any, { onLastUpdated?: (d: Date) => void }>((props, ref) => {
-  const { filter: globalFilter } = useSegmentFilter();
-  const [visitorsData, setVisitorsData] = useState<VisitorsData | null>(null);
-  const [clicksData, setClicksData] = useState<ClicksData | null>(null);
-  const [userPathData, setUserPathData] = useState<any[]>([]);
-  const [visitorTrendData, setvisitorTrendData] = useState<any[]>([]);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
-
-  const mapPathData = (paths: any[]): PathData[] =>
-    paths
-      .filter(p => p.from !== p.to)
-      .map(p => ({
-        from: getPageLabel(p.from),
-        to: getPageLabel(p.to),
-        value: Number(p.value),
-    }));
-
-  const fetchStats = async () => {
-    try {
-      const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
-      if (!token) throw new Error("No token");
-      
-      // 전역 필터 조건을 URL 파라미터로 변환
-      const globalFilterParams = new URLSearchParams();
-      if (globalFilter.conditions) {
-        Object.entries(globalFilter.conditions).forEach(([key, value]) => {
-          if (value !== undefined && value !== null && value !== '') {
-            globalFilterParams.append(key, String(value));
-          }
-        });
-      }
-      
-      const globalFilterString = globalFilterParams.toString();
-      const globalFilterQuery = globalFilterString ? `?${globalFilterString}` : '';
-      
-      const [visitorsResponse, clicksResponse, userPathResponse, visitorTrendResponse] = await Promise.all([
-        fetch(`/api/stats/visitors${globalFilterQuery}`, {headers: { Authorization: `Bearer ${token}` }}),
-        fetch(`/api/stats/clicks${globalFilterQuery}`, {headers: { Authorization: `Bearer ${token}` }}),
-        fetch(`/api/stats/userpath-summary${globalFilterQuery}`, {headers: { Authorization: `Bearer ${token}` }}),
-        fetch(`/api/traffic/daily-visitors${globalFilterQuery}`, {headers: { Authorization: `Bearer ${token}` }})
-      ]);
-      const visitors = await visitorsResponse.json();
-      const clicks = await clicksResponse.json();
-      const userPath = await userPathResponse.json();
-      const visitorTrend = await visitorTrendResponse.json();
-      visitors.trend?.sort((a: { date: string }, b: { date: string }) => 
-        new Date(a.date).getTime() - new Date(b.date).getTime()
-      );
-      setVisitorsData(visitors);
-      setClicksData(clicks);
-      setUserPathData(mapPathData(userPath.data || []));
-      setvisitorTrendData(visitorTrend.data || []);
-      const now = new Date();
-      setLastUpdated(now);
-      props.onLastUpdated?.(now);
-      setRefreshKey(prev => prev + 1);
-    } catch (error) {
-      console.error('Failed to fetch stats:', error);
-      setVisitorsData({ today: 1234, yesterday: 1096 });
-      setClicksData({ today: 9874, yesterday: 9124 });
-      setUserPathData([]);
-      const now = new Date();
-      setLastUpdated(now);
-      props.onLastUpdated?.(now);
-      setRefreshKey(prev => prev + 1);
-    }
+async function fetchOverviewData(token) {
+  const headers = {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json'
   };
 
-  useImperativeHandle(ref, () => ({
-    fetchStats,
-    lastUpdated,
-  }));
+  const [realtimeRes, trendRes, widgetsRes] = await Promise.all([
+    fetch('/api/overview/realtime', { headers }),
+    fetch('/api/overview/realtime-trend', { headers }),
+    fetch('/api/overview/widgets', { headers })
+  ]);
+
+  if (!realtimeRes.ok || !trendRes.ok || !widgetsRes.ok) {
+    throw new Error('개요 데이터 조회에 실패했습니다.');
+  }
+
+  const realtime = await realtimeRes.json();
+  const trend = await trendRes.json();
+  const widgets = await widgetsRes.json();
+  
+  return {
+    realtime: realtime.data,
+    trend: trend.data,
+    widgets: widgets
+  };
+}
+
+// Google Analytics 스타일의 개요 대시보드
+export const OverviewDashboard = forwardRef((props, ref) => {
+  const { token } = useAuthStore();
+  const [overviewData, setOverviewData] = useState({
+    realtimeUsers: 0,
+    realtimeTrend: [],
+    trafficSources: [],
+    topPages: [],
+    topClicks: []
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetchStats();
-  }, [JSON.stringify(globalFilter.conditions)]); // 전역 필터 변경 시 실행
+    const getOverviewData = async () => {
+      if (!token) return;
+      try {
+        setLoading(true);
+        const { realtime, trend, widgets } = await fetchOverviewData(token);
+        
+        setOverviewData({
+          realtimeUsers: realtime.activeUsers30min || 0,
+          realtimeTrend: trend || [],
+          trafficSources: widgets.trafficSources || [],
+          topPages: widgets.topPages || [],
+          topClicks: widgets.topClicks || []
+        });
+        setError(null);
+      } catch (err) {
+        setError(err.message);
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  // 30초마다 자동 새로고침
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchStats();
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [JSON.stringify(globalFilter.conditions)]); // 전역 필터 변경 시에도 interval 재설정
+    getOverviewData();
+    const intervalId = setInterval(getOverviewData, 60000); // 1분마다 데이터 갱신
 
-  if (visitorsData === null || clicksData === null) {
+    return () => clearInterval(intervalId);
+  }, [token]);
+
+  if (error) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">데이터 로딩 중...</div>
+      <div className="bg-gray-50 p-4 sm:p-8">
+        <div className="bg-white rounded-lg shadow p-8 flex items-center justify-center">
+          <span className="text-red-500">오류: {error}</span>
+        </div>
       </div>
     );
   }
 
-  const visitorsChange = visitorsData ? calculateChange(visitorsData.today, visitorsData.yesterday) : 0;
-  const clicksChange = clicksData ? calculateChange(clicksData.today, clicksData.yesterday) : 0;
-
   return (
-    <div className="space-y-6">
-      <div className="mb-2">
-        <Summary refreshKey={refreshKey} />
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard
-          data={{
-            title: "일일 방문자 수",
-            value: visitorsData?.today || 0,
-            change: visitorsChange,
-            changeType: getChangeType(visitorsChange),
-            icon: "Users",
-            color: "blue"
-          }}
+    <div className="bg-gray-50 p-4 sm:p-8">
+      {/* GA 스타일 상단 2분할 */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+        <KpiAndTrendSection />
+        <RealtimeUsersSection 
+          activeUsers={overviewData.realtimeUsers}
+          trend={overviewData.realtimeTrend}
+          sources={overviewData.trafficSources}
+          loading={loading}
         />
-        <StatCard
-          data={{
-            title: "일일 총 클릭 수",
-            value: clicksData?.today || 0,
-            change: clicksChange,
-            changeType: getChangeType(clicksChange),
-            icon: "MousePointer",
-            color: "green"
-          }}
-        />
-        <AverageSessionDurationCard refreshKey={refreshKey} />
-        <ConversionSummaryCard refreshKey={refreshKey} />
       </div>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <TrendingUp className="w-5 h-5 text-gray-600" />
-          <h2 className="text-lg font-semibold text-gray-900">일간 활성 이용자 수</h2>
-        </div>
-        <VisitorChart data={visitorTrendData} period='daily' refreshKey={refreshKey} />
-      </div>
-      <div className="w-full">
-        <ClickTrend refreshKey={refreshKey} />
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
-          <TopClicks refreshKey={refreshKey} />
-        </div>
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
-          <DropoffInsightsCard refreshKey={refreshKey} />
-        </div>
-      </div>
-      {/* 전환 경로 Top 3 카드 단독 행 */}
-      <div>
-        <ConversionPathsCard refreshKey={refreshKey} />
-      </div>
-      {/* Sankey 차트 단독 행 */}
-      <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 mt-6">
-        <div className="text-lg font-bold mb-2">사용자 방문 경로</div>
-        <UserPathSankeyChart data={userPathData} refreshKey={refreshKey} />
-      </div>
+      {/* 이하 기존 하단 위젯 그리드 등은 그대로 유지 */}
+      <InfoWidgetsSection 
+        trafficSources={overviewData.trafficSources}
+        topPages={overviewData.topPages}
+        topClicks={overviewData.topClicks}
+        loading={loading}
+      />
     </div>
   );
-
-  function calculateChange(today: number, yesterday: number): number {
-    if (yesterday === 0) {
-      if (today === 0) return 0;
-      return 100; // 또는: return Infinity, return null 등 UI 표현 목적에 따라
-    }
-    return Math.round(((today - yesterday) / yesterday) * 100 * 10) / 10;
-  }
-  function getChangeType(change: number): 'increase' | 'decrease' | 'neutral' {
-    if (change > 0) return 'increase';
-    if (change < 0) return 'decrease';
-    return 'neutral';
-  }
-}); 
+});

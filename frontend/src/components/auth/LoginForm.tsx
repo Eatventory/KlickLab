@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { setToken, setAutoLogin, getAutoLogin, getSavedCredentials } from '../../utils/storage';
 import { useAuthStore } from '../../store/useAuthStore';
+import logo from '../../assets/klicklab.png';
 
 export default function LoginForm() {
   const [email, setEmail] = useState("");
@@ -61,59 +62,53 @@ export default function LoginForm() {
   };
 
   return (
-    <div className="max-w-md mx-auto mt-16 bg-white rounded-2xl shadow-lg p-8">
-      <h2 className="text-2xl font-semibold text-center mb-2">
-        로그인
-      </h2>
-      {error && <p className="text-red-500 mb-4">{error}</p>}
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="flex justify-between items-center">
-          <label className="block text-gray-700 mb-1">이메일</label>
-        </div>
+    <div className="w-full max-w-md p-8 rounded-2xl border border-black/10 bg-white/50 backdrop-blur-md shadow-[0_8px_32px_0_rgba(0,0,0,0.2)] text-gray-800 animate-fade-in">
+      <div className="w-full flex justify-center p-8">
+        <img src={logo} className="h-12 w-auto" />
+      </div>
+      {error && <p className="text-red-600 mb-4 text-sm">{error}</p>}
+      <form onSubmit={handleSubmit} className="space-y-5">
         <div>
+          <label className="block text-sm mb-1">이메일</label>
           <input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="w-full px-4 py-2 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-            placeholder="yourname@example.com"
+            className="w-full px-4 py-2 rounded-lg bg-white/80 placeholder-gray-500 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            placeholder="이메일을 입력하세요"
           />
         </div>
-        <div className="flex justify-between items-center">
-          <label className="block text-gray-700 mb-1">비밀번호</label>
-        </div>
         <div>
+          <label className="block text-sm mb-1">비밀번호</label>
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            className="w-full px-4 py-2 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-            placeholder="••••••••"
+            className="w-full px-4 py-2 rounded-lg bg-white/80 placeholder-gray-500 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            placeholder="비밀번호를 입력하세요"
           />
         </div>
-        <div className="flex items-center">
+        <div className="flex items-center gap-2">
           <input
             type="checkbox"
             id="remember"
             checked={remember}
             onChange={() => setRemember(!remember)}
-            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            className="h-4 w-4 text-blue-500 bg-white/80 border-gray-300 rounded"
           />
-          <label htmlFor="remember" className="ml-2 text-gray-700">
-            자동 로그인
-          </label>
+          <label htmlFor="remember" className="text-sm text-gray-700">자동 로그인</label>
         </div>
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition disabled:bg-blue-400 disabled:cursor-not-allowed"
+          className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold tracking-wide transition"
         >
           {isLoading ? '로그인 중...' : '로그인'}
         </button>
       </form>
-      <p className="text-center text-gray-500 mt-6">
+      <p className="text-center text-gray-600 mt-6 text-sm">
         아직 계정이 없으신가요?{" "}
         <a href="/register" className="text-blue-600 hover:underline">
           회원가입하기

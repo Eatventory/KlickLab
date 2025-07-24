@@ -11,17 +11,13 @@ router.post("/login", async (req, res) => {
   const { email, password } = req.body;
   try {
     const user = await getUserByEmail(email);
-    if (!user)
-      return res
-        .status(401)
-        .json({ message: "이메일 또는 비밀번호가 잘못되었습니다." });
+    if (!user) return res.status(401).json({ message: "이메일 또는 비밀번호가 잘못되었습니다." });
 
     const match = await bcrypt.compare(password, user.password_hash);
-    if (!match)
-      return res
-        .status(401)
-        .json({ message: "이메일 또는 비밀번호가 잘못되었습니다." });
+    if (!match) return res.status(401).json({ message: "이메일 또는 비밀번호가 잘못되었습니다." });
 
+    if (user.is_approved === false) return res.status(401).json({ message: "관리자 승인 후 로그인이 가능합니다." });
+    
     const accessToken = jwt.sign(
       { userId: user.id, email: user.email, sdk_key: user.sdk_key },
       process.env.JWT_SECRET,
@@ -37,7 +33,7 @@ router.post("/login", async (req, res) => {
     // Refresh Token은 HttpOnly 쿠키로 설정
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: false, // 배포할 때는 true로 바꿔야 함
+      secure: true,
       sameSite: "strict",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7일
     });
@@ -63,7 +59,7 @@ router.post("/refresh", (req, res) => {
         sdk_key: payload.sdk_key,
       },
       process.env.JWT_SECRET,
-      { expiresIn: "15m" }
+      { expiresIn: "150m" }
     );
     res.status(200).json({ accessToken });
   } catch {

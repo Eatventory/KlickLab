@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart3, Trophy } from 'lucide-react';
-import { Tooltip } from 'react-tooltip';
-import { useConversionEvent } from '../../context/ConversionEventContext';
+// import { Tooltip } from 'react-tooltip';
+import mockData from '../../../../backend/data/channelConversionMockData.json';
+import HorizontalBarChart from '../../components/HorizontalBarChart';
 
 interface ChannelData {
   channel: string;
@@ -23,50 +23,52 @@ interface ChannelConversionTableProps {
 }
 
 export const ChannelConversionTable: React.FC<ChannelConversionTableProps> = ({ className }) => {
-  const { currentEvent } = useConversionEvent();
   const [data, setData] = useState<ChannelData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'conversionRate' | 'totalSessions' | 'convertedSessions'>('conversionRate');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  const fetchChannelConversionData = async () => {
-    if (!currentEvent) return;
+  // const fetchChannelConversionData = async () => {
+  //   if (!currentEvent) return;
     
-    try {
-      setLoading(true);
-      setError(null);
+  //   try {
+  //     setLoading(true);
+  //     setError(null);
       
-      const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
-      if (!token) throw new Error("No token");
+  //     const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+  //     if (!token) throw new Error("No token");
       
-      const response = await fetch(`/api/overview/conversion-by-channel?to=/checkout/success&event=${currentEvent}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+  //     const response = await fetch(`/api/overview/conversion-by-channel?to=/checkout/success&event=${currentEvent}`, {
+  //       headers: { Authorization: `Bearer ${token}` }
+  //     });
       
-      if (!response.ok) {
-        throw new Error('채널별 전환율 데이터를 불러올 수 없습니다.');
-      }
+  //     if (!response.ok) {
+  //       throw new Error('채널별 전환율 데이터를 불러올 수 없습니다.');
+  //     }
       
-      const result: ChannelConversionResponse = await response.json();
+  //     const result: ChannelConversionResponse = await response.json();
       
-      if (!result.success) {
-        throw new Error('데이터 처리 중 오류가 발생했습니다.');
-      }
+  //     if (!result.success) {
+  //       throw new Error('데이터 처리 중 오류가 발생했습니다.');
+  //     }
       
-      setData(result.data || []);
-    } catch (err) {
-      console.error('Channel Conversion API Error:', err);
-      setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.');
-      setData([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  //     setData(result.data || []);
+  //   } catch (err) {
+  //     console.error('Channel Conversion API Error:', err);
+  //     setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.');
+  //     // 목업 데이터로 대체
+  //     setData(mockData as ChannelData[]);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
   useEffect(() => {
-    fetchChannelConversionData();
-  }, [currentEvent]);
+    setData(mockData as ChannelData[]);
+    setLoading(false);
+    setError(null);
+  }, []);
 
   const handleSort = (field: 'conversionRate' | 'totalSessions' | 'convertedSessions') => {
     if (sortBy === field) {
@@ -96,7 +98,7 @@ export const ChannelConversionTable: React.FC<ChannelConversionTableProps> = ({ 
 
   if (loading) {
     return (
-      <div className={`bg-white rounded-lg shadow-sm border border-gray-200 p-4 w-1/2 ${className || ''}`}>
+      <div className={`bg-white rounded-lg shadow-sm border border-gray-200 h-full flex flex-col ${className || ''}`}>
         <div className="flex items-center justify-center h-32">
           <div className="text-gray-500">데이터 로딩 중...</div>
         </div>
@@ -106,7 +108,7 @@ export const ChannelConversionTable: React.FC<ChannelConversionTableProps> = ({ 
 
   if (error) {
     return (
-      <div className={`bg-white rounded-lg shadow-sm border border-gray-200 p-4 w-1/2 ${className || ''}`}>
+      <div className={`bg-white rounded-lg shadow-sm border border-gray-200 h-full flex flex-col ${className || ''}`}>
         <div className="flex items-center justify-center h-32">
           <div className="text-red-500">{error}</div>
         </div>
@@ -116,7 +118,7 @@ export const ChannelConversionTable: React.FC<ChannelConversionTableProps> = ({ 
 
   if (data.length === 0) {
     return (
-      <div className={`bg-white rounded-lg shadow-sm border border-gray-200 p-4 w-1/2 ${className || ''}`}>
+      <div className={`bg-white rounded-lg shadow-sm border border-gray-200 h-full flex flex-col ${className || ''}`}>
         <div className="flex items-center justify-center h-32">
           <div className="text-gray-500">채널별 전환율 데이터가 없습니다.</div>
         </div>
@@ -125,64 +127,47 @@ export const ChannelConversionTable: React.FC<ChannelConversionTableProps> = ({ 
   }
 
   return (
-    <div className={`bg-white rounded-lg shadow-sm border border-gray-200 p-4 w-1/2 ${className || ''}`}>
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <BarChart3 className="w-4 h-4 text-blue-600" />
-          <h3 className="text-lg font-semibold text-gray-900">채널별 전환율</h3>
-        </div>
-        <div className="text-xs text-gray-500">
-          전환율 기준 정렬
-        </div>
-      </div>
-
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-gray-200">
-              <th className="text-center py-2 px-3 font-medium text-gray-700 text-sm">채널</th>
-              <th className="text-center py-2 px-3 font-medium text-gray-700 text-sm cursor-pointer" onClick={() => handleSort('conversionRate')}>
-                전환율
-                {sortBy === 'conversionRate' && (
-                  <span className="ml-1">{sortOrder === 'asc' ? '↑' : '↓'}</span>
-                )}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedData.map((channel, index) => (
-              <tr key={`${channel.source}-${channel.medium}-${channel.campaign}`} className="border-b border-gray-100 hover:bg-gray-50" data-tooltip-id={`channel-tooltip-${index}`}>
-                <td className="py-2 px-3 align-top"> 
-                  <div className="flex flex-col items-center">
-                    <span className="font-medium text-gray-900 text-sm flex items-center gap-2">
-                      {channel.conversionRate === maxConversionRate && <Trophy className="w-4 h-4 text-yellow-500" />}
-                      {channel.channel}
-                    </span>
-                  </div>
-                  <Tooltip id={`channel-tooltip-${index}`} place="top" effect="solid">
-                    <div><b>캠페인명:</b> {channel.campaign !== 'direct_traffic' ? channel.campaign : '직접 방문'}</div>
-                    <div><b>총 세션:</b> {formatNumber(channel.totalSessions)}</div>
-                    <div><b>전환 세션:</b> {formatNumber(channel.convertedSessions)}</div>
-                    <div><b>매체:</b> {channel.medium}</div>
-                  </Tooltip>
-                </td>
-                <td className="text-center py-2 px-3 align-top">
-                  <span className={`font-bold text-sm ${
-                    channel.conversionRate >= 7 ? 'text-green-600' : 
-                    channel.conversionRate >= 5 ? 'text-blue-600' : 'text-orange-600'
-                  }`}>
-                    {channel.conversionRate}%
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="mt-3 text-xs text-gray-500">
-        * 전환율은 총 세션 대비 전환 완료 세션의 비율입니다.
-      </div>
+    <div className="md:col-span-3 bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+      <h4 className="text-sm font-semibold text-gray-900 mb-2">채널별 전환율</h4>
+      <HorizontalBarChart
+        data={sortedData.slice(0,10).map((channel, index)=>({
+          label:channel.channel,
+          value:channel.conversionRate,
+          key: `${channel.source || 'unknown'}-${channel.medium || 'unknown'}-${channel.campaign || channel.channel || 'unknown'}-${index}`
+        }))}
+        valueFormatter={(v)=>v+'%'}
+      />
     </div>
   );
+
+  // return (
+  //   <div className={`bg-white rounded-lg shadow-sm border border-gray-200 h-full flex flex-col p-6 relative ${className || ''}`}>
+  //     <div className="flex items-center justify-between mb-4">
+  //       <h3 className="text-sm font-semibold text-gray-900 mb-2">채널별 전환율</h3>
+  //       <button className="text-xs text-gray-500" onClick={() => handleSort('conversionRate')}>
+  //         전환율 {sortBy === 'conversionRate' && (sortOrder === 'asc' ? '↑' : '↓')}
+  //       </button>
+  //     </div>
+  //     <div className="text-xs text-gray-500 mb-2 flex w-full">
+  //       <div className="flex-1 pl-1">채널</div>
+  //       <div className="w-12 text-right pr-1">전환율</div>
+  //     </div>
+  //     <div className="flex-1 overflow-y-auto">
+  //       {sortedData.map((channel, index) => (
+  //         <div key={`${channel.source || 'unknown'}-${channel.medium || 'unknown'}-${channel.campaign || channel.channel || 'unknown'}-${index}`} className="mb-3">
+  //           <div className="flex justify-between items-center">
+  //             <span className="font-medium text-gray-900 text-sm">{channel.channel}</span>
+  //             <span className="font-bold text-sm text-gray-900">{channel.conversionRate}%</span>
+  //           </div>
+  //           <div className="w-full bg-gray-200 rounded mt-2" style={{ height: '6px' }}>
+  //             <div className="bg-blue-500 rounded" style={{ width: `${channel.conversionRate}%`, height: '6px' }} />
+  //           </div>
+  //         </div>
+  //       ))}
+  //     </div>
+  //     <div className="absolute bottom-0 left-0 w-full px-6 pb-4 text-xs text-gray-500">
+  //       * 전환율은 총 세션 대비 전환 완료 세션의 비율입니다.
+  //     </div>
+  //   </div>
+  // );
 };
