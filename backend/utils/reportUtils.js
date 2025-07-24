@@ -72,11 +72,11 @@ function getKpiQueries(sdk_key, startDate, endDate) {
         SELECT
           summary_date AS date,
           page_path,
-          sumMerge(pageview_count_state) AS page_views,
-          uniqMerge(unique_users_state) AS active_users,
+          sumMerge(page_views_state) AS page_views,
+          uniqMerge(unique_page_views_state) AS active_users,
           round(page_views / active_users, 2) AS pageviews_per_user,
-          round(sumMerge(total_time_state) / active_users, 2) AS avg_time_on_page
-        FROM klicklab.daily_page_agg
+          round(sumMerge(time_on_page_sum_state) / active_users, 2) AS avg_time_on_page
+        FROM klicklab.agg_page_content_stats
         WHERE sdk_key = '${sdk_key}'
           AND summary_date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
         GROUP BY summary_date, page_path
