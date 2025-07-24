@@ -434,6 +434,433 @@ function getRevisitQuery(startDate, endDate, sdk_key) {
   `;
 }
 
+// 오늘 데이터 조회 (Aggregating 테이블) - 페이지 이탈률
+const getTodayPageExitRate = async (clickhouse, sdkKey, startDate, endDate) => {
+  const query = `
+    SELECT
+      page_path,
+      page_views,
+      exits,
+      round((exits * 100.0) / nullIf(page_views, 0), 2) as exit_rate
+    FROM (
+      SELECT
+        page_path,
+        sumMerge(page_views_state) as page_views,
+        sumMerge(exits_state) as exits
+      FROM klicklab.agg_page_content_stats
+      WHERE summary_date >= toDate('${startDate}')
+        AND summary_date <= toDate('${endDate}')
+        AND sdk_key = '${sdkKey}'
+        AND page_path != ''
+      GROUP BY page_path
+      HAVING page_views > 0
+    )
+    ORDER BY exit_rate DESC
+  `;
+  
+  const result = await clickhouse.query({ query, format: "JSON" });
+  return await result.json();
+};
+
+// 과거 데이터 조회 (Flat 테이블) - 페이지 이탈률  
+const getPastPageExitRate = async (clickhouse, sdkKey, startDate, endDate) => {
+  const query = `
+    SELECT
+      page_path,
+      page_views,
+      exits,
+      round((exits * 100.0) / nullIf(page_views, 0), 2) as exit_rate
+    FROM (
+      SELECT
+        page_path,
+        sum(page_views) as page_views,
+        sum(exits) as exits
+      FROM klicklab.flat_page_content_stats
+      WHERE summary_date >= toDate('${startDate}')
+        AND summary_date <= toDate('${endDate}')
+        AND sdk_key = '${sdkKey}'
+        AND page_path != ''
+      GROUP BY page_path
+      HAVING page_views > 0
+    )
+    ORDER BY exit_rate DESC
+  `;
+  
+  const result = await clickhouse.query({ query, format: "JSON" });
+  return await result.json();
+};
+
+// 데이터 합치기 함수
+const mergePageExitData = (pastData, todayData) => {
+  const merged = {};
+  
+  [...pastData, ...todayData].forEach(row => {
+    const key = row.page_path;
+    if (!merged[key]) {
+      merged[key] = {
+        page_path: row.page_path,
+        page_views: 0,
+        exits: 0,
+        exit_rate: 0
+      };
+    }
+    merged[key].page_views += parseInt(row.page_views) || 0;
+    merged[key].exits += parseInt(row.exits) || 0;
+  });
+  
+  // 이탈률 재계산
+  Object.values(merged).forEach(row => {
+    row.exit_rate = row.page_views > 0 
+      ? Math.round((row.exits * 100.0) / row.page_views * 100) / 100
+      : 0;
+  });
+  
+  return Object.values(merged).sort((a, b) => b.exit_rate - a.exit_rate);
+};
+
+// 오늘 데이터 조회 (Aggregating 테이블) - 세션 참여도 데이터
+const getTodaySessionEngagement = async (clickhouse, sdkKey, startDate, endDate) => {
+  const query = `
+    SELECT
+      summary_date as date,
+      toFloat64(sumMerge(session_duration_sum_state)) as total_session_duration,
+      toUInt64(uniqMerge(sessions_state)) as total_sessions,
+      toUInt64(uniqMerge(unique_users_state)) as total_users,
+      round(toFloat64(sumMerge(session_duration_sum_state)) / nullIf(toUInt64(uniqMerge(sessions_state)), 0), 2) as avg_session_seconds,
+      round(toUInt64(uniqMerge(sessions_state)) / nullIf(toUInt64(uniqMerge(unique_users_state)), 0), 2) as sessions_per_user
+    FROM klicklab.agg_user_session_stats
+    WHERE summary_date >= toDate('${startDate}')
+      AND summary_date <= toDate('${endDate}')
+      AND sdk_key = '${sdkKey}'
+    GROUP BY summary_date
+    ORDER BY summary_date ASC
+  `;
+  
+  console.log('[SESSION ENGAGEMENT DEBUG] Today query:', query);
+  const result = await clickhouse.query({ query, format: "JSON" });
+  return await result.json();
+};
+
+// 과거 데이터 조회 (Flat 테이블) - 세션 참여도 데이터
+const getPastSessionEngagement = async (clickhouse, sdkKey, startDate, endDate) => {
+  const query = `
+    SELECT
+      summary_date as date,
+      sum(toFloat64(session_duration_sum)) as total_session_duration,
+      sum(toUInt64(sessions)) as total_sessions,
+      sum(toUInt64(users)) as total_users,
+      round(sum(toFloat64(session_duration_sum)) / nullIf(sum(toUInt64(sessions)), 0), 2) as avg_session_seconds,
+      round(sum(toUInt64(sessions)) / nullIf(sum(toUInt64(users)), 0), 2) as sessions_per_user
+    FROM klicklab.flat_user_session_stats
+    WHERE summary_date >= toDate('${startDate}')
+      AND summary_date <= toDate('${endDate}')
+      AND sdk_key = '${sdkKey}'
+    GROUP BY summary_date
+    ORDER BY summary_date ASC
+  `;
+  
+  console.log('[SESSION ENGAGEMENT DEBUG] Past query:', query);
+  const result = await clickhouse.query({ query, format: "JSON" });
+  return await result.json();
+};
+
+// 세션 참여도 데이터 합치기 함수
+const mergeSessionEngagementData = (pastData, todayData) => {
+  const merged = {};
+  
+  [...pastData, ...todayData].forEach(row => {
+    const key = row.date;
+    if (!merged[key]) {
+      merged[key] = {
+        date: row.date,
+        total_session_duration: 0,
+        total_sessions: 0,
+        total_users: 0,
+        avg_session_seconds: 0,
+        sessions_per_user: 0
+      };
+    }
+    merged[key].total_session_duration += parseInt(row.total_session_duration) || 0;
+    merged[key].total_sessions += parseInt(row.total_sessions) || 0;
+    merged[key].total_users += parseInt(row.total_users) || 0;
+  });
+  
+  // 비율 재계산
+  Object.values(merged).forEach(row => {
+    row.avg_session_seconds = row.total_sessions > 0 
+      ? Math.round((row.total_session_duration / row.total_sessions) * 100) / 100
+      : 0;
+    row.sessions_per_user = row.total_users > 0 
+      ? Math.round((row.total_sessions / row.total_users) * 100) / 100
+      : 0;
+  });
+  
+  return Object.values(merged).sort((a, b) => new Date(a.date) - new Date(b.date));
+};
+
+// 오늘 데이터 조회 (Aggregating 테이블) - 페이지 평균 체류 시간
+const getTodayPageTimes = async (clickhouse, sdkKey, startDate, endDate, limit = 10) => {
+  const query = `
+    SELECT
+      page_path,
+      page_views,
+      time_on_page_sum,
+      round(time_on_page_sum / nullIf(page_views, 0), 1) as average_time
+    FROM (
+      SELECT
+        page_path,
+        sumMerge(page_views_state) as page_views,
+        sumMerge(time_on_page_sum_state) as time_on_page_sum
+      FROM klicklab.agg_page_content_stats
+      WHERE summary_date >= toDate('${startDate}')
+        AND summary_date <= toDate('${endDate}')
+        AND sdk_key = '${sdkKey}'
+        AND page_path != ''
+      GROUP BY page_path
+      HAVING page_views > 0
+    )
+    ORDER BY average_time DESC
+    LIMIT ${limit}
+  `;
+  
+  console.log('[PAGE TIMES DEBUG] Today query (using time_on_page_sum_state):', query);
+  const result = await clickhouse.query({ query, format: "JSON" });
+  return await result.json();
+};
+
+// 과거 데이터 조회 - events 테이블에서 직접 계산
+const getPastPageTimes = async (clickhouse, sdkKey, startDate, endDate, limit = 10) => {
+  const query = `
+    SELECT
+      page_path,
+      page_views,
+      time_on_page_sum,
+      round(time_on_page_sum / nullIf(page_views, 0), 1) as average_time
+    FROM (
+      SELECT
+        page_path,
+        count() as page_views,
+        sum(time_on_page_seconds) as time_on_page_sum
+      FROM klicklab.events
+      WHERE toDate(timestamp) >= toDate('${startDate}')
+        AND toDate(timestamp) <= toDate('${endDate}')
+        AND sdk_key = '${sdkKey}'
+        AND page_path != ''
+        AND event_name = 'page_view'
+      GROUP BY page_path
+      HAVING page_views > 0
+    )
+    ORDER BY average_time DESC
+    LIMIT ${limit}
+  `;
+  
+  console.log('[PAGE TIMES DEBUG] Past query (from events table):', query);
+  const result = await clickhouse.query({ query, format: "JSON" });
+  return await result.json();
+};
+
+// 페이지 평균 체류 시간 데이터 합치기 함수
+const mergePageTimesData = (pastData, todayData, limit = 10) => {
+  const merged = {};
+  
+  [...pastData, ...todayData].forEach(row => {
+    const key = row.page_path;
+    if (!merged[key]) {
+      merged[key] = {
+        page_path: row.page_path,
+        page_views: 0,
+        time_on_page_sum: 0,
+        average_time: 0
+      };
+    }
+    merged[key].page_views += parseInt(row.page_views) || 0;
+    merged[key].time_on_page_sum += parseFloat(row.time_on_page_sum) || 0;
+  });
+  
+  // 평균 시간 재계산
+  Object.values(merged).forEach(row => {
+    row.average_time = row.page_views > 0 
+      ? Math.round((row.time_on_page_sum / row.page_views) * 10) / 10
+      : 0;
+  });
+  
+  return Object.values(merged)
+    .sort((a, b) => b.average_time - a.average_time) // 평균 시간 기준으로 정렬
+    .slice(0, limit);
+};
+
+// 오늘 데이터 조회 (Aggregating 테이블) - 페이지 별 조회수
+const getTodayPageViews = async (clickhouse, sdkKey, startDate, endDate, limit = 10) => {
+  const query = `
+    SELECT
+      page_path,
+      sumMerge(page_views_state) as total_views
+    FROM klicklab.agg_page_content_stats
+    WHERE summary_date >= toDate('${startDate}')
+      AND summary_date <= toDate('${endDate}')
+      AND sdk_key = '${sdkKey}'
+      AND page_path != ''
+    GROUP BY page_path
+    HAVING total_views > 0
+    ORDER BY total_views DESC
+    LIMIT ${limit}
+  `;
+  
+  const result = await clickhouse.query({ query, format: "JSON" });
+  return await result.json();
+};
+
+// 과거 데이터 조회 (Flat 테이블) - 페이지 별 조회수
+const getPastPageViews = async (clickhouse, sdkKey, startDate, endDate, limit = 10) => {
+  const query = `
+    SELECT
+      page_path,
+      sum(toUInt64(page_views)) as total_views
+    FROM klicklab.flat_page_content_stats
+    WHERE summary_date >= toDate('${startDate}')
+      AND summary_date <= toDate('${endDate}')
+      AND sdk_key = '${sdkKey}'
+      AND page_path != ''
+    GROUP BY page_path
+    HAVING total_views > 0
+    ORDER BY total_views DESC
+    LIMIT ${limit}
+  `;
+  
+  const result = await clickhouse.query({ query, format: "JSON" });
+  return await result.json();
+};
+
+// 페이지 별 조회수 데이터 합치기 함수
+const mergePageViewsData = (pastData, todayData, limit = 10) => {
+  const merged = {};
+  
+  [...pastData, ...todayData].forEach(row => {
+    const key = row.page_path;
+    if (!merged[key]) {
+      merged[key] = {
+        page_path: row.page_path,
+        total_views: 0
+      };
+    }
+    merged[key].total_views += parseInt(row.total_views) || 0;
+  });
+  
+  return Object.values(merged)
+    .sort((a, b) => b.total_views - a.total_views)
+    .slice(0, limit);
+};
+
+// 오늘 전체 조회수 조회 (Aggregating 테이블)
+const getTodayViewCounts = async (clickhouse, sdkKey, startDate, endDate) => {
+  const query = `
+    SELECT
+      summary_date as date,
+      sumMerge(page_views_state) as totalViews
+    FROM klicklab.agg_page_content_stats
+    WHERE summary_date >= toDate('${startDate}')
+      AND summary_date <= toDate('${endDate}')
+      AND sdk_key = '${sdkKey}'
+    GROUP BY summary_date
+    ORDER BY summary_date ASC
+  `;
+  
+  const result = await clickhouse.query({ query, format: "JSON" });
+  return await result.json();
+};
+
+// 과거 전체 조회수 조회 (Flat 테이블)
+const getPastViewCounts = async (clickhouse, sdkKey, startDate, endDate) => {
+  const query = `
+    SELECT
+      summary_date as date,
+      sum(toUInt64(ifNull(page_views, 0))) as totalViews
+    FROM klicklab.flat_page_content_stats
+    WHERE summary_date >= toDate('${startDate}')
+      AND summary_date <= toDate('${endDate}')
+      AND sdk_key = '${sdkKey}'
+    GROUP BY summary_date
+    ORDER BY summary_date ASC
+  `;
+  
+  const result = await clickhouse.query({ query, format: "JSON" });
+  return await result.json();
+};
+
+// 전체 조회수 데이터 합치기 함수
+const mergeViewCountsData = (pastData, todayData) => {
+  const merged = {};
+  
+  [...pastData, ...todayData].forEach(row => {
+    const key = row.date;
+    if (!merged[key]) {
+      merged[key] = {
+        date: row.date,
+        totalViews: 0
+      };
+    }
+    merged[key].totalViews += parseInt(row.totalViews) || 0;
+  });
+  
+  return Object.values(merged).sort((a, b) => new Date(a.date) - new Date(b.date));
+};
+
+// 오늘 전체 클릭수 조회 (Aggregating 테이블) - 이벤트 기반
+const getTodayClickCounts = async (clickhouse, sdkKey, startDate, endDate) => {
+  const query = `
+    SELECT
+      summary_date as date,
+      sumMerge(event_count_state) as totalClicks
+    FROM klicklab.agg_event_stats
+    WHERE summary_date >= toDate('${startDate}')
+      AND summary_date <= toDate('${endDate}')
+      AND sdk_key = '${sdkKey}'
+      AND event_name IN ('auto_click', 'user_click', 'click')
+    GROUP BY summary_date
+    ORDER BY summary_date ASC
+  `;
+  
+  const result = await clickhouse.query({ query, format: "JSON" });
+  return await result.json();
+};
+
+// 과거 전체 클릭수 조회 (Flat 테이블) - 이벤트 기반
+const getPastClickCounts = async (clickhouse, sdkKey, startDate, endDate) => {
+  const query = `
+    SELECT
+      summary_date as date,
+      sum(toUInt64(ifNull(event_count, 0))) as totalClicks
+    FROM klicklab.flat_event_stats
+    WHERE summary_date >= toDate('${startDate}')
+      AND summary_date <= toDate('${endDate}')
+      AND sdk_key = '${sdkKey}'
+      AND event_name IN ('auto_click', 'user_click', 'click')
+    GROUP BY summary_date
+    ORDER BY summary_date ASC
+  `;
+  
+  const result = await clickhouse.query({ query, format: "JSON" });
+  return await result.json();
+};
+
+// 전체 클릭수 데이터 합치기 함수
+const mergeClickCountsData = (pastData, todayData) => {
+  const merged = {};
+  
+  [...pastData, ...todayData].forEach(row => {
+    const key = row.date;
+    if (!merged[key]) {
+      merged[key] = {
+        date: row.date,
+        totalClicks: 0
+      };
+    }
+    merged[key].totalClicks += parseInt(row.totalClicks) || 0;
+  });
+  
+  return Object.values(merged).sort((a, b) => new Date(a.date) - new Date(b.date));
+};
+
 module.exports = {
   getAvgSessionQuery,
   getSessionsPerUserQuery,
@@ -447,4 +874,27 @@ module.exports = {
   getPageStatsQuery,
   getVisitStatsQuery,
   getRevisitQuery,
+  // 새로운 이탈률 함수들 추가
+  getTodayPageExitRate,
+  getPastPageExitRate,
+  mergePageExitData,
+  // 새로운 세션 참여도 함수들 추가
+  getTodaySessionEngagement,
+  getPastSessionEngagement,
+  mergeSessionEngagementData,
+  // 새로운 페이지 평균 체류 시간 함수들 추가
+  getTodayPageTimes,
+  getPastPageTimes,
+  mergePageTimesData,
+  // 새로운 페이지 별 조회수 함수들 추가
+getTodayPageViews,
+getPastPageViews,
+mergePageViewsData,
+// 새로운 전체 조회수/클릭수 함수들 추가
+getTodayViewCounts,
+getPastViewCounts,
+mergeViewCountsData,
+getTodayClickCounts,
+getPastClickCounts,
+mergeClickCountsData,
 };

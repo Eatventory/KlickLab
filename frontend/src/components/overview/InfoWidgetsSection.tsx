@@ -88,7 +88,7 @@ export const InfoWidgetsSection: React.FC<InfoWidgetsSectionProps> = ({
         </WidgetFrame>
       </div>
 
-      {/* 오른쪽: 상위 클릭 요소 */}
+      {/* 오른쪽: 상위 이벤트 요소 */}
       <div className="lg:col-span-1">
         <WidgetFrame title="가장 많이 발생된 이벤트" icon={MousePointer}>
           <TopClicks data={topClicks} loading={loading} />

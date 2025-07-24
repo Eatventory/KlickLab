@@ -16,6 +16,29 @@ const {
   getPageStatsQuery,
   getVisitStatsQuery,
   getRevisitQuery,
+  // 새로운 이탈률 함수들 추가
+  getTodayPageExitRate,
+  getPastPageExitRate,
+  mergePageExitData,
+  // 새로운 세션 참여도 함수들 추가
+  getTodaySessionEngagement,
+  getPastSessionEngagement,
+  mergeSessionEngagementData,
+  // 새로운 페이지 평균 체류 시간 함수들 추가
+  getTodayPageTimes,
+  getPastPageTimes,
+  mergePageTimesData,
+  // 새로운 페이지 별 조회수 함수들 추가
+  getTodayPageViews,
+  getPastPageViews,
+  mergePageViewsData,
+  // 새로운 전체 조회수/클릭수 함수들 추가
+  getTodayViewCounts,
+  getPastViewCounts,
+  mergeViewCountsData,
+  getTodayClickCounts,
+  getPastClickCounts,
+  mergeClickCountsData,
 } = require('../utils/engagementUtils');
 
 /* 참여도 개요 */
@@ -26,58 +49,108 @@ router.get('/overview', authMiddleware, async (req, res) => {
   if (!startDate || !endDate) return res.status(400).json({ error: 'Missing startDate or endDate' });
 
   try {
-    const [avgSessionTimeRes, sessionsPerUserRes] = await Promise.all([
-      clickhouse.query({
-
-        query: getAvgSessionQuery(startDate, endDate, sdk_key),
-
-        format: 'JSON',
-      }).then(r => r.json()),
-
-      clickhouse.query({
-
-        query: getSessionsPerUserQuery(startDate, endDate, sdk_key),
-
-        format: 'JSON',
-      }).then(r => r.json()),
-    ]);
+    const now = new Date();
+    const koreaTime = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+    const today = koreaTime.toISOString().slice(0, 10);
+    
+    const isOnlyToday = startDate === endDate && startDate === today;
+    const includesOnlyToday = startDate <= today && endDate >= today;
+    
+    let result = [];
+    
+    if (isOnlyToday) {
+      // 오늘만: agg 테이블 사용
+      const todayResult = await getTodaySessionEngagement(clickhouse, sdk_key, startDate, endDate);
+      result = todayResult.data || [];
+    } else if (includesOnlyToday) {
+      // 오늘 포함: 과거 + 오늘 합치기
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().slice(0, 10);
+      
+      let pastData = [];
+      if (startDate <= yesterdayStr) {
+        const pastResult = await getPastSessionEngagement(clickhouse, sdk_key, startDate, yesterdayStr);
+        pastData = pastResult.data || [];
+      }
+      
+      const todayResult = await getTodaySessionEngagement(clickhouse, sdk_key, today, today);
+      const todayData = todayResult.data || [];
+      
+      result = mergeSessionEngagementData(pastData, todayData);
+    } else {
+      // 과거만: flat 테이블 사용
+      const pastResult = await getPastSessionEngagement(clickhouse, sdk_key, startDate, endDate);
+      result = pastResult.data || [];
+    }
 
     res.status(200).json({
       success: true,
       data: {
-        avgSessionSeconds: avgSessionTimeRes.data.map(d => ({
+        avgSessionSeconds: result.map(d => ({
           date: d.date,
-          avgSessionSeconds: Number(d.avgSessionSeconds || 0),
+          avgSessionSeconds: Number(d.avg_session_seconds || 0),
         })),
-        sessionsPerUser: sessionsPerUserRes.data.map(d => ({
+        sessionsPerUser: result.map(d => ({
           date: d.date,
-          totalVisitors: Number(d.totalVisitors || 0),
-          totalClicks: Number(d.totalClicks || 0),
-          sessionsPerUser: Number(d.sessionsPerUser || 0),
+          totalVisitors: Number(d.total_users || 0),
+          totalClicks: Number(d.total_sessions || 0), // 세션 수를 클릭 수로 매핑
+          sessionsPerUser: Number(d.sessions_per_user || 0),
         })),
       },
     });
 
   } catch (err) {
-    console.error(err);
+    console.error("Session Engagement Overview API ERROR:", err);
     res.status(500).json({ success: false, error: 'Query failed' });
   }
 });
 
-/* 페이지 체류시간 */
+/* 페이지 체류시간 (새로운 스키마 사용) */
 router.get('/page-times', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   const { startDate, endDate, limit = 10 } = req.query;
   if (!startDate || !endDate) return res.status(400).json({ error: 'Missing startDate or endDate' });
 
-
-  const query = getPageTimesQuery(startDate, endDate, sdk_key, limit);
-
-
   try {
-    const dataRes = await clickhouse.query({ query, format: 'JSONEachRow' });
-    const data = await dataRes.json();
-    res.status(200).json(data);
+    const now = new Date();
+    const koreaTime = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+    const today = koreaTime.toISOString().slice(0, 10);
+    
+    const isOnlyToday = startDate === endDate && startDate === today;
+    const includesOnlyToday = startDate <= today && endDate >= today;
+    
+    let finalData = [];
+    
+    if (isOnlyToday) {
+      // 오늘만 조회하는 경우 - agg 테이블만 사용
+      const todayResult = await getTodayPageTimes(clickhouse, sdk_key, startDate, endDate, limit);
+      finalData = todayResult.data || [];
+    } else if (includesOnlyToday) {
+      // 과거 + 오늘 혼합 기간 - 두 테이블 데이터 합치기
+      const pastEndDate = new Date(today);
+      pastEndDate.setDate(pastEndDate.getDate() - 1);
+      const pastEndDateStr = pastEndDate.toISOString().slice(0, 10);
+      
+      const [pastResult, todayResult] = await Promise.all([
+        getPastPageTimes(clickhouse, sdk_key, startDate, pastEndDateStr, limit * 2),
+        getTodayPageTimes(clickhouse, sdk_key, today, endDate, limit * 2)
+      ]);
+      
+      finalData = mergePageTimesData(pastResult.data || [], todayResult.data || [], limit);
+    } else {
+      // 과거 기간만 - flat 테이블만 사용
+      const pastResult = await getPastPageTimes(clickhouse, sdk_key, startDate, endDate, limit);
+      finalData = pastResult.data || [];
+    }
+
+    // 기존 프론트엔드 형식에 맞게 변환
+    const formattedData = finalData.map(row => ({
+      page: row.page_path,
+      averageTime: parseFloat(row.average_time) || 0
+    }));
+
+    res.status(200).json(formattedData);
   } catch (err) {
     console.error("Page Times API ERROR:", err);
     res.status(500).json({ error: "Failed to get page time data" });
@@ -104,68 +177,213 @@ router.get('/bounce-rate', authMiddleware, async (req, res) => {
   }
 });
 
-/* 페이지 조회수 */
+/* 페이지 이탈률 (새로운 스키마 사용) */
+router.get('/exit-rate', authMiddleware, async (req, res) => {
+  const { sdk_key } = req.user;
+  const { startDate, endDate, limit = 5 } = req.query;
+  if (!startDate || !endDate) return res.status(400).json({ error: 'Missing startDate or endDate' });
+
+  try {
+    const now = new Date();
+    const koreaTime = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+    const today = koreaTime.toISOString().slice(0, 10);
+    
+    const isOnlyToday = startDate === endDate && startDate === today;
+    const includesOnlyToday = startDate <= today && endDate >= today;
+    
+    let result = [];
+    
+    if (isOnlyToday) {
+      // 오늘만: agg 테이블 사용
+      const todayResult = await getTodayPageExitRate(clickhouse, sdk_key, startDate, endDate);
+      result = todayResult.data || [];
+    } else if (includesOnlyToday) {
+      // 오늘 포함: 과거 + 오늘 합치기
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().slice(0, 10);
+      
+      let pastData = [];
+      if (startDate <= yesterdayStr) {
+        const pastResult = await getPastPageExitRate(clickhouse, sdk_key, startDate, yesterdayStr);
+        pastData = pastResult.data || [];
+      }
+      
+      const todayResult = await getTodayPageExitRate(clickhouse, sdk_key, today, today);
+      const todayData = todayResult.data || [];
+      
+      result = mergePageExitData(pastData, todayData);
+    } else {
+      // 과거만: flat 테이블 사용
+      const pastResult = await getPastPageExitRate(clickhouse, sdk_key, startDate, endDate);
+      result = pastResult.data || [];
+    }
+    
+    // limit 적용 및 응답 포맷팅
+    const formattedResult = result
+      .slice(0, parseInt(limit))
+      .map(item => ({
+        page_path: item.page_path,
+        page_views: parseInt(item.page_views) || 0,
+        exits: parseInt(item.exits) || 0,
+        bounce_rate: parseFloat(item.exit_rate) || 0  // 기존 필드명 유지
+      }));
+    
+    res.status(200).json(formattedResult);
+    
+  } catch (err) {
+    console.error("Exit Rate API ERROR:", err);
+    res.status(500).json({ error: "Failed to get exit rate data" });
+  }
+});
+
+/* 페이지 조회수 (새로운 스키마 사용) */
 router.get('/page-views', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   const { startDate, endDate, limit = 10 } = req.query;
   if (!startDate || !endDate) return res.status(400).json({ error: 'Missing startDate or endDate' });
 
-
-  const query = getPageViewsQuery(startDate, endDate, sdk_key, limit);
-
-
   try {
-    const dataRes = await clickhouse.query({query, format: 'JSONEachRow'});
-    let data = await dataRes.json();
-    data = data.map(item => ({
-      ...item,
-      totalViews: Number(item.totalViews),
+    const now = new Date();
+    const koreaTime = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+    const today = koreaTime.toISOString().slice(0, 10);
+    
+    const isOnlyToday = startDate === endDate && startDate === today;
+    const includesOnlyToday = startDate <= today && endDate >= today;
+    
+    let finalData = [];
+    
+    if (isOnlyToday) {
+      // 오늘만 조회하는 경우 - agg 테이블만 사용
+      const todayResult = await getTodayPageViews(clickhouse, sdk_key, startDate, endDate, limit);
+      finalData = todayResult.data || [];
+    } else if (includesOnlyToday) {
+      // 과거 + 오늘 혼합 기간 - 두 테이블 데이터 합치기
+      const pastEndDate = new Date(today);
+      pastEndDate.setDate(pastEndDate.getDate() - 1);
+      const pastEndDateStr = pastEndDate.toISOString().slice(0, 10);
+      
+      const [pastResult, todayResult] = await Promise.all([
+        getPastPageViews(clickhouse, sdk_key, startDate, pastEndDateStr, limit * 2),
+        getTodayPageViews(clickhouse, sdk_key, today, endDate, limit * 2)
+      ]);
+      
+      finalData = mergePageViewsData(pastResult.data || [], todayResult.data || [], limit);
+    } else {
+      // 과거 기간만 - flat 테이블만 사용
+      const pastResult = await getPastPageViews(clickhouse, sdk_key, startDate, endDate, limit);
+      finalData = pastResult.data || [];
+    }
+
+    // 기존 프론트엔드 형식에 맞게 변환
+    const formattedData = finalData.map(row => ({
+      page: row.page_path,
+      totalViews: parseInt(row.total_views) || 0
     }));
-    res.status(200).json(data);
+
+    res.status(200).json(formattedData);
   } catch (err) {
     console.error("Page Views API ERROR:", err);
     res.status(500).json({ error: "Failed to get page views data" });
   }
 });
 
-/* 전체 조회수 */
+/* 전체 조회수 (새로운 스키마 사용) */
 router.get('/view-counts', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   const { startDate, endDate } = req.query;
   if (!startDate || !endDate) return res.status(400).json({ error: 'Missing startDate or endDate' });
 
   try {
-    const dataRes = await clickhouse.query({
-      query: getViewCountsQuery(startDate, endDate, sdk_key),
-      format: 'JSONEachRow'
-    });
-    const data = await dataRes.json();
-    res.status(200).json(data.map(d => ({
-      date: d.date,
-      totalViews: Number(d.totalViews || 0),
-    })));
+    const now = new Date();
+    const koreaTime = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+    const today = koreaTime.toISOString().slice(0, 10);
+    
+    const isOnlyToday = startDate === endDate && startDate === today;
+    const includesOnlyToday = startDate <= today && endDate >= today;
+    
+    let finalData = [];
+    
+    if (isOnlyToday) {
+      // 오늘만 조회하는 경우 - agg 테이블만 사용
+      const todayResult = await getTodayViewCounts(clickhouse, sdk_key, startDate, endDate);
+      finalData = todayResult.data || [];
+    } else if (includesOnlyToday) {
+      // 과거 + 오늘 혼합 기간 - 두 테이블 데이터 합치기
+      const pastEndDate = new Date(today);
+      pastEndDate.setDate(pastEndDate.getDate() - 1);
+      const pastEndDateStr = pastEndDate.toISOString().slice(0, 10);
+      
+      const [pastResult, todayResult] = await Promise.all([
+        getPastViewCounts(clickhouse, sdk_key, startDate, pastEndDateStr),
+        getTodayViewCounts(clickhouse, sdk_key, today, endDate)
+      ]);
+      
+      finalData = mergeViewCountsData(pastResult.data || [], todayResult.data || []);
+    } else {
+      // 과거 기간만 - flat 테이블만 사용
+      const pastResult = await getPastViewCounts(clickhouse, sdk_key, startDate, endDate);
+      finalData = pastResult.data || [];
+    }
+
+    // 기존 프론트엔드 형식에 맞게 변환
+    const formattedData = finalData.map(row => ({
+      date: row.date,
+      totalViews: parseInt(row.totalViews) || 0
+    }));
+
+    res.status(200).json(formattedData);
   } catch (err) {
     console.error("View Counts API ERROR:", err);
     res.status(500).json({ error: "Failed to get view counts data" });
   }
 });
 
-/* 전체 클릭수 */
+/* 전체 클릭수 (새로운 스키마 사용) */
 router.get('/click-counts', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   const { startDate, endDate } = req.query;
   if (!startDate || !endDate) return res.status(400).json({ error: 'Missing startDate or endDate' });
 
   try {
-    const dataRes = await clickhouse.query({
-      query: getClickCountsQuery(startDate, endDate, sdk_key),
-      format: 'JSONEachRow'
-    });
-    const data = await dataRes.json();
-    res.status(200).json(data.map(d => ({
-      date: d.date,
-      totalClicks: Number(d.totalClicks || 0),
-    })));
+    const now = new Date();
+    const koreaTime = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+    const today = koreaTime.toISOString().slice(0, 10);
+    
+    const isOnlyToday = startDate === endDate && startDate === today;
+    const includesOnlyToday = startDate <= today && endDate >= today;
+    
+    let finalData = [];
+    
+    if (isOnlyToday) {
+      // 오늘만 조회하는 경우 - agg 테이블만 사용
+      const todayResult = await getTodayClickCounts(clickhouse, sdk_key, startDate, endDate);
+      finalData = todayResult.data || [];
+    } else if (includesOnlyToday) {
+      // 과거 + 오늘 혼합 기간 - 두 테이블 데이터 합치기
+      const pastEndDate = new Date(today);
+      pastEndDate.setDate(pastEndDate.getDate() - 1);
+      const pastEndDateStr = pastEndDate.toISOString().slice(0, 10);
+      
+      const [pastResult, todayResult] = await Promise.all([
+        getPastClickCounts(clickhouse, sdk_key, startDate, pastEndDateStr),
+        getTodayClickCounts(clickhouse, sdk_key, today, endDate)
+      ]);
+      
+      finalData = mergeClickCountsData(pastResult.data || [], todayResult.data || []);
+    } else {
+      // 과거 기간만 - flat 테이블만 사용
+      const pastResult = await getPastClickCounts(clickhouse, sdk_key, startDate, endDate);
+      finalData = pastResult.data || [];
+    }
+
+    // 기존 프론트엔드 형식에 맞게 변환
+    const formattedData = finalData.map(row => ({
+      date: row.date,
+      totalClicks: parseInt(row.totalClicks) || 0
+    }));
+
+    res.status(200).json(formattedData);
   } catch (err) {
     console.error("Click Counts API ERROR:", err);
     res.status(500).json({ error: "Failed to get click counts data" });
