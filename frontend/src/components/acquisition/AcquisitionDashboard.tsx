@@ -80,10 +80,10 @@ export const AcquisitionDashboard: React.FC = () => {
       const dateQuery = `startDate=${startStr}&endDate=${endStr}`;
 
       // SDK_KEY 확인 로그
-      console.log('[SDK_KEY CHECK] Bearer Token:', token);
+      // console.log('[SDK_KEY CHECK] Bearer Token:', token);
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
-        console.log('[Decoded SDK Key]', payload.sdk_key || payload.sub || 'N/A');
+        // console.log('[Decoded SDK Key]', payload.sdk_key || payload.sub || 'N/A');
       } catch (err) {
         console.warn('[SDK_KEY CHECK] 토큰 디코딩 실패:', err);
       }
@@ -275,7 +275,7 @@ export const AcquisitionDashboard: React.FC = () => {
   // channelGroupData 로그 추가
   useEffect(() => {
     if (acquisitionData && acquisitionData.channelGroupData) {
-      console.log('[LOG] channelGroupData:', acquisitionData.channelGroupData);
+      // console.log('[LOG] channelGroupData:', acquisitionData.channelGroupData);
     }
   }, [acquisitionData]);
 

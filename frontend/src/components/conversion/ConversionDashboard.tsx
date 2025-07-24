@@ -164,7 +164,7 @@ export const ConversionDashboard: React.FC = () => {
 
   // URL 모드에서 summaryData를 동적으로 불러오는 함수
   const fetchUrlSummaryData = async (urls: string[]) => {
-    console.log('[fetchUrlSummaryData 진입]', urls);
+    // console.log('[fetchUrlSummaryData 진입]', urls);
     // URL 정규화 및 중복 제거
     const normUrls = Array.from(new Set(urls.map(normalizeUrl)));
     if (!normUrls.length) {
@@ -178,14 +178,14 @@ export const ConversionDashboard: React.FC = () => {
       const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
       const params = new URLSearchParams({ urls: normUrls.join(","), start_date: startDate, end_date: endDate });
       // 진단용 로그: 요청 파라미터
-      console.log('[pageview-summary 요청]', `/api/overview/pageview-summary?${params}`);
+      // console.log('[pageview-summary 요청]', `/api/overview/pageview-summary?${params}`);
       const res = await fetch(`/api/overview/pageview-summary?${params}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) throw new Error('API 오류');
       const json = await res.json();
       // 진단용 로그: 응답 데이터
-      console.log('[pageview-summary 응답]', json);
+      // console.log('[pageview-summary 응답]', json);
       // 숫자 변환 보장
       const processedData = (json.data || []).map((row: any) => ({
         ...row,
@@ -220,18 +220,14 @@ export const ConversionDashboard: React.FC = () => {
 
   // addMode가 url일 때만 summary fetch (allUrls 의존성 제거)
   useEffect(() => {
-    console.log('[useEffect] addMode:', addMode, 'allUrls:', allUrls);
+    // console.log('[useEffect] addMode:', addMode, 'allUrls:', allUrls);
     if (addMode === 'url') {
       const urlEvents = allUrls.filter(ev => ev.startsWith('/'));
-      console.log('[useEffect] urlEvents:', urlEvents);
+      // console.log('[useEffect] urlEvents:', urlEvents);
       fetchUrlSummaryData(urlEvents);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [addMode]);
-
-
-
-
 
   // Sankey 데이터 fetch (선택값 반영)
   useEffect(() => {
