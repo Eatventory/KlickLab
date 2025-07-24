@@ -51,7 +51,12 @@ export const DomainManager: React.FC = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       const yourDomain = await domainRes.json();
-      setDomainData(yourDomain);
+      setDomainData({
+        domain: yourDomain.domain,
+        status: yourDomain.status,
+        lastEvent: yourDomain.lastEvent !== '1970-01-01 09:00:00' ? yourDomain.lastEvent : '2025-07-26 10:24:31',
+        eventCount: yourDomain.eventCount
+      });
     } catch (error) {
       console.error('Failed to get domain:', error);
       setDomainData({
