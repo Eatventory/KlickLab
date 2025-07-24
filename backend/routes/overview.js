@@ -103,7 +103,7 @@ router.get('/kpi', async (req, res) => {
 
     const sessionTimeData = await sessionTimeResult.json();
     const avgSessionDuration = sessionTimeData[0]?.avg_session_duration || 0;
-    console.log('avg:', avgSessionDuration)
+    // console.log('avg:', avgSessionDuration)
 
     // ✅ 수정된 어제 데이터 조회 - 모든 집계 함수 올바르게 수정
     const yesterdayQuery = `
@@ -140,8 +140,8 @@ router.get('/kpi', async (req, res) => {
     const activeUsers = parseInt(row.active_users) || 0;
     const conversions = parseInt(row.total_conversions) || 0;
 
-    console.log('activeUsers:', activeUsers);
-    console.log('conversions:', conversions);
+    // console.log('activeUsers:', activeUsers);
+    // console.log('conversions:', conversions);
     const engagedSessions = parseInt(row.engaged_sessions) || 0;
     const conversionRate = totalSessions > 0 ? (engagedSessions * 100 / totalSessions) : 0;
 

@@ -3,7 +3,7 @@ import React from 'react';
 
 const CustomLink: React.FC<any> = (props) => {
     // props 구조 확인
-    console.log('CustomLink props:', props);
+    // console.log('CustomLink props:', props);
     
     const { sourceX, targetX, sourceY, targetY, sourceControlX, targetControlX, linkWidth, index, value, payload } = props;
     
