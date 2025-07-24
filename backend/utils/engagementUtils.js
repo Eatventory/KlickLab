@@ -21,19 +21,12 @@ function getAvgSessionQuery(startDate, endDate, sdk_key) {
     ) d
     LEFT JOIN (
       SELECT
-        toDate(date_time) AS date,
-        round(avg(avg_session_seconds), 2) AS avgSessionSeconds
-      FROM (
-        SELECT cast(date AS DateTime) AS date_time, avg_session_seconds FROM daily_metrics
-        WHERE ${getQueryWhereClause("daily", startDate, endDate)} AND sdk_key = '${sdk_key}'
-        UNION ALL
-        SELECT date_time, avg_session_seconds FROM hourly_metrics
-        WHERE ${getQueryWhereClause("hourly", startDate, endDate)} AND sdk_key = '${sdk_key}'
-        UNION ALL
-        SELECT date_time, avg_session_seconds FROM minutes_metrics
-        WHERE ${getQueryWhereClause("minutes", startDate, endDate)} AND sdk_key = '${sdk_key}'
-      )
-      GROUP BY date
+        summary_date AS date,
+        round(sumMerge(session_duration_sum_state) / nullIf(uniqMerge(sessions_state), 0), 2) AS avgSessionSeconds
+      FROM klicklab.agg_user_session_stats
+      WHERE sdk_key = '${sdk_key}'
+        AND summary_date BETWEEN start AND end
+      GROUP BY summary_date
     ) AS avgData ON d.date = avgData.date
     ORDER BY d.date ASC
   `;
@@ -47,28 +40,21 @@ function getSessionsPerUserQuery(startDate, endDate, sdk_key) {
       dateDiff('day', start, end) AS days
     SELECT d.date,
       ifNull(userData.totalVisitors, 0) AS totalVisitors,
-      ifNull(userData.totalClicks, 0) AS totalClicks,
+      ifNull(userData.totalSessions, 0) AS totalSessions,
       ifNull(userData.sessionsPerUser, 0) AS sessionsPerUser
     FROM (
       SELECT addDays(start, number) AS date FROM numbers(days + 1)
     ) d
     LEFT JOIN (
       SELECT
-        toDate(date_time) AS date,
-        sum(visitors) AS totalVisitors,
-        sum(clicks) AS totalClicks,
-        round(sum(clicks) / nullIf(sum(visitors), 0), 2) AS sessionsPerUser
-      FROM (
-        SELECT cast(date AS DateTime) AS date_time, clicks, visitors FROM daily_metrics
-        WHERE ${getQueryWhereClause("daily", startDate, endDate)} AND sdk_key = '${sdk_key}'
-        UNION ALL
-        SELECT date_time, clicks, visitors FROM hourly_metrics
-        WHERE ${getQueryWhereClause("hourly", startDate, endDate)} AND sdk_key = '${sdk_key}'
-        UNION ALL
-        SELECT date_time, clicks, visitors FROM minutes_metrics
-        WHERE ${getQueryWhereClause("minutes", startDate, endDate)} AND sdk_key = '${sdk_key}'
-      )
-      GROUP BY date
+        summary_date AS date,
+        uniqMerge(unique_users_state) AS totalVisitors,
+        uniqMerge(sessions_state) AS totalSessions,
+        round(uniqMerge(sessions_state) / nullIf(uniqMerge(unique_users_state), 0), 2) AS sessionsPerUser
+      FROM klicklab.agg_user_session_stats
+      WHERE sdk_key = '${sdk_key}'
+        AND summary_date BETWEEN start AND end
+      GROUP BY summary_date
     ) AS userData ON d.date = userData.date
     ORDER BY d.date ASC
   `;
@@ -85,18 +71,14 @@ function getClickCountsQuery(startDate, endDate, sdk_key) {
       SELECT addDays(start, number) AS date FROM numbers(days + 1)
     ) d
     LEFT JOIN (
-      SELECT toDate(date_time) AS date, sum(clicks) AS totalClicks
-      FROM (
-        SELECT cast(date AS DateTime) AS date_time, clicks FROM daily_metrics
-        WHERE ${getQueryWhereClause("daily", startDate, endDate)} AND sdk_key = '${sdk_key}'
-        UNION ALL
-        SELECT date_time, clicks FROM hourly_metrics
-        WHERE ${getQueryWhereClause("hourly", startDate, endDate)} AND sdk_key = '${sdk_key}'
-        UNION ALL
-        SELECT date_time, clicks FROM minutes_metrics
-        WHERE ${getQueryWhereClause("minutes", startDate, endDate)} AND sdk_key = '${sdk_key}'
-      )
-      GROUP BY date
+      SELECT 
+        summary_date AS date, 
+        sumMerge(event_count_state) AS totalClicks
+      FROM klicklab.agg_event_stats
+      WHERE sdk_key = '${sdk_key}'
+        AND summary_date BETWEEN start AND end
+        AND event_name IN ('auto_click', 'user_click', 'click')
+      GROUP BY summary_date
     ) AS data ON d.date = data.date
     ORDER BY d.date ASC
   `;
@@ -113,20 +95,13 @@ function getViewCountsQuery(startDate, endDate, sdk_key) {
       SELECT addDays(start, number) AS date FROM numbers(days + 1)
     ) d
     LEFT JOIN (
-      SELECT date, sum(views) AS totalViews FROM (
-        SELECT date, sum(page_views) AS views FROM daily_page_stats
-        WHERE ${getQueryWhereClause("daily", startDate, endDate)} AND sdk_key = '${sdk_key}'
-        GROUP BY date
-        UNION ALL
-        SELECT toDate(date_time) AS date, sum(page_views) AS views FROM hourly_page_stats
-        WHERE ${getQueryWhereClause("hourly", startDate, endDate)} AND sdk_key = '${sdk_key}'
-        GROUP BY date
-        UNION ALL
-        SELECT toDate(date_time) AS date, sum(page_views) AS views FROM minutes_page_stats
-        WHERE ${getQueryWhereClause("minutes", startDate, endDate)} AND sdk_key = '${sdk_key}'
-        GROUP BY date
-      )
-      GROUP BY date
+      SELECT 
+        summary_date AS date, 
+        sumMerge(page_views_state) AS totalViews
+      FROM klicklab.agg_page_content_stats
+      WHERE sdk_key = '${sdk_key}'
+        AND summary_date BETWEEN start AND end
+      GROUP BY summary_date
     ) AS v ON d.date = v.date
     ORDER BY d.date ASC
   `;
@@ -137,12 +112,11 @@ function getUsersOverTimeQuery(startDate, endDate, sdk_key) {
     WITH
       toDate('${startDate}') AS start,
       toDate('${endDate}') AS end,
-      today() AS today,
       dateDiff('day', start, end) AS days
 
     SELECT
       base.date AS base_date,
-      ifNull(daily.visitors, 0) AS daily_users,
+      ifNull(daily.users, 0) AS daily_users,
       ifNull(weekly.users, 0) AS weekly_users,
       ifNull(monthly.users, 0) AS monthly_users
     FROM (
@@ -150,56 +124,38 @@ function getUsersOverTimeQuery(startDate, endDate, sdk_key) {
     ) base
 
     LEFT JOIN (
-      SELECT date, sum(visitors) AS visitors FROM (
-        SELECT date, visitors FROM daily_metrics
-        WHERE ${getQueryWhereClause("daily", startDate, endDate)} AND sdk_key = '${sdk_key}'
-        UNION ALL
-        SELECT toDate(date_time) AS date, visitors FROM hourly_metrics
-        WHERE ${getQueryWhereClause("hourly", startDate, endDate)} AND sdk_key = '${sdk_key}'
-        UNION ALL
-        SELECT toDate(date_time) AS date, visitors FROM minutes_metrics
-        WHERE ${getQueryWhereClause("minutes", startDate, endDate)} AND sdk_key = '${sdk_key}'
-      )
-      GROUP BY date
+      SELECT 
+        summary_date AS date, 
+        uniqMerge(unique_users_state) AS users
+      FROM klicklab.agg_user_session_stats
+      WHERE sdk_key = '${sdk_key}'
+        AND summary_date BETWEEN start AND end
+      GROUP BY summary_date
     ) daily ON base.date = daily.date
 
     LEFT JOIN (
-      SELECT ref.date AS date, sumIf(dm.visitors, dm.date BETWEEN ref.date - INTERVAL 6 DAY AND ref.date) AS users
+      SELECT 
+        ref.date AS date, 
+        uniqMerge(unique_users_state) AS users
       FROM (
         SELECT addDays(start, number) AS date FROM numbers(days + 1)
       ) ref
-      CROSS JOIN (
-        SELECT * FROM (
-          SELECT date, visitors FROM daily_metrics
-          WHERE ${getQueryWhereClause("daily", startDate, endDate)} AND sdk_key = '${sdk_key}'
-          UNION ALL
-          SELECT toDate(date_time) AS date, visitors FROM hourly_metrics
-          WHERE ${getQueryWhereClause("hourly", startDate, endDate)} AND sdk_key = '${sdk_key}'
-          UNION ALL
-          SELECT toDate(date_time) AS date, visitors FROM minutes_metrics
-          WHERE ${getQueryWhereClause("minutes", startDate, endDate)} AND sdk_key = '${sdk_key}'
-        )
-      ) dm
+      CROSS JOIN klicklab.agg_user_session_stats aus
+      WHERE aus.sdk_key = '${sdk_key}'
+        AND aus.summary_date BETWEEN ref.date - INTERVAL 6 DAY AND ref.date
       GROUP BY ref.date
     ) weekly ON base.date = weekly.date
 
     LEFT JOIN (
-      SELECT ref.date AS date, sumIf(dm.visitors, dm.date BETWEEN ref.date - INTERVAL 29 DAY AND ref.date) AS users
+      SELECT 
+        ref.date AS date, 
+        uniqMerge(unique_users_state) AS users
       FROM (
         SELECT addDays(start, number) AS date FROM numbers(days + 1)
       ) ref
-      CROSS JOIN (
-        SELECT * FROM (
-          SELECT date, visitors FROM daily_metrics
-          WHERE ${getQueryWhereClause("daily", startDate, endDate)} AND sdk_key = '${sdk_key}'
-          UNION ALL
-          SELECT toDate(date_time) AS date, visitors FROM hourly_metrics
-          WHERE ${getQueryWhereClause("hourly", startDate, endDate)} AND sdk_key = '${sdk_key}'
-          UNION ALL
-          SELECT toDate(date_time) AS date, visitors FROM minutes_metrics
-          WHERE ${getQueryWhereClause("minutes", startDate, endDate)} AND sdk_key = '${sdk_key}'
-        )
-      ) dm
+      CROSS JOIN klicklab.agg_user_session_stats aus
+      WHERE aus.sdk_key = '${sdk_key}'
+        AND aus.summary_date BETWEEN ref.date - INTERVAL 29 DAY AND ref.date
       GROUP BY ref.date
     ) monthly ON base.date = monthly.date
 
@@ -335,13 +291,17 @@ function getPageStatsQuery(startDate, endDate, sdk_key) {
       uniqMerge(unique_page_views_state) AS active_users,
       round(sumMerge(page_views_state) / nullIf(uniqMerge(unique_page_views_state), 0), 2) AS pageviews_per_user,
       round(sumMerge(time_on_page_sum_state) / nullIf(uniqMerge(unique_page_views_state), 0), 2) AS avg_engagement_time_sec,
-      0 AS total_events
-    FROM klicklab.agg_page_content_stats
-    WHERE sdk_key = '${sdk_key}'
-      AND summary_date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
-      AND page_path != ''
-    GROUP BY summary_date, page_path
-    ORDER BY summary_date DESC, page_views DESC
+      sumMerge(event_count_state) AS total_events
+    FROM klicklab.agg_page_content_stats apc
+    LEFT JOIN klicklab.agg_event_stats aes
+      ON apc.summary_date = aes.summary_date 
+      AND apc.page_path = aes.page_path 
+      AND apc.sdk_key = aes.sdk_key
+    WHERE apc.sdk_key = '${sdk_key}'
+      AND apc.summary_date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
+      AND apc.page_path != ''
+    GROUP BY apc.summary_date, apc.page_path
+    ORDER BY apc.summary_date DESC, page_views DESC
   `;
 }
 
@@ -350,17 +310,15 @@ function getVisitStatsQuery(startDate, endDate, sdk_key) {
     SELECT
       summary_date AS date,
       page_path,
-      dm.visitors AS sessions,
+      uniqMerge(sessions_with_page_state) AS sessions,
       uniqMerge(unique_page_views_state) AS active_users,
-      dm.new_visitors AS new_visitors,
+      uniqMerge(unique_page_views_state) AS new_visitors,
       round(sumMerge(time_on_page_sum_state) / nullIf(uniqMerge(unique_page_views_state), 0), 2) AS avg_session_seconds
-    FROM klicklab.agg_page_content_stats apc
-    LEFT JOIN klicklab.daily_metrics dm
-      ON apc.summary_date = dm.date AND apc.sdk_key = '${sdk_key}'
-    WHERE apc.sdk_key = '${sdk_key}'
-      AND apc.summary_date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
+    FROM klicklab.agg_page_content_stats
+    WHERE sdk_key = '${sdk_key}'
+      AND summary_date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
       AND page_path != ''
-    GROUP BY summary_date, page_path, dm.visitors, dm.new_visitors
+    GROUP BY summary_date, page_path
     ORDER BY summary_date ASC, sessions DESC
   `;
 }
@@ -371,33 +329,23 @@ function getRevisitQuery(startDate, endDate, sdk_key) {
       SELECT toDate('${startDate}') + number AS date
       FROM numbers(datediff('day', toDate('${startDate}'), toDate('${endDate}')) + 1)
     ),
-    dau_table AS (
-      SELECT date, visitors AS dau
-      FROM klicklab.daily_metrics
-      WHERE sdk_key = '${sdk_key}' AND date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
-    ),
-    wau_table AS (
-      SELECT date, visitors AS wau
-      FROM klicklab.weekly_metrics
-      WHERE sdk_key = '${sdk_key}'
-    ),
-    mau_table AS (
-      SELECT date, visitors AS mau
-      FROM klicklab.weekly_metrics
-      WHERE sdk_key = '${sdk_key}'
+    user_stats AS (
+      SELECT 
+        summary_date AS date,
+        uniqMerge(unique_users_state) AS dau,
+        uniqMerge(sessions_state) AS sessions
+      FROM klicklab.agg_user_session_stats
+      WHERE sdk_key = '${sdk_key}' 
+        AND summary_date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
+      GROUP BY summary_date
     )
     SELECT
       ds.date AS date,
-      dt.dau,
-      wt.wau,
-      mt.mau,
-      round(dt.dau / wt.wau, 4) AS dau_wau_ratio,
-      round(dt.dau / mt.mau, 4) AS dau_mau_ratio,
-      round(wt.wau / mt.mau, 4) AS wau_mau_ratio
+      us.dau,
+      us.sessions,
+      round(us.dau / nullIf(us.sessions, 0), 4) AS dau_sessions_ratio
     FROM date_series ds
-    LEFT JOIN dau_table dt ON ds.date = dt.date
-    LEFT JOIN wau_table wt ON wt.date = toStartOfWeek(ds.date)
-    LEFT JOIN mau_table mt ON mt.date = toStartOfMonth(ds.date)
+    LEFT JOIN user_stats us ON ds.date = us.date
     ORDER BY ds.date ASC
   `;
 }
