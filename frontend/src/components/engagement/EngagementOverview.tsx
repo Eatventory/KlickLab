@@ -164,33 +164,24 @@ const EngagementOverview: React.FC<Props> = ({
           <div className="flex items-center gap-2 mb-4">
             <h2 className="text-lg font-semibold text-gray-900">가장 많이 발생된 이벤트</h2>
           </div>
-          <div className="space-y-2">
-            <div className="grid grid-cols-2 font-semibold text-sm text-gray-500">
-              <span>이벤트</span>
-              <span className="text-right">발생횟수</span>
-            </div>
-            {topEvents && topEvents.length > 0 ? (
-              topEvents.map((item, index) => {
-                const maxValue = Math.max(...topEvents.map(event => event.count), 1);
-                return (
-                  <div key={index} className="grid grid-cols-2 text-sm text-gray-700 border-t pt-2 items-center">
-                    <span>{item.label}</span>
-                    <span className="text-right font-medium flex items-center gap-2 justify-end">
-                      <div className="bg-blue-100 rounded h-2 w-20 mr-2 relative">
-                        <div
-                          className="bg-blue-500 h-2 rounded"
-                          style={{ width: `${(item.count / maxValue) * 100}%` }}
-                        />
-                      </div>
-                      {(item.count ?? 0).toLocaleString()}
-                    </span>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="text-gray-400 text-sm">데이터가 없습니다</div>
+          <HorizontalBarChart
+            data={topEvents.map((item) => ({
+              label: item.label,
+              value: item.count,
+              raw: item,
+            }))}
+            tooltipRenderer={(item) => (
+              <>
+                <div className="text-xs text-gray-500 mb-1">{rangeText}</div>
+                <div className="text-xs font-semibold uppercase text-gray-600 mb-1">{item.label}</div>
+                <div className="text-sm font-bold text-gray-900">
+                  발생 횟수 {item.value.toLocaleString()}회
+                </div>
+              </>
             )}
-          </div>
+            isLoading={isFirstLoad}
+            valueFormatter={(val) => `${val.toLocaleString()}회`}
+          />
         </div>
 
         <div className="custom-card col-span-2" style={{ paddingTop: 0 }}>
@@ -238,8 +229,9 @@ const EngagementOverview: React.FC<Props> = ({
 
             tooltipRenderer={(item, hoveredLineKey) => (
               <div className="text-sm space-y-1 min-w-[120px]">
-                <div className="text-gray-500">{item.date}</div>
-            
+                <div className="text-gray-500">
+                  {item.date}
+                </div>
                 <div
                   className="flex items-center"
                   style={{ opacity: hoveredLineKey && hoveredLineKey !== 'monthlyUsers' ? 0.3 : 1 }}
@@ -252,7 +244,6 @@ const EngagementOverview: React.FC<Props> = ({
                   </span>
                 </div>
 
-            
                 <div
                   className="flex items-center"
                   style={{ opacity: hoveredLineKey && hoveredLineKey !== 'weeklyUsers' ? 0.3 : 1 }}
@@ -265,7 +256,6 @@ const EngagementOverview: React.FC<Props> = ({
                   </span>
                 </div>
 
-            
                 <div
                   className="flex items-center"
                   style={{ opacity: hoveredLineKey && hoveredLineKey !== 'dailyUsers' ? 0.3 : 1 }}
@@ -290,12 +280,6 @@ const EngagementOverview: React.FC<Props> = ({
             )}
           />
         </div>
-
-        {/* <div className="custom-card">
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">TBD</h2>
-          </div>
-        </div> */}
       </div>
     </div>
   );

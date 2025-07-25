@@ -1,34 +1,30 @@
-// 한국 지역명 정규화 매핑 (RegionalActiveUsers.tsx에서 가져옴)
 export const REGION_MAPPING: Record<string, string> = {
-  // ipapi 버전
-  "Seoul": "서울시",
-  "Busan": "부산시",
-  "Incheon": "인천시",
-  "Daegu": "대구시",
-  "Daejeon": "대전시",
-  "Gwangju": "광주시",
-  "Ulsan": "울산시",
-  "Sejong": "세종특별시",
+  "Seoul": "서울특별시",
+  "Busan": "부산광역시",
+  "Incheon": "인천광역시",
+  "Daegu": "대구광역시",
+  "Daejeon": "대전광역시",
+  "Gwangju": "광주광역시",
+  "Ulsan": "울산광역시",
+  "Sejong": "세종특별자치시",
   "Gyeonggi-do": "경기도",
-  "Gangwon-do": "강원도",
+  "Gangwon-do": "강원특별자치도",
   "Chungcheongbuk-do": "충청북도",
   "Chungcheongnam-do": "충청남도",
   "Jeollabuk-do": "전라북도",
   "Jeollanam-do": "전라남도",
   "Gyeongsangbuk-do": "경상북도",
   "Gyeongsangnam-do": "경상남도",
-  "Jeju-do": "제주도",
+  "Jeju-do": "제주특별자치도",
   "South_Gyeongsang": "경상남도",
   'North_Gyeongsang': '경상북도',
   'South_Chungcheong': '충청남도',
   'North_Jeolla': '전라북도',
   'South_Jeolla': '전라남도',
   'North_Chungcheong': '충청북도',
-  'Jeju': '제주도',
-  'Gyeonggi': '경기도', // 추가 매핑
-  
-  // 데이터베이스에서 발견된 추가 매핑들 (중복 제거됨)
-  'Gangwon': '강원도'
+  'Jeju': '제주특별자치도',
+  'Gyeonggi': '경기도',
+  'Gangwon': '강원특별자치도'
 };
 
 // 지역명 정규화 함수

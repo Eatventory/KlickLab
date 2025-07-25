@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { getRangeLabel } from '../../utils/getRangeLabel';
 import dayjs from 'dayjs';
+import { REGION_MAPPING } from '../../utils/regionUtils';
 
 interface RegionData {
   id: string;
@@ -22,40 +23,6 @@ interface RegionalActiveUsersProps {
   data?: any[];  // 전달받은 country 데이터
   loading?: boolean;  // 로딩 상태
 }
-
-// 백엔드 영어명 → 한국어명 매핑
-const REGION_NAME_MAPPING: Record<string, string> = {
-
-  // ipapi 버전
-  "Seoul": "서울특별시",
-  "Busan": "부산광역시",
-  "Incheon": "인천광역시",
-  "Daegu": "대구광역시",
-  "Daejeon": "대전광역시",
-  "Gwangju": "광주광역시",
-  "Ulsan": "울산광역시",
-  "Sejong": "세종특별자치시",
-  "Gyeonggi-do": "경기도",
-  "Gangwon-do": "강원특별자치도",
-  "Chungcheongbuk-do": "충청북도",
-  "Chungcheongnam-do": "충청남도",
-  "Jeollabuk-do": "전라북도",
-  "Jeollanam-do": "전라남도",
-  "Gyeongsangbuk-do": "경상북도",
-  "Gyeongsangnam-do": "경상남도",
-  "Jeju-do": "제주특별자치도",
-  "South_Gyeongsang": "경상남도",
-  'North_Gyeongsang': '경상북도',
-  'South_Chungcheong': '충청남도',
-  'North_Jeolla': '전라북도',
-  'South_Jeolla': '전라남도',
-  'North_Chungcheong': '충청북도',
-  'Jeju': '제주특별자치도',
-  
-  // 데이터베이스에서 발견된 누락 매핑들
-  'Gyeonggi': '경기도', // 3,188명의 사용자!
-  'Gangwon': '강원특별자치도'
-};
 
 // 지역 메타데이터 (ID, 이름, 색상만 포함)
 const REGION_METADATA = [
@@ -138,19 +105,19 @@ export const RegionalActiveUsers: React.FC<RegionalActiveUsersProps> = ({ dateRa
         });
       }
 
-      // 알려진 지역(REGION_NAME_MAPPING에 있는 지역)만 총 사용자 수에 포함
+      // 알려진 지역(REGION_MAPPING에 있는 지역)만 총 사용자 수에 포함
       const knownRegionUsers = Object.entries(cityMap)
-        .filter(([englishName]) => REGION_NAME_MAPPING[englishName])
+        .filter(([englishName]) => REGION_MAPPING[englishName])
         .reduce((sum, [, count]) => sum + count, 0);
 
       // 알려지지 않은 지역들의 사용자 수 합산 (기타 지역)
       const unknownRegionUsers = Object.entries(cityMap)
-        .filter(([englishName]) => !REGION_NAME_MAPPING[englishName])
+        .filter(([englishName]) => !REGION_MAPPING[englishName])
         .reduce((sum, [, count]) => sum + count, 0);
 
       // 알려지지 않은 지역들 로그 출력
       const unknownRegions = Object.entries(cityMap)
-        .filter(([englishName]) => !REGION_NAME_MAPPING[englishName]);
+        .filter(([englishName]) => !REGION_MAPPING[englishName]);
 
       // 총 사용자 수는 알려진 지역 + 기타 지역
       const totalUsers = knownRegionUsers + unknownRegionUsers;
@@ -162,7 +129,7 @@ export const RegionalActiveUsers: React.FC<RegionalActiveUsersProps> = ({ dateRa
         // 영어명에서 한국어명으로 매핑된 데이터 찾기
         let users = 0;
         Object.entries(cityMap).forEach(([englishName, userCount]) => {
-          const mappedKoreanName = REGION_NAME_MAPPING[englishName];
+          const mappedKoreanName = REGION_MAPPING[englishName];
           if (mappedKoreanName === koreanName) {
             users += userCount;
           }

@@ -146,29 +146,55 @@ export const ChannelConversionTable: React.FC<ChannelConversionTableProps> = ({
   return (
     <div className={`bg-white rounded-lg shadow-sm border border-gray-200 h-full flex flex-col p-6 relative ${className || ''}`}>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-semibold text-gray-900 mb-2">채널별 전환율</h3>
+        <h3 className="text-sm font-semibold text-gray-900">채널별 전환율</h3>
       </div>
-      <div className="flex-1 overflow-y-auto">
-        {sortedData.map((channel, index) => (
-          <div key={`${channel.source || channel.channel || 'unknown'}-${index}`} className="mb-3">
-            <div className="flex justify-between items-center">
-              <span className="font-medium text-gray-900 text-sm flex-1">{channel.channel}</span>
-              <span className="font-bold text-sm text-gray-900 w-12 text-right">{channel.conversionRate}%</span>
+      <HorizontalBarChart
+        data={sortedData.map((channel) => ({
+          label: channel.channel || '기타',
+          value: channel.conversionRate,
+          raw: channel,
+        }))}
+        tooltipRenderer={(item) => (
+          <>
+            <div className="text-xs font-semibold uppercase text-gray-600 mb-1">{item.label}</div>
+            <div className="text-sm font-bold text-gray-900">
+              전환율 {item.value.toFixed(1)}%
             </div>
-            <div className="w-full bg-gray-200 rounded mt-2" style={{ height: '6px' }}>
-              <div 
-                className="bg-blue-500 rounded" 
-                style={{ 
-                  width: maxConversionRate > 0 ? `${(channel.conversionRate / maxConversionRate) * 100}%` : '0%', 
-                  height: '6px' 
-                }} 
-              />
-            </div>
-          </div>
-        ))}
-      </div>
+          </>
+        )}
+        isLoading={loading}
+        useAbsolutePercentage={true}
+        valueFormatter={(val) => `${val.toFixed(1)}%`}
+      />
     </div>
   );
+
+  // return (
+  //   <div className={`bg-white rounded-lg shadow-sm border border-gray-200 h-full flex flex-col p-6 relative ${className || ''}`}>
+  //     <div className="flex items-center justify-between mb-4">
+  //       <h3 className="text-sm font-semibold text-gray-900 mb-2">채널별 전환율</h3>
+  //     </div>
+  //     <div className="flex-1 overflow-y-auto">
+  //       {sortedData.map((channel, index) => (
+  //         <div key={`${channel.source || channel.channel || 'unknown'}-${index}`} className="mb-3">
+  //           <div className="flex justify-between items-center">
+  //             <span className="font-medium text-gray-900 text-sm flex-1">{channel.channel}</span>
+  //             <span className="font-bold text-sm text-gray-900 w-12 text-right">{channel.conversionRate}%</span>
+  //           </div>
+  //           <div className="w-full bg-gray-200 rounded mt-2" style={{ height: '6px' }}>
+  //             <div 
+  //               className="bg-blue-500 rounded" 
+  //               style={{ 
+  //                 width: maxConversionRate > 0 ? `${(channel.conversionRate / maxConversionRate) * 100}%` : '0%', 
+  //                 height: '6px' 
+  //               }} 
+  //             />
+  //           </div>
+  //         </div>
+  //       ))}
+  //     </div>
+  //   </div>
+  // );
 
   // return (
   //   <div className={`bg-white rounded-lg shadow-sm border border-gray-200 h-full flex flex-col p-6 relative ${className || ''}`}>
