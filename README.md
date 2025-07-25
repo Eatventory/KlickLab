@@ -47,11 +47,11 @@
 <img width="2249" height="3179" alt="image" src="https://github.com/user-attachments/assets/2982378f-6e4d-42e7-be14-10f9972d5573" />
 
 ## 아키텍처
-
 ![KlickLab_Light_0721_발표용](https://github.com/user-attachments/assets/e1b65435-379c-494c-a612-03a6ae95a116)
 
 
 ## 데이터 흐름
+![Infra Architecture for KlickLab](https://github.com/user-attachments/assets/b5458fb8-2a82-4ba7-9585-32fb0953b2ad)
 
 
 ## 설치 및 실행
