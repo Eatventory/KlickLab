@@ -14,6 +14,33 @@
 | 김관수 | 김재현 | 박준식 | 오주영 | 윤석주 | 이현재 |
 <!-- | 기능1 설명 | 기능2 설명 | 기능3 설명 | 기능4 설명 | 기능5 설명 | 기능6 설명 | -->
 
+## 대시보드 스크린샷
+
+> 대시보드 탭별 스크린샷입니다. <br/>클릭하면 원본 해상도로 확대됩니다.
+
+| Overview | User 분석 | 유입 분석 |
+|:---:|:---:|:---:|
+| [![Overview](https://github.com/user-attachments/assets/a069b4a0-c2b1-44b6-8d67-bb7441967522?raw=true)](https://github.com/user-attachments/assets/a069b4a0-c2b1-44b6-8d67-bb7441967522) | [![User](https://github.com/user-attachments/assets/0517d953-3da3-4f96-b83f-8aa821a82175?raw=true)](https://github.com/user-attachments/assets/0517d953-3da3-4f96-b83f-8aa821a82175) | [![Acquisition](https://github.com/user-attachments/assets/b0ffd88d-f281-43c2-9ded-27bbb89fb924?raw=true)](https://github.com/user-attachments/assets/b0ffd88d-f281-43c2-9ded-27bbb89fb924) |
+| 참여도 분석 | 이벤트 타임라인 | KPI & 설정 |
+| [![Engage](https://github.com/user-attachments/assets/2b8c66e0-ea7f-42ee-9ce0-36bce874d143?raw=true)](https://github.com/user-attachments/assets/2b8c66e0-ea7f-42ee-9ce0-36bce874d143) | [![Timeline](https://github.com/user-attachments/assets/1c6546aa-0aca-4353-afea-47fe4e63b6f6?raw=true)](https://github.com/user-attachments/assets/1c6546aa-0aca-4353-afea-47fe4e63b6f6) | [![Report](https://github.com/user-attachments/assets/015974bb-86ed-4380-b6d0-e2d833becf1d?raw=true)](https://github.com/user-attachments/assets/015974bb-86ed-4380-b6d0-e2d833becf1d) |
+
+<details>
+<summary>🔎 원본 7장 전체 보기</summary>
+
+<div align="center">
+
+<img src="https://github.com/user-attachments/assets/a069b4a0-c2b1-44b6-8d67-bb7441967522" width="90%"/>
+<img src="https://github.com/user-attachments/assets/0517d953-3da3-4f96-b83f-8aa821a82175" width="90%"/>
+<img src="https://github.com/user-attachments/assets/b0ffd88d-f281-43c2-9ded-27bbb89fb924" width="90%"/>
+<img src="https://github.com/user-attachments/assets/2b8c66e0-ea7f-42ee-9ce0-36bce874d143" width="90%"/>
+<img src="https://github.com/user-attachments/assets/1c6546aa-0aca-4353-afea-47fe4e63b6f6" width="90%"/>
+<img src="https://github.com/user-attachments/assets/015974bb-86ed-4380-b6d0-e2d833becf1d" width="90%"/>
+<img src="https://github.com/user-attachments/assets/ab444991-b663-4dca-8f26-1ffc44123e7d" width="90%"/>
+
+</div>
+
+</details>
+
 ## 포스터
 
 <img width="2249" height="3179" alt="image" src="https://github.com/user-attachments/assets/2982378f-6e4d-42e7-be14-10f9972d5573" />
