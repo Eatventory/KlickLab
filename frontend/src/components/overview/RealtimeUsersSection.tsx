@@ -1,5 +1,5 @@
 import React from 'react';
-import { useRealtimeOverview } from '../../hooks/useRealtimeOverview';
+import { aggregateRegionData } from '../../utils/regionUtils';
 
 // 타입 정의
 interface TrendData { time: string; users: number; }
@@ -9,6 +9,14 @@ interface SummaryData {
   totalEvents?: number;
   pageviews?: number;
   clicks?: number;
+}
+
+interface RealtimeUsersSectionProps {
+  activeUsers?: number;
+  trend?: TrendData[];
+  locations?: any[];
+  loading?: boolean;
+  showLocations?: boolean;
 }
 
 // 호버 가능한 실시간 차트 컴포넌트
@@ -61,11 +69,21 @@ const RealtimeChart: React.FC<{ data: TrendData[]; loading: boolean }> = ({ data
           <div>
             {(() => {
               const idx = hoveredBar;
-              if (idx === 0) return '30분 전';
-              if (idx === data.length - 1) return '1분 미만';
-              return `${30 - idx}분 전`;
+              const minutesAgo = 29 - idx; // 29분 전부터 0분 전까지
+              if (minutesAgo === 0) return '지금';
+              if (minutesAgo === 1) return '1분 전';
+              return `${minutesAgo}분 전`;
             })()}
-            &nbsp;({data[hoveredBar].time})
+            &nbsp;({(() => {
+              // DB 데이터가 이미 한국시간이므로 직접 사용
+              const dbTime = new Date(data[hoveredBar].time);
+              const year = dbTime.getFullYear();
+              const month = String(dbTime.getMonth() + 1).padStart(2, '0');
+              const day = String(dbTime.getDate()).padStart(2, '0');
+              const hours = String(dbTime.getHours()).padStart(2, '0');
+              const minutes = String(dbTime.getMinutes()).padStart(2, '0');
+              return `${year}-${month}-${day} ${hours}:${minutes}`;
+            })()})
           </div>
           <div className="font-bold">활성 사용자: {data[hoveredBar].users}명</div>
         </div>
@@ -95,44 +113,66 @@ const RealtimeChart: React.FC<{ data: TrendData[]; loading: boolean }> = ({ data
   );
 };
 
-export const RealtimeUsersSection: React.FC = () => {
-  const { loading, summary, trend, sources } = useRealtimeOverview();
+export const RealtimeUsersSection: React.FC<RealtimeUsersSectionProps> = ({ 
+  activeUsers = 0, 
+  trend = [], 
+  locations = [], 
+  loading = false,
+  showLocations = true 
+}) => {
+  if (loading) {
+    return (
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="animate-pulse">
+          <div className="h-4 bg-gray-200 rounded w-1/3 mb-4"></div>
+          <div className="h-8 bg-gray-200 rounded w-1/2 mb-4"></div>
+          <div className="h-28 bg-gray-200 rounded"></div>
+        </div>
+      </div>
+    );
+  }
+
+  // 숫자 변환 보장
+  const displayUsers = parseInt(activeUsers.toString()) || 0;
+  const displayTrend = trend.map((item: any) => ({
+    time: item.time,
+    users: parseInt(item.users?.toString()) || 0
+  }));
+  
+  // 지역 데이터 정규화 및 집계
+  const rawLocations = locations.map((location: any) => ({
+    location: location.location,
+    users: parseInt(location.users?.toString()) || 0
+  }));
+  const displayLocations = aggregateRegionData(rawLocations);
 
   return (
-    <div className="bg-white rounded-lg shadow p-8 flex flex-col justify-start">
-      <div>
-        <div className="text-base font-semibold text-gray-700 mb-1">지난 30분 동안의 활성 사용자</div>
-        <div className="text-3xl font-extrabold text-blue-700 mb-4">
-          {loading ? <div className="h-9 w-20 bg-gray-200 animate-pulse rounded"></div> : summary?.active_users_30min}
+    <div className="bg-white rounded-lg shadow p-6">
+      <div className="mb-4">
+        <h2 className="text-lg font-semibold text-gray-800 mb-2">실시간 활성 사용자</h2>
+        <div className="text-xl font-bold text-blue-600">
+          {displayUsers.toLocaleString()}명
         </div>
-        <RealtimeChart data={trend as TrendData[]} loading={loading} />
-        <div className="text-xs text-gray-400 text-left mb-4">분당 활성 사용자</div>
+        <p className="text-sm text-gray-500 mt-1">최근 30분간 활성 사용자</p>
       </div>
-      <div className="mt-8">
-        {loading ? (
-          <div className="space-y-3">
-            <div className="h-4 bg-gray-200 animate-pulse rounded w-full"></div>
-            <div className="h-4 bg-gray-200 animate-pulse rounded w-4/5"></div>
-            <div className="h-4 bg-gray-200 animate-pulse rounded w-3/5"></div>
-          </div>
-        ) : (
-          (() => {
-            const maxUser = Math.max(...(sources as SourceData[]).map((s) => s.users), 1);
-            return (sources as SourceData[]).map((src) => (
-              <div key={src.source} className="flex items-center mb-2">
-                <span className="w-24 text-xs text-gray-600 truncate" title={src.source}>{src.source}</span>
-                <div className="flex-1 h-2 bg-blue-100 rounded w-full">
-                  <div
-                    style={{ width: `${(src.users / maxUser) * 100}%` }}
-                    className="h-2 bg-blue-500 rounded"
-                  />
-                </div>
-                <span className="text-xs text-gray-700 font-semibold ml-2">{src.users}</span>
+
+      {/* 실시간 차트 */}
+      <RealtimeChart data={displayTrend} loading={loading} />
+
+      {/* 주요 지역 요약 */}
+      {showLocations && displayLocations.length > 0 && (
+        <div className="mt-4">
+          <h3 className="text-sm font-medium text-gray-700 mb-2">주요 지역</h3>
+          <div className="space-y-1">
+            {displayLocations.slice(0, 7).map((location, index) => (
+              <div key={index} className="flex justify-between text-sm">
+                <span className="text-gray-600">{location.location}</span>
+                <span className="font-medium">{location.users.toLocaleString()}명</span>
               </div>
-            ));
-          })()
-        )}
-      </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

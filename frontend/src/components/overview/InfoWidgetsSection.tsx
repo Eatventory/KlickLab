@@ -1,7 +1,13 @@
 import React from 'react';
 import { TopClicks } from './TopClicks';
 import { PieChart, Globe, MousePointer } from 'lucide-react';
-import { useOverviewWidgets } from '../../hooks/useOverviewWidgets';
+
+interface InfoWidgetsSectionProps {
+  trafficSources?: any[];
+  topPages?: any[];
+  topClicks?: any[];
+  loading?: boolean;
+}
 
 // 위젯의 기본 프레임을 위한 컴포넌트
 const WidgetFrame = ({ title, children, icon: Icon }) => (
@@ -62,51 +68,34 @@ const SimpleTable = ({ data, columns, loading, showBar }) => {
   );
 };
 
-export const InfoWidgetsSection = () => {
-    const { loading, widgets } = useOverviewWidgets();
-    // 데이터 변환: API 결과를 컴포넌트에 맞게 매핑
-    const trafficSources = widgets?.trafficSources?.map((row) => ({
-      source: row.source,
-      users: row.users,
-    })) || [];
-    const topPages = widgets?.topPages?.map((row) => ({
-      page: row.page,
-      views: row.views,
-    })) || [];
-    const topClicks = widgets?.topClicks?.map((row) => ({
-      label: row.element,
-      value: row.clicks,
-    })) || [];
-    const topConversions = widgets?.topConversions?.map((row) => ({
-      event: row.event,
-      conversions: row.conversions,
-    })) || [];
-    const topEvents = widgets?.topEvents?.map((row) => ({
-      event: row.event,
-      count: row.count,
-    })) || [];
-    return (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
-            {/* 왼쪽: 트래픽 소스 */}
-            <div className="lg:col-span-1">
-            <WidgetFrame title="소스 / 매체별 사용자" icon={PieChart}>
-                <SimpleTable data={trafficSources} columns={[{key: 'source', label: '소스'}, {key: 'users', label: '사용자'}]} loading={loading} showBar />
-            </WidgetFrame>
-            </div>
-
-            {/* 중앙: 상위 활성 페이지 */}
-            <div className="lg:col-span-1">
-            <WidgetFrame title="가장 많이 본 페이지" icon={Globe}>
-                <SimpleTable data={topPages} columns={[{key: 'page', label: '페이지 경로'}, {key: 'views', label: '조회수'}]} loading={loading} showBar />
-            </WidgetFrame>
-            </div>
-            
-            {/* 오른쪽: 상위 이벤트 */}
-            <div className="lg:col-span-1">
-                <WidgetFrame title="상위 이벤트" icon={MousePointer}>
-                    <SimpleTable data={topEvents} columns={[{key: 'event', label: '이벤트'}, {key: 'count', label: '발생수'}]} loading={loading} showBar />
-                </WidgetFrame>
-            </div>
+export const InfoWidgetsSection: React.FC<InfoWidgetsSectionProps> = ({ 
+  trafficSources = [], 
+  topPages = [], 
+  topClicks = [], 
+  loading = false 
+}) => {
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
+      {/* 왼쪽: 트래픽 소스 */}
+      <div className="lg:col-span-1">
+        <WidgetFrame title="소스 / 매체별 사용자" icon={PieChart}>
+          <SimpleTable data={trafficSources} columns={[{key: 'source', label: '소스'}, {key: 'users', label: '사용자'}]} loading={loading} showBar />
+        </WidgetFrame>
       </div>
-    );
-}
+
+      {/* 중앙: 상위 활성 페이지 */}
+      <div className="lg:col-span-1">
+        <WidgetFrame title="가장 많이 본 페이지" icon={Globe}>
+          <SimpleTable data={topPages} columns={[{key: 'page', label: '페이지 경로'}, {key: 'views', label: '조회수'}]} loading={loading} showBar />
+        </WidgetFrame>
+      </div>
+
+      {/* 오른쪽: 상위 이벤트 요소 */}
+      <div className="lg:col-span-1">
+        <WidgetFrame title="가장 많이 발생된 이벤트" icon={MousePointer}>
+          <TopClicks data={topClicks} loading={loading} />
+        </WidgetFrame>
+      </div>
+    </div>
+  );
+};

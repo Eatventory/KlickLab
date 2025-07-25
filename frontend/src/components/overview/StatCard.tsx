@@ -111,21 +111,7 @@ export const StatCard: React.FC<StatCardProps> = ({ data }) => {
             : data.value}
         </p>
         
-        <div className="flex items-center justify-center gap-1">
-          <div className={clsx(
-            'p-0.5 rounded-full',
-            data.changeType === 'increase' ? 'bg-green-100' : 
-            data.changeType === 'decrease' ? 'bg-red-100' : 'bg-gray-100'
-          )}>
-            {getChangeIcon(data.changeType)}
-          </div>
-          <span className={clsx(
-            'text-xs font-semibold',
-            getChangeColor(data.changeType)
-          )}>
-            {data.change > 0 ? '+' : ''}{data.change}%
-          </span>
-        </div>
+        {/* 변화율 표시 제거 */}
       </div>
     </div>
   );
