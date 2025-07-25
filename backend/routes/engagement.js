@@ -45,7 +45,6 @@ const {
 } = require('../utils/engagementUtils');
 
 /* 참여도 개요 */
-
 router.get('/overview', authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   const { startDate, endDate } = req.query;

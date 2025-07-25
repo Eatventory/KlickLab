@@ -191,7 +191,7 @@ export const ConversionDashboard: React.FC = () => {
 
   // URL 모드에서 summaryData를 동적으로 불러오는 함수
   const fetchUrlSummaryData = async (urls: string[]) => {
-    console.log('[fetchUrlSummaryData 진입]', urls);
+    // console.log('[fetchUrlSummaryData 진입]', urls);
     // URL 정규화 및 중복 제거
     const normUrls = Array.from(new Set(urls.map(normalizeUrl)));
     if (!normUrls.length) {
@@ -205,14 +205,14 @@ export const ConversionDashboard: React.FC = () => {
       const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
       const params = new URLSearchParams({ urls: normUrls.join(","), start_date: startDate, end_date: endDate });
       // 진단용 로그: 요청 파라미터
-      console.log('[pageview-summary 요청]', `/api/overview/pageview-summary?${params}`);
+      // console.log('[pageview-summary 요청]', `/api/overview/pageview-summary?${params}`);
       const res = await fetch(`/api/overview/pageview-summary?${params}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) throw new Error('API 오류');
       const json = await res.json();
       // 진단용 로그: 응답 데이터
-      console.log('[pageview-summary 응답]', json);
+      // console.log('[pageview-summary 응답]', json);
       // 숫자 변환 보장
       const processedData = (json.data || []).map((row: any) => ({
         ...row,
@@ -247,18 +247,14 @@ export const ConversionDashboard: React.FC = () => {
 
   // addMode가 url일 때만 summary fetch (allUrls 의존성 제거)
   useEffect(() => {
-    console.log('[useEffect] addMode:', addMode, 'allUrls:', allUrls);
+    // console.log('[useEffect] addMode:', addMode, 'allUrls:', allUrls);
     if (addMode === 'url') {
       const urlEvents = allUrls.filter(ev => ev.startsWith('/'));
-      console.log('[useEffect] urlEvents:', urlEvents);
+      // console.log('[useEffect] urlEvents:', urlEvents);
       fetchUrlSummaryData(urlEvents);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [addMode]);
-
-
-
-
 
   // Sankey 데이터 fetch (선택값 반영)
   useEffect(() => {
@@ -275,7 +271,15 @@ export const ConversionDashboard: React.FC = () => {
         const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
         // event: event_path, url: url_path
         const pathField = dropdownType === 'url' ? 'url_path' : 'event_path';
+        
+        // 날짜 파라미터 추가
         let query = `?type=${dropdownType}`;
+        if (dateRange && dateRange[0]?.startDate && dateRange[0]?.endDate) {
+          const startStr = dayjs(dateRange[0].startDate).format('YYYY-MM-DD');
+          const endStr = dayjs(dateRange[0].endDate).format('YYYY-MM-DD');
+          query += `&startDate=${startStr}&endDate=${endStr}`;
+        }
+        
         const res = await fetch(`/api/stats/sankey-paths${query}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
@@ -297,7 +301,7 @@ export const ConversionDashboard: React.FC = () => {
       }
     };
     fetchSankeyPaths();
-  }, [dropdownType]);
+  }, [dropdownType, dateRange]); // dateRange 의존성 추가
 
   // 드롭다운 핸들러
   const handleDropdownTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {

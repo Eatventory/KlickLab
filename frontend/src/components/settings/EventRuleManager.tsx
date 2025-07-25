@@ -49,7 +49,7 @@ export const EventRuleManager: React.FC = () => {
 
   const handleCreateRule = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Sending conditionType:", conditionType); // 추가된 로그
+    // console.log("Sending conditionType:", conditionType);
     try {
       const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
       const response = await fetch('/api/rules', {
@@ -174,7 +174,7 @@ export const EventRuleManager: React.FC = () => {
             <tr className="border-b border-gray-200">
               <th className="text-left py-3 px-4 font-medium text-gray-900">새 이벤트 이름</th>
               <th className="text-left py-3 px-4 font-medium text-gray-900">조건</th>
-              <th className="text-center py-3 px-4 font-medium text-gray-900">액션</th>
+              {/* <th className="text-center py-3 px-4 font-medium text-gray-900">액션</th> */}
             </tr>
           </thead>
           <tbody>

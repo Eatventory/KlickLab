@@ -1,11 +1,6 @@
-function getQueryWhereClause (table = "minutes", startDate, endDate) {
+function getQueryWhereClause(startDate, endDate) {
   if (!startDate || !endDate) return '1 = 1';
-  
-  if (table === "daily") {
-    return `date BETWEEN toDate('${startDate}') AND toDate('${endDate}')`;
-  } else {
-    return `date_time BETWEEN toDateTime('${startDate} 00:00:00') AND toDateTime('${endDate} 23:59:59')`;
-  }
+  return `summary_date BETWEEN toDate('${startDate}') AND toDate('${endDate}')`;
 }
 
 function getAvgSessionQuery(startDate, endDate, sdk_key) {
@@ -120,8 +115,9 @@ function getUsersOverTimeQuery(startDate, endDate, sdk_key) {
       ifNull(weekly.users, 0) AS weekly_users,
       ifNull(monthly.users, 0) AS monthly_users
     FROM (
-      SELECT addDays(start, number) AS date FROM numbers(days + 1)
-    ) base
+      SELECT addDays(start_date, number) AS date
+      FROM numbers(days_diff + 1)
+    ) AS b
 
     LEFT JOIN (
       SELECT 
@@ -159,7 +155,7 @@ function getUsersOverTimeQuery(startDate, endDate, sdk_key) {
       GROUP BY ref.date
     ) monthly ON base.date = monthly.date
 
-    ORDER BY base_date ASC
+    ORDER BY b.date ASC
   `;
 }
 
@@ -201,24 +197,14 @@ function getPageTimesQuery(startDate, endDate, sdk_key, limit = 10) {
   return `
     SELECT
       page_path AS page,
-      round(sum(avg_time_on_page_seconds * page_views) / sum(page_views), 1) AS averageTime
-    FROM (
-      SELECT page_path, avg_time_on_page_seconds, page_views
-      FROM daily_page_stats
-      WHERE ${getQueryWhereClause("daily", startDate, endDate)}
-        AND sdk_key = '${sdk_key}'
-      UNION ALL
-      SELECT page_path, avg_time_on_page_seconds, page_views
-      FROM hourly_page_stats
-      WHERE ${getQueryWhereClause("hourly", startDate, endDate)}
-        AND sdk_key = '${sdk_key}'
-      UNION ALL
-      SELECT page_path, avg_time_on_page_seconds, page_views
-      FROM minutes_page_stats
-      WHERE ${getQueryWhereClause("minutes", startDate, endDate)}
-        AND sdk_key = '${sdk_key}'
-    )
-    GROUP BY page
+      round(
+        sumMerge(time_on_page_sum_state)
+        / nullIf(sumMerge(page_views_state), 0)
+      , 1) AS averageTime
+    FROM agg_page_content_stats
+    WHERE sdk_key = '${sdk_key}'
+      AND summary_date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
+    GROUP BY page_path
     ORDER BY averageTime DESC
     LIMIT ${limit}
   `;
@@ -228,25 +214,12 @@ function getBounceRateQuery(startDate, endDate, sdk_key, limit = 10) {
   return `
     SELECT
       page_path,
-      sum(page_views) AS total_views,
-      sum(page_exits) AS total_exits,
+      sumMerge(page_views_state) AS total_views,
+      sumMerge(exits_state) AS total_exits,
       round(total_exits / total_views * 100, 1) AS bounce_rate
-    FROM (
-      SELECT page_path, page_views, page_exits
-      FROM daily_page_stats
-      WHERE ${getQueryWhereClause("daily", startDate, endDate)}
-        AND sdk_key = '${sdk_key}'
-      UNION ALL
-      SELECT page_path, page_views, page_exits
-      FROM hourly_page_stats
-      WHERE ${getQueryWhereClause("hourly", startDate, endDate)}
-        AND sdk_key = '${sdk_key}'
-      UNION ALL
-      SELECT page_path, page_views, page_exits
-      FROM minutes_page_stats
-      WHERE ${getQueryWhereClause("minutes", startDate, endDate)}
-        AND sdk_key = '${sdk_key}'
-    )
+    FROM agg_page_content_stats
+    WHERE sdk_key = '${sdk_key}'
+      AND summary_date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
     GROUP BY page_path
     HAVING total_views > 100 AND bounce_rate > 0
     ORDER BY bounce_rate DESC
@@ -258,24 +231,11 @@ function getPageViewsQuery(startDate, endDate, sdk_key, limit = 10) {
   return `
     SELECT
       page_path AS page,
-      sum(page_views) AS totalViews
-    FROM (
-      SELECT page_path, page_views
-      FROM daily_page_stats
-      WHERE ${getQueryWhereClause("daily", startDate, endDate)}
-        AND sdk_key = '${sdk_key}'
-      UNION ALL
-      SELECT page_path, page_views
-      FROM hourly_page_stats
-      WHERE ${getQueryWhereClause("hourly", startDate, endDate)}
-        AND sdk_key = '${sdk_key}'
-      UNION ALL
-      SELECT page_path, page_views
-      FROM minutes_page_stats
-      WHERE ${getQueryWhereClause("minutes", startDate, endDate)}
-        AND sdk_key = '${sdk_key}'
-    )
-    GROUP BY page
+      sumMerge(page_views_state) AS totalViews
+    FROM agg_page_content_stats
+    WHERE sdk_key = '${sdk_key}'
+      AND summary_date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
+    GROUP BY page_path
     HAVING totalViews > 0
     ORDER BY totalViews DESC
     LIMIT ${limit}
@@ -855,6 +815,7 @@ const mergeEventCountsData = (pastData, todayData) => {
 };
 
 module.exports = {
+  getQueryWhereClause,
   getAvgSessionQuery,
   getSessionsPerUserQuery,
   getClickCountsQuery,

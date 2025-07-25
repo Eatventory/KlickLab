@@ -84,7 +84,7 @@ export const EngagementDashboard: React.FC = () => {
     const startStr = dayjs(start).format('YYYY-MM-DD');
     const endStr = dayjs(end).format('YYYY-MM-DD');
     if (!force && fetchCache[tab]?.start === startStr && fetchCache[tab]?.end === endStr) {
-      console.log(`[SKIP] ${tab} - 캐시 hit`);
+      // console.log(`[SKIP] ${tab} - 캐시 hit`);
       return;
     }
 
@@ -193,7 +193,15 @@ export const EngagementDashboard: React.FC = () => {
       try {
         const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
         const pathField = dropdownType === 'url' ? 'url_path' : 'event_path';
+        
+        // 날짜 파라미터 추가
         let query = `?type=${dropdownType}`;
+        if (dateRange && dateRange[0]?.startDate && dateRange[0]?.endDate) {
+          const startStr = dayjs(dateRange[0].startDate).format('YYYY-MM-DD');
+          const endStr = dayjs(dateRange[0].endDate).format('YYYY-MM-DD');
+          query += `&startDate=${startStr}&endDate=${endStr}`;
+        }
+        
         const res = await fetch(`/api/stats/sankey-paths${query}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
@@ -215,7 +223,7 @@ export const EngagementDashboard: React.FC = () => {
       }
     };
     fetchSankeyPaths();
-  }, [dropdownType]);
+  }, [dropdownType, dateRange]); // dateRange 의존성 추가
 
   const handleDropdownTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setDropdownType(e.target.value as 'event'|'url');
@@ -245,6 +253,7 @@ export const EngagementDashboard: React.FC = () => {
 
         onToggle={() => setOpenCollapse(prev => prev === engagementTaps[0] ? '' : engagementTaps[0])}
       >
+        {openCollapse === engagementTaps[0] && (
         <EngagementOverview
           avgSessionSecs={avgSessionSecs}
           sessionsPerUsers={sessionsPerUsers}
@@ -254,7 +263,6 @@ export const EngagementDashboard: React.FC = () => {
           viewCounts={viewCounts}
           clickCounts={clickCounts}
           usersOverTime={usersOverTime}
-
           topEvents={topEvents}
           selectedMetric={selectedMetric}
           selectedMetric2={selectedMetric2}
@@ -263,39 +271,43 @@ export const EngagementDashboard: React.FC = () => {
           isFirstLoad={isFirstLoad}
           dateRange={dateRange}
       />
+            )}
       </Collapse>
 
       <Collapse
         title={engagementTaps[1]}
         isOpen={openCollapse === engagementTaps[1]}
         onToggle={() =>
-
           setOpenCollapse((prev) => (prev === engagementTaps[1] ? '' : engagementTaps[1]))
         }
       >
-        <EngagementEvents eventCounts={eventCounts} />
+        {openCollapse === engagementTaps[1] && (
+          <EngagementEvents eventCounts={eventCounts} />
+        )}
       </Collapse>
 
       <Collapse
         title={engagementTaps[2]}
         isOpen={openCollapse === engagementTaps[2]}
         onToggle={() =>
-
           setOpenCollapse((prev) => (prev === engagementTaps[2] ? '' : engagementTaps[2]))
         }
       >
-        <EngagementPages pageStats={pageStats} />
+        {openCollapse === engagementTaps[2] && (
+          <EngagementPages pageStats={pageStats} />
+        )}
       </Collapse>
 
       <Collapse
         title={engagementTaps[3]}
         isOpen={openCollapse === engagementTaps[3]}
         onToggle={() =>
-
           setOpenCollapse((prev) => (prev === engagementTaps[3] ? '' : engagementTaps[3]))
         }
       >
-        <EngagementVisits visitStats={visitStats} />
+        {openCollapse === engagementTaps[3] && (
+          <EngagementVisits visitStats={visitStats} />
+        )}
       </Collapse>
 
       {/* 퍼널 분석 하위탭 추가 */}
@@ -306,24 +318,25 @@ export const EngagementDashboard: React.FC = () => {
           setOpenCollapse((prev) => (prev === engagementTaps[4] ? '' : engagementTaps[4]))
         }
       >
-        {/* 전환율 탭의 사용자 경로 다이어그램 전체(드롭다운, 백엔드 연동 포함) */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sankey-container" style={{height: '100%', minHeight: 600, maxHeight: '90vh'}}>
-          <div className="flex items-center justify-between mb-6">
-            <h2 style={{ fontWeight: 700, fontSize: 20 }}>사용자 경로 다이어그램</h2>
-            <select
-              value={dropdownType}
-              onChange={handleDropdownTypeChange}
-              className="border rounded px-2 py-1 text-sm bg-white"
-              style={{ minWidth: 120 }}
-            >
-              <option value="event">이벤트</option>
-              <option value="url">URL</option>
-            </select>
+        {openCollapse === engagementTaps[4] && (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sankey-container" style={{height: '100%', minHeight: 600, maxHeight: '90vh'}}>
+            <div className="flex items-center justify-between mb-6">
+              <h2 style={{ fontWeight: 700, fontSize: 20 }}>사용자 경로 다이어그램</h2>
+              <select
+                value={dropdownType}
+                onChange={handleDropdownTypeChange}
+                className="border rounded px-2 py-1 text-sm bg-white"
+                style={{ minWidth: 120 }}
+              >
+                <option value="event">이벤트</option>
+                <option value="url">URL</option>
+              </select>
+            </div>
+            <UserPathSankeyChart data={{ paths: sankeyPaths }} type={dropdownType} />
+            {sankeyLoading && <div style={{ color: '#888', padding: 12 }}>경로 데이터를 불러오는 중...</div>}
+            {sankeyError && <div style={{ color: 'red', padding: 12 }}>{sankeyError}</div>}
           </div>
-          <UserPathSankeyChart data={{ paths: sankeyPaths }} type={dropdownType} />
-          {sankeyLoading && <div style={{ color: '#888', padding: 12 }}>경로 데이터를 불러오는 중...</div>}
-          {sankeyError && <div style={{ color: 'red', padding: 12 }}>{sankeyError}</div>}
-        </div>
+        )}
       </Collapse>
     </>
   );

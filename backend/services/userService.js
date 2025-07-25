@@ -11,7 +11,7 @@ function escapeSQLString(str) {
 async function getUserByEmail(email) {
   const escapedEmail = escapeSQLString(email);
   const query = `
-    SELECT id, email, password_hash, sdk_key
+    SELECT id, email, password_hash, sdk_key, is_approved
     FROM users
     WHERE email = '${escapedEmail}'
     LIMIT 1
