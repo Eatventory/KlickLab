@@ -9,12 +9,17 @@ import { DevicePlatformChart } from './DevicePlatformChart';
 
 import DateRangeSelector from '../ui/DateRangeSelector';
 
-interface ApiData {
-  segment_type: string;
-  segment_value: string;
-  dist_type?: string;
-  dist_value?: string;
-  user_count: number;
+// API 응답 데이터의 타입을 정의합니다.
+export interface UserData {
+  summary_date: string;
+  city: string;
+  age_group: string;
+  gender: string;
+  device_type: string;
+  device_os: string;
+  users: number;
+  sessions: number;
+  session_duration_sum: number;
 }
 
 export const UserDashboard: React.FC = () => {
@@ -25,8 +30,8 @@ export const UserDashboard: React.FC = () => {
   const [tempRange, setTempRange] = useState(dateRange);
   const [showPicker, setShowPicker] = useState(false);
 
-  // 공통 API 데이터 상태
-  const [apiData, setApiData] = useState<ApiData[]>([]);
+  // API로부터 받은 원본 데이터 상태
+  const [apiData, setApiData] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,7 +43,7 @@ export const UserDashboard: React.FC = () => {
     return `?startDate=${startStr}&endDate=${endStr}`;
   }, [dateRange]);
 
-  // 공통 API 호출 함수
+  // API 호출 함수
   const fetchUserData = useCallback(async () => {
     try {
       setLoading(true);
@@ -55,8 +60,7 @@ export const UserDashboard: React.FC = () => {
       
       const result = await response.json();
       
-      // 안전한 데이터 접근 및 타입 확인
-      const data = Array.isArray(result.data) ? result.data : [];
+      const data: UserData[] = Array.isArray(result.data) ? result.data : [];
       setApiData(data);
 
     } catch (error) {
@@ -93,49 +97,40 @@ export const UserDashboard: React.FC = () => {
     setShowPicker(val);
   }, []);
 
-  // 데이터 필터링 메모화
-  const filteredData = useMemo(() => ({
-    gender: apiData.filter(item => item.segment_type === 'user_gender'),
-    age: apiData.filter(item => item.segment_type === 'user_age'),
-    region: apiData.filter(item => item.segment_type === 'country'),
-    device: apiData.filter(item => item.segment_type === 'device_type')
-  }), [apiData]);
-
   return (
     <>
-              <div className="w-full flex justify-end border-b-2 border-dashed mb-6">
-          <DateRangeSelector
-            dateRange={dateRange}
-            tempRange={tempRange}
-            showPicker={showPicker}
-            setDateRange={handleDateRangeChange}
-            setTempRange={handleTempRangeChange}
-            setShowPicker={handleShowPickerToggle}
-            onApply={handleDateRangeApply}
-          />
-        </div>
+      <div className="w-full flex justify-end border-b-2 border-dashed mb-6">
+        <DateRangeSelector
+          dateRange={dateRange}
+          tempRange={tempRange}
+          showPicker={showPicker}
+          setDateRange={handleDateRangeChange}
+          setTempRange={handleTempRangeChange}
+          setShowPicker={handleShowPickerToggle}
+          onApply={handleDateRangeApply}
+        />
+      </div>
 
       {/* 사용자 분석 */}
       <div className="mb-6 px-6">
-        {/* 메인 차트 영역 (좌측 컬럼 + 우측 컬럼) */}
         <div className="flex gap-6">
           {/* 좌측 컬럼: 지역별 + 연령별 */}
           <div className="flex-1 flex flex-col gap-6">
-            {/* 지역별 활성 사용자 */}
             <div className="h-[550px] overflow-hidden">
               <RegionalActiveUsers 
-                dateRange={dateRange[0]} 
-                onDataSourceUpdate={() => {}} // This prop is no longer needed
-                data={filteredData.region}
+                dateRange={dateRange[0]}
+                data={apiData}
                 loading={loading}
               />
             </div>
-            
-            {/* 연령별 활성 사용자 */}
             <div className="h-[310px] overflow-hidden">
               <AgeActiveUsers 
                 dateRange={dateRange[0]}
-                data={filteredData.age}
+                data={apiData.map(row => ({
+                  segment_type: 'user_age',
+                  segment_value: row.age_group,
+                  user_count: Number(row.users)
+                }))}
                 loading={loading}
               />
             </div>
@@ -143,30 +138,24 @@ export const UserDashboard: React.FC = () => {
           
           {/* 우측 컬럼: UserSegmentSummary + (성별, 기기플랫폼) */}
           <div className="flex-none w-[824px] flex flex-col gap-6">
-            {/* 사용자 세그먼트 분석 요약 */}
             <div>
               <UserSegmentSummary 
-                refreshKey={0} // refreshKey is no longer needed
                 dateRange={dateRange[0]}
+                data={apiData}
               />
             </div>
-            
-            {/* 성별 + 기기플랫폼 가로 배치 */}
             <div className="flex gap-6 flex-1">
-              {/* 성별 별 활성 사용자 */}
               <div className="flex-none w-[400px] h-[530px]">
                 <GenderActiveUsers 
-                  dateRange={dateRange[0]} 
-                  data={filteredData.gender}
+                  dateRange={dateRange[0]}
+                  data={apiData}
                   loading={loading}
                 />
               </div>
-              
-              {/* 기기 및 플랫폼 분석 */}
               <div className="flex-none w-[400px] h-[530px]">
                 <DevicePlatformChart 
                   dateRange={dateRange[0]}
-                  data={filteredData.device}
+                  data={apiData} // 전체 데이터 전달
                   loading={loading}
                 />
               </div>
@@ -176,4 +165,4 @@ export const UserDashboard: React.FC = () => {
       </div>      
     </>
   );
-}; 
+};

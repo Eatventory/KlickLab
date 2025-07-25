@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { getRangeLabel } from '../../utils/getRangeLabel';
+import { AGE_GROUP_ORDER, AGE_GROUP_LABELS, convertAgeToGroup } from '../../utils/ageUtils';
 import dayjs from 'dayjs';
 
 // 타입 정의
@@ -29,26 +30,11 @@ interface AgeActiveUsersProps {
   loading?: boolean;
 }
 
-// 연령대 순서 및 라벨 매핑
-const ageOrder = ['10s', '20s', '30s', '40s', '50s', '60s+'];
-
-const ageLabels: Record<string, string> = {
-  '10s': '10대',
-  '20s': '20대', 
-  '30s': '30대',
-  '40s': '40대',
-  '50s': '50대',
-  '60s+': '60+'
-};
-
-const ageLabelsSummary: Record<string, string> = {
-  '10s': '10대',
-  '20s': '20대', 
-  '30s': '30대',
-  '40s': '40대',
-  '50s': '50대',
-  '60s+': '60대 이상'
-};
+// 이제 ageUtils.ts에서 import한 값들을 사용합니다
+// 하위 호환성을 위해 기존 변수들을 유지하되, 새로운 유틸리티 함수들을 참조합니다
+const ageOrder = AGE_GROUP_ORDER.slice(0, -1); // 'unknown' 제외
+const ageLabels = AGE_GROUP_LABELS;
+const ageLabelsSummary = AGE_GROUP_LABELS;
 
 export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({ 
   dateRange, 
@@ -62,47 +48,45 @@ export const AgeActiveUsers: React.FC<AgeActiveUsersProps> = ({
 
   // 연령 데이터 처리 (메모화)
   const ageData = useMemo(() => {
-    if (!data || !Array.isArray(data)) return [];
+    if (!data || !Array.isArray(data) || data.length === 0) {
+      return [];
+    }
 
     const ageMap: Record<string, number> = {};
-    
     data.forEach((row) => {
-      if (row.segment_type === 'user_age' && row.segment_value && row.segment_value !== 'unknown') {
-        const age = row.segment_value;
-        if (!ageMap[age]) ageMap[age] = 0;
-        ageMap[age] += parseInt(row.user_count.toString());
+      // 백엔드에서 숫자 형식('10', '11', ...)과 그룹 형식('10s', '20s', ...)이 혼재되어 있음
+      // 따라서 convertAgeToGroup 함수를 사용하여 표준화 필요
+      let ageGroup;
+      const segmentValue = row.segment_value;
+      
+      if (!segmentValue || segmentValue === 'unknown' || segmentValue === '') {
+        ageGroup = 'unknown';
+      } else if (segmentValue.endsWith('s')) {
+        // 이미 그룹 형식인 경우 (10s, 20s, 30s, 40s, 50s)
+        ageGroup = segmentValue;
+      } else {
+        // 숫자 형식인 경우 (10, 11, 12, ..., 59) -> 그룹으로 변환
+        ageGroup = convertAgeToGroup(segmentValue);
       }
+      
+      if (!ageMap[ageGroup]) {
+        ageMap[ageGroup] = 0;
+      }
+      ageMap[ageGroup] += parseInt(row.user_count.toString(), 10);
     });
 
-    // 알려진 연령대와 알려지지 않은 연령대 분리
-    const knownAgeUsers = Object.entries(ageMap)
-      .filter(([age]) => ageOrder.includes(age))
-      .reduce((sum, [, count]) => sum + count, 0);
+    const formattedData: AgeData[] = ageOrder.map((age, index) => ({
+      id: age,
+      ageRange: ageLabels[age],
+      users: ageMap[age] || 0,
+      color: `hsl(220, 70%, ${85 - index * 10}%)`,
+    }));
 
-    const unknownAgeUsers = Object.entries(ageMap)
-      .filter(([age]) => !ageOrder.includes(age))
-      .reduce((sum, [, count]) => sum + count, 0);
-
-    // 알려지지 않은 연령대들 로그 출력
-    const unknownAges = Object.entries(ageMap)
-      .filter(([age]) => !ageOrder.includes(age));
-
-    // 연령대 순서에 따라 데이터 정렬 및 변환 (알려진 연령대만)
-    const formattedData: AgeData[] = ageOrder
-      .filter(age => ageMap[age] && ageMap[age] > 0)
-      .map((age, index) => ({
-        id: age,
-        ageRange: ageLabels[age],
-        users: ageMap[age] || 0,
-        color: `hsl(220, 70%, ${85 - (index * 10)}%)`
-      }));
-
-    // "알 수 없음" 연령대 항상 추가 (데이터가 없어도 0으로 표시)
     formattedData.push({
       id: 'unknown',
       ageRange: '알 수 없음',
-      users: unknownAgeUsers,
-      color: '#9ca3af' // 회색 색상
+      users: ageMap['unknown'] || 0,
+      color: '#9ca3af',
     });
 
     return formattedData;

@@ -60,21 +60,28 @@ export const GenderActiveUsers: React.FC<GenderActiveUsersProps> = ({ dateRange,
     if (data && Array.isArray(data)) {
       processGenderData(data);
       setLoading(false);
+    } else if (externalLoading) {
+      setLoading(true);
     } else {
-      fetchGenderData();
+      setLoading(false);
+      setGenderData([]);
     }
-  }, [dateRange, data]);
+  }, [data, externalLoading]);
 
   // 성별 데이터 처리 함수 분리
-  const processGenderData = (dataArray: any[]) => {
+  const processGenderData = (apiData: any[]) => {
     // 성별별 사용자 집계
     const genderMap: Record<string, number> = {};
     
-    dataArray.forEach((row: any) => {
-      if (row.segment_type === 'user_gender' && row.segment_value && row.segment_value !== 'unknown') {
-        const gender = row.segment_value;
-        if (!genderMap[gender]) genderMap[gender] = 0;
-        genderMap[gender] += parseInt(row.user_count);
+    apiData.forEach((row: any) => {
+      const gender = row.gender;
+      const users = row.users;
+
+      if (gender && gender !== 'unknown' && users > 0) {
+        if (!genderMap[gender]) {
+          genderMap[gender] = 0;
+        }
+        genderMap[gender] += Number(users);
       }
     });
 
@@ -134,100 +141,7 @@ export const GenderActiveUsers: React.FC<GenderActiveUsersProps> = ({ dateRange,
     setGenderData(formattedData);
   };
 
-  const fetchGenderData = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
-      if (!token) throw new Error("No token");
-
-      let dateQuery = '';
-      if (dateRange) {
-        const startStr = dayjs(dateRange.startDate).format('YYYY-MM-DD');
-        const endStr = dayjs(dateRange.endDate).format('YYYY-MM-DD');
-        dateQuery = `?startDate=${startStr}&endDate=${endStr}`;
-      }
-
-      const response = await fetch(`/api/users/realtime-analytics${dateQuery}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      if (!response.ok) throw new Error('Failed to fetch data');
-      
-      const result = await response.json();
-      
-      // user_gender 세그먼트 데이터 필터링 및 집계
-      const genderMap: Record<string, number> = {};
-      
-      // 안전한 데이터 접근
-      const dataArray = result.data || result || [];
-      
-      if (Array.isArray(dataArray)) {
-        dataArray.forEach((row: any) => {
-          if (row.segment_type === 'user_gender' && row.segment_value && row.segment_value !== 'unknown') {
-            const gender = row.segment_value;
-            if (!genderMap[gender]) genderMap[gender] = 0;
-            genderMap[gender] += parseInt(row.user_count);
-          }
-        });
-      }
-
-      // 알려진 성별(male, female)과 알려지지 않은 성별 분리
-      const knownGenderUsers = (genderMap.male || 0) + (genderMap.female || 0);
-      const unknownGenderUsers = Object.entries(genderMap)
-        .filter(([gender]) => gender !== 'male' && gender !== 'female')
-        .reduce((sum, [, count]) => sum + count, 0);
-
-      // 알려지지 않은 성별들 로그 출력
-      const unknownGenders = Object.entries(genderMap)
-        .filter(([gender]) => gender !== 'male' && gender !== 'female');
-
-      // 총 사용자 수 계산 (알려진 성별 + 알 수 없음)
-      const totalUsers = knownGenderUsers + unknownGenderUsers;
-
-      // 데이터 변환 (차트 회전 고려: FEMALE 먼저, MALE 나중에)
-      const formattedData: GenderData[] = [];
-      
-      // FEMALE 먼저 추가 (회전 후 왼쪽에 위치)
-      if ((genderMap.female || 0) > 0) {
-        formattedData.push({
-          id: 'female',
-          name: 'FEMALE',
-          users: genderMap.female || 0,
-          percentage: totalUsers > 0 ? Math.round(((genderMap.female || 0) / totalUsers) * 1000) / 10 : 0,
-          color: GENDER_COLORS.female
-        });
-      }
-      
-      // MALE 나중에 추가 (회전 후 오른쪽에 위치)
-      if ((genderMap.male || 0) > 0) {
-        formattedData.push({
-          id: 'male',
-          name: 'MALE',
-          users: genderMap.male || 0,
-          percentage: totalUsers > 0 ? Math.round(((genderMap.male || 0) / totalUsers) * 1000) / 10 : 0,
-          color: GENDER_COLORS.male
-        });
-      }
-
-      // "알 수 없음" 성별 추가 (unknownGenderUsers > 0인 경우에만)
-      if (unknownGenderUsers > 0) {
-        const unknownPercentage = totalUsers > 0 ? Math.round((unknownGenderUsers / totalUsers) * 1000) / 10 : 0;
-        formattedData.push({
-          id: 'unknown',
-          name: '알 수 없음',
-          users: unknownGenderUsers,
-          percentage: unknownPercentage,
-          color: GENDER_COLORS.unknown
-        });
-      }
-
-      setGenderData(formattedData);
-    } catch (error) {
-      setGenderData([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  
 
   // 총 사용자 수 계산 - 메모화
   const totalUsers = useMemo(() => 
@@ -278,7 +192,7 @@ export const GenderActiveUsers: React.FC<GenderActiveUsersProps> = ({ dateRange,
   const createGenderPath = useCallback((startPercentage: number, endPercentage: number) => {
     const { outerRadius, innerRadius, centerX, centerY } = CHART_CONFIG;
     const startAngle = (startPercentage / 100) * 360;
-    const endAngle = (endPercentage / 100) * 360;
+    const endAngle   = (endPercentage   / 100) * 360;
     const largeArcFlag = (endPercentage - startPercentage) > 50 ? 1 : 0;
     
     const startAngleRad = (startAngle * Math.PI) / 180;
@@ -364,7 +278,7 @@ export const GenderActiveUsers: React.FC<GenderActiveUsersProps> = ({ dateRange,
           className="relative w-80 h-80"
           onMouseMove={handleMouseMove}
         >
-          <svg width={CHART_CONFIG.width} height={CHART_CONFIG.height} viewBox={CHART_CONFIG.viewBox} className="transform -rotate-90">
+          <svg width={CHART_CONFIG.width} height={CHART_CONFIG.height} viewBox={CHART_CONFIG.viewBox}>
             {(() => {
               let cumulativePercentage = 0;
 
@@ -377,21 +291,48 @@ export const GenderActiveUsers: React.FC<GenderActiveUsersProps> = ({ dateRange,
 
                 cumulativePercentage += gender.percentage;
 
+                // 텍스트 위치 계산
+                const midAngle = ((startPercentage + endPercentage) / 2) * 3.6; // -90도 회전 보정은 SVG 자체에 적용
+                const textRadius = (CHART_CONFIG.innerRadius + CHART_CONFIG.outerRadius) / 2;
+                const textX = CHART_CONFIG.centerX + textRadius * Math.cos((midAngle * Math.PI) / 180);
+                const textY = CHART_CONFIG.centerY + textRadius * Math.sin((midAngle * Math.PI) / 180);
+
+                // 텍스트 회전 각도 계산 (90도 추가 회전 + 거꾸로 뒤집히지 않도록)
+                let rotationAngle = midAngle + 90;
+                if (midAngle > 0 && midAngle < 180) {
+                  rotationAngle = midAngle + 270;
+                }
+
                 return (
-                  <path
-                    key={gender.id}
-                    d={pathData}
-                    fill={gender.color}
-                    stroke="white"
-                    strokeWidth={CHART_CONFIG.strokeWidth}
-                    className={`cursor-pointer transition-all duration-200 ${
-                      selectedGender === gender.id ? 'opacity-100' : 
-                      hoveredGender && hoveredGender !== gender.id ? 'opacity-5' : 'opacity-100'
-                    } hover:brightness-100`}
-                    onClick={() => handleGenderClick(gender.id)}
-                    onMouseEnter={(event) => handleGenderHover(gender.id, event)}
-                    onMouseLeave={handleGenderLeave}
-                  />
+                  <React.Fragment key={gender.id}>
+                    <path
+                      d={pathData}
+                      fill={gender.color}
+                      stroke="white"
+                      strokeWidth={CHART_CONFIG.strokeWidth}
+                      className={`cursor-pointer transition-all duration-200 ${
+                        selectedGender === gender.id ? 'opacity-100' :
+                        hoveredGender && hoveredGender !== gender.id ? 'opacity-5' : 'opacity-100'
+                      } hover:brightness-100`}
+                      onClick={() => handleGenderClick(gender.id)}
+                      onMouseEnter={(event) => handleGenderHover(gender.id, event)}
+                      onMouseLeave={handleGenderLeave}
+                    />
+                    {gender.percentage > 5 && ( // 비율이 너무 작으면 텍스트 표시 안함
+                      <text
+                        x={textX}
+                        y={textY}
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        fill="white"
+                        className="pointer-events-none"
+                        transform={`rotate(${rotationAngle}, ${textX}, ${textY})`}
+                      >
+                        <tspan x={textX} dy="-0.5em" className="font-semibold text-sm">{gender.name}</tspan>
+                        <tspan x={textX} dy="1.2em" className="text-xs">{gender.percentage}%</tspan>
+                      </text>
+                    )}
+                  </React.Fragment>
                 );
               });
             })()}
