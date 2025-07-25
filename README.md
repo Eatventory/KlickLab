@@ -2,6 +2,19 @@
 
 
 # *KlickLab*
+
+## 목차
+
+1. [프로젝트 소개](#프로젝트-소개)
+2. [팀원 소개](#팀원-소개)
+3. [대시보드 스크린샷](#대시보드-스크린샷)
+4. [포스터](#포스터)
+5. [아키텍처](#아키텍처)
+6. [데이터 흐름도](#데이터-흐름도)
+7. [기술 스택](#기술-스택)
+8. [설치 및 실행](#설치-및-실행)
+
+## 프로젝트 소개
 > **KlickLab**은 웹사이트에서 발생하는 행동 데이터를 실시간 수집·구조화하여<br />
 > 운영자가 **Data-Driven** 방식으로 합리적인 의사결정을 내릴 수 있도록<br />
 > 지원하는 **클릭스트림** 분석 플랫폼입니다.
@@ -87,30 +100,22 @@
 ## 기술 스택
 
 ### Frontend  
-![React](https://img.shields.io/badge/React-61DAFB?style=for-the-badge&logo=react&logoColor=white)
-![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
-![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)
-![Zustand](https://img.shields.io/badge/Zustand-000000?style=for-the-badge&logoColor=white)
-![TailwindCSS](https://img.shields.io/badge/TailwindCSS-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)
-![D3.js](https://img.shields.io/badge/D3.js-F9A03C?style=for-the-badge&logo=d3.js&logoColor=white)
-![Framer Motion](https://img.shields.io/badge/Framer--Motion-EF008F?style=for-the-badge&logo=framer&logoColor=white)
-![Recharts](https://img.shields.io/badge/Recharts-8884d8?style=for-the-badge&logo=recharts&logoColor=white)
-![React Router](https://img.shields.io/badge/React--Router-CA4245?style=for-the-badge&logo=reactrouter&logoColor=white)
-![Date-fns](https://img.shields.io/badge/Date--fns-007ACC?style=for-the-badge)
-![Day.js](https://img.shields.io/badge/Day.js-EF4035?style=for-the-badge)
+![React](https://img.shields.io/badge/React-20232A?style=flat&logo=react&logoColor=61DAFB)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-646CFF?style=flat&logo=vite&logoColor=white)
+![TailwindCSS](https://img.shields.io/badge/TailwindCSS-06B6D4?style=flat&logo=tailwindcss&logoColor=white)
+![React Router](https://img.shields.io/badge/React--Router-CA4245?style=flat&logo=reactrouter&logoColor=white)
 
 ### Backend  
-![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=node.js&logoColor=white)
-![Express](https://img.shields.io/badge/Express-000000?style=for-the-badge&logo=express&logoColor=white)
-![ClickHouse](https://img.shields.io/badge/ClickHouse-FFCC00?style=for-the-badge&logo=clickhouse&logoColor=black)
-![JWT](https://img.shields.io/badge/JWT-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white)
-![Bcrypt](https://img.shields.io/badge/Bcrypt-0033A0?style=for-the-badge)
-![Prometheus Client](https://img.shields.io/badge/Prom--Client-000000?style=for-the-badge&logo=prometheus&logoColor=white)
-![Validator.js](https://img.shields.io/badge/Validator.js-8B0000?style=for-the-badge)
+![Node.js](https://img.shields.io/badge/Node.js-339933?style=flat&logo=node.js&logoColor=white)
+![Express](https://img.shields.io/badge/Express-000000?style=flat&logo=express&logoColor=white)
+![ClickHouse](https://img.shields.io/badge/ClickHouse-FFCC00?style=flat&logo=clickhouse&logoColor=black)
+![JWT](https://img.shields.io/badge/JWT-000000?style=flat&logo=jsonwebtokens&logoColor=white)
+![Prometheus Client](https://img.shields.io/badge/Prom--Client-000000?style=flat&logo=prometheus&logoColor=white)
 
 ### Infrastructure  
-![AWS](https://img.shields.io/badge/AWS-232F3E?style=for-the-badge&logo=amazonaws&logoColor=white)
-![Amazon MSK](https://img.shields.io/badge/AWS--MSK-FF9900?style=for-the-badge&logo=apachekafka&logoColor=black)
+![Amazon AWS](https://img.shields.io/badge/Amazon_AWS-232F3E?style=flat&logo=amazonaws&logoColor=white)
+![AWS MSK](https://img.shields.io/badge/AWS--MSK-FF9900?style=flat&logo=apachekafka&logoColor=black)
 
 ## 설치 및 실행
 
