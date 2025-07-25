@@ -243,7 +243,7 @@ export const OverviewDashboard = forwardRef((props, ref) => {
 
   return (
     <>
-      <div className="w-full flex justify-end border-b-2 border-dashed mb-6">
+      <div className="w-full flex justify-end border-b-2 border-dashed">
         <DateRangeSelector
           dateRange={dateRange}
           tempRange={tempRange}
@@ -255,7 +255,7 @@ export const OverviewDashboard = forwardRef((props, ref) => {
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 p-6">
         <KpiAndTrendSection 
           kpiData={overviewData.kpiData}
           visitorTrendData={overviewData.visitorTrendData}

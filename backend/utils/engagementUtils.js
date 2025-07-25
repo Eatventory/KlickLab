@@ -115,9 +115,8 @@ function getUsersOverTimeQuery(startDate, endDate, sdk_key) {
       ifNull(weekly.users, 0) AS weekly_users,
       ifNull(monthly.users, 0) AS monthly_users
     FROM (
-      SELECT addDays(start_date, number) AS date
-      FROM numbers(days_diff + 1)
-    ) AS b
+      SELECT addDays(start, number) AS date FROM numbers(days + 1)
+    ) base
 
     LEFT JOIN (
       SELECT 
@@ -155,7 +154,7 @@ function getUsersOverTimeQuery(startDate, endDate, sdk_key) {
       GROUP BY ref.date
     ) monthly ON base.date = monthly.date
 
-    ORDER BY b.date ASC
+    ORDER BY base_date ASC
   `;
 }
 
