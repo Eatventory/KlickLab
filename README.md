@@ -1,4 +1,5 @@
-<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/3e3059d0-1015-4f39-9555-81e7ae08770e" />
+![5 - Copy](https://github.com/user-attachments/assets/672ea52a-5424-419d-8908-52b85057fdc0)
+
 
 # KlickLab
 > **KlickLab**은 웹사이트에서 발생하는 행동 데이터를 실시간 수집·구조화하여
