@@ -296,11 +296,11 @@ export const AcquisitionDashboard: React.FC = () => {
       const result = await response.json();
       
       if (result.data) {
-        console.log('[REALTIME DEBUG] Frontend received data:', result.data);
+        // console.log('[REALTIME DEBUG] Frontend received data:', result.data);
         setRealtimeUsers(result.data.activeUsers30min || 0);
         setRealtimeTrend(result.data.trend || []);
         setRealtimeLocations(result.data.topLocations || []);
-        console.log('[REALTIME DEBUG] Frontend state set:', {
+        // console.log('[REALTIME DEBUG] Frontend state set:', {
           users: result.data.activeUsers30min || 0,
           trendLength: (result.data.trend || []).length,
           locationsLength: (result.data.topLocations || []).length
@@ -346,7 +346,7 @@ export const AcquisitionDashboard: React.FC = () => {
   // landingPagesData 로그 추가
   useEffect(() => {
     if (acquisitionData && acquisitionData.landingPagesData) {
-      console.log('[LOG] landingPagesData:', acquisitionData.landingPagesData);
+      // console.log('[LOG] landingPagesData:', acquisitionData.landingPagesData);
     }
     if (acquisitionData && acquisitionData.channelGroupData) {
       // console.log('[LOG] channelGroupData:', acquisitionData.channelGroupData);

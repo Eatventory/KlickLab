@@ -174,14 +174,14 @@ router.get("/realtime", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   
   try {
-    console.log('[REALTIME DEBUG] Querying realtime stats for SDK:', sdk_key);
+    // console.log('[REALTIME DEBUG] Querying realtime stats for SDK:', sdk_key);
     
     // 시간 디버깅을 위한 정보 출력
     const currentKoreaTime = new Date(Date.now() + (9 * 60 * 60 * 1000));
     const thirtyMinutesAgo = new Date(currentKoreaTime.getTime() - 30 * 60 * 1000);
-    console.log('[REALTIME DEBUG] Current Korea time:', currentKoreaTime.toISOString());
-    console.log('[REALTIME DEBUG] 30 minutes ago:', thirtyMinutesAgo.toISOString());
-    console.log('[REALTIME DEBUG] Current hour/minute:', currentKoreaTime.getHours(), currentKoreaTime.getMinutes());
+    // console.log('[REALTIME DEBUG] Current Korea time:', currentKoreaTime.toISOString());
+    // console.log('[REALTIME DEBUG] 30 minutes ago:', thirtyMinutesAgo.toISOString());
+    // console.log('[REALTIME DEBUG] Current hour/minute:', currentKoreaTime.getHours(), currentKoreaTime.getMinutes());
     
     const [activeUsersResult, locationResult, trendResult] = await Promise.all([
       // 1. 최근 30분 활성 사용자 수 (전체) - 쿼리 단순화
@@ -208,10 +208,10 @@ router.get("/realtime", authMiddleware, async (req, res) => {
               )
           GROUP BY sdk_key
         `;
-        console.log('[REALTIME DEBUG] Active users query:', activeUsersQuery);
+        // console.log('[REALTIME DEBUG] Active users query:', activeUsersQuery);
         
         const result = await executeQuery(activeUsersQuery);
-        console.log('[REALTIME DEBUG] Active users query result:', result);
+        // console.log('[REALTIME DEBUG] Active users query result:', result);
         return result;
       })(),
       // 2. 지역별 페이지뷰 분포 - 최근 30분 (쿼리 단순화)
@@ -241,10 +241,10 @@ router.get("/realtime", authMiddleware, async (req, res) => {
           ORDER BY page_views DESC
           LIMIT 10
         `;
-        console.log('[REALTIME DEBUG] Location query:', locationQuery);
+        // console.log('[REALTIME DEBUG] Location query:', locationQuery);
         
         const result = await executeQuery(locationQuery);
-        console.log('[REALTIME DEBUG] Location query result:', result);
+        // console.log('[REALTIME DEBUG] Location query result:', result);
         return result;
       })(),
       // 3. 실제 분단위 트렌드 데이터 - 최근 30분 (쿼리 수정)
@@ -276,23 +276,23 @@ router.get("/realtime", authMiddleware, async (req, res) => {
           ORDER BY summary_hour DESC, summary_minute DESC
           LIMIT 50
         `;
-        console.log('[REALTIME DEBUG] Simplified trend query:', trendQuery);
-        console.log('[REALTIME DEBUG] Time range:', `${thirtyMinAgoHour}:${thirtyMinAgoMinute} ~ ${currentHour}:${currentMinute}`);
+        // console.log('[REALTIME DEBUG] Simplified trend query:', trendQuery);
+        // console.log('[REALTIME DEBUG] Time range:', `${thirtyMinAgoHour}:${thirtyMinAgoMinute} ~ ${currentHour}:${currentMinute}`);
         
         const result = await executeQuery(trendQuery);
-        console.log('[REALTIME DEBUG] Raw trend query result:', result.slice(0, 5));
+        // console.log('[REALTIME DEBUG] Raw trend query result:', result.slice(0, 5));
         return result;
       })()
     ]);
     
-    console.log('[REALTIME DEBUG] Active users result:', activeUsersResult);
-    console.log('[REALTIME DEBUG] Location result:', locationResult);
-    console.log('[REALTIME DEBUG] Trend result count:', trendResult.length);
-    console.log('[REALTIME DEBUG] Trend result sample:', trendResult.slice(0, 3));
+    // console.log('[REALTIME DEBUG] Active users result:', activeUsersResult);
+    // console.log('[REALTIME DEBUG] Location result:', locationResult);
+    // console.log('[REALTIME DEBUG] Trend result count:', trendResult.length);
+    // console.log('[REALTIME DEBUG] Trend result sample:', trendResult.slice(0, 3));
     
     // 실제 분단위 트렌드 데이터 처리
     const koreaTime = new Date(Date.now() + (9 * 60 * 60 * 1000));
-    console.log('[REALTIME DEBUG] Korea time now:', koreaTime.toISOString());
+    // console.log('[REALTIME DEBUG] Korea time now:', koreaTime.toISOString());
     
     // 활성 사용자 수 (최근 30분)
     const activeUsers30min = activeUsersResult.length > 0 
@@ -337,7 +337,7 @@ router.get("/realtime", authMiddleware, async (req, res) => {
       });
     }
     
-    console.log('[REALTIME DEBUG] Expected time slots sample:', minuteSlots.slice(-3).map(s => s.time));
+    // console.log('[REALTIME DEBUG] Expected time slots sample:', minuteSlots.slice(-3).map(s => s.time));
     
     // 실제 데이터가 있는 시간대에 사용자 수 할당
     let matchedSlots = 0;
@@ -361,8 +361,8 @@ router.get("/realtime", authMiddleware, async (req, res) => {
       }
     });
     
-    console.log('[REALTIME DEBUG] Matched slots:', matchedSlots, '/ Total DB records:', trendResult.length);
-    console.log('[REALTIME DEBUG] DB timestamp samples:', trendResult.slice(0, 3).map(r => {
+    // console.log('[REALTIME DEBUG] Matched slots:', matchedSlots, '/ Total DB records:', trendResult.length);
+    // console.log('[REALTIME DEBUG] DB timestamp samples:', trendResult.slice(0, 3).map(r => {
       const dbHour = parseInt(r.summary_hour);
       const dbMinute = parseInt(r.summary_minute);
       const dbTime = new Date(koreaTime);
@@ -376,7 +376,7 @@ router.get("/realtime", authMiddleware, async (req, res) => {
     
     // 매칭된 슬롯이 적으면 현재 시간 기준으로 시뮬레이션 데이터 생성
     if (matchedSlots < 5) {
-      console.log('[REALTIME DEBUG] 실제 데이터가 부족하여 시뮬레이션 데이터 생성');
+      // console.log('[REALTIME DEBUG] 실제 데이터가 부족하여 시뮬레이션 데이터 생성');
       
       minuteSlots.forEach((slot, index) => {
         // 최근 5분간은 더 높은 활동
@@ -390,8 +390,8 @@ router.get("/realtime", authMiddleware, async (req, res) => {
     // timePoint 필드 제거 (프론트엔드에 불필요)
     const finalTrendData = minuteSlots.map(({ time, users }) => ({ time, users }));
     
-    console.log('[REALTIME DEBUG] Final trend data sample:', finalTrendData.slice(-5));
-    console.log('[REALTIME DEBUG] Final response:', {
+    // console.log('[REALTIME DEBUG] Final trend data sample:', finalTrendData.slice(-5));
+    // console.log('[REALTIME DEBUG] Final response:', {
       activeUsers30min,
       trendCount: minuteSlots.length,
       locationCount: topLocations.length,

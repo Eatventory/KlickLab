@@ -9,7 +9,7 @@ const CustomNode: React.FC<any> = (props) => {
     const targetLinks = payload?.targetLinks || [];
     const depth = payload?.depth ?? 0;
     
-    //console.log(`Node ${index}: name="${name}", x=${x}, y=${y}, width=${width}, height=${height}`);
+    //// console.log(`Node ${index}: name="${name}", x=${x}, y=${y}, width=${width}, height=${height}`);
     
     // 노드가 소스인지 타겟인지 확인 (기존 로직)
     const isNodeAtLeftmostColumn = depth === 0; // 가장 왼쪽 열에 있는 노드인지

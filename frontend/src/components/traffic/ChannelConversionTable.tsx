@@ -76,7 +76,7 @@ export const ChannelConversionTable: React.FC<ChannelConversionTableProps> = ({
       console.error('Channel Conversion API Error:', err);
       setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.');
       // 에러 발생 시 목업 데이터로 대체
-      console.log('API 호출 실패, 목업 데이터로 대체');
+      // console.log('API 호출 실패, 목업 데이터로 대체');
       setData(mockData as ChannelData[]);
     } finally {
       setLoading(false);
