@@ -45,7 +45,7 @@
 ## 포스터
 
 <details>
-<summary>포스터 (A1) 열기/닫기</summary>
+<summary>포스터 보기</summary>
 
 <div align="center">
 
@@ -58,7 +58,7 @@
 ## 아키텍처
 
 <details>
-<summary>아키텍처 다이어그램 열기/닫기</summary>
+<summary>아키텍처 다이어그램 보기</summary>
 
 <div align="center">
 
@@ -71,7 +71,7 @@
 ## 데이터 흐름도
 
 <details>
-<summary>데이터 흐름도 열기/닫기</summary>
+<summary>데이터 흐름도 보기</summary>
 
 <div align="center">
 
