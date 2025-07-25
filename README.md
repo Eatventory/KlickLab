@@ -75,7 +75,10 @@
 
 <div align="center">
 
-<img src="https://github.com/user-attachments/assets/b5458fb8-2a82-4ba7-9585-32fb0953b2ad" width="80%" alt="Data Flow Diagram" />
+![Infra Architecture for KlickLab](https://github.com/user-attachments/assets/593b10fd-656f-4b7a-aa1f-e179306dcc1c)
+
+
+<img src="[https://github.com/user-attachments/assets/b5458fb8-2a82-4ba7-9585-32fb0953b2ad]([https://github.com/user-attachments/assets/593b10fd-656f-4b7a-aa1f-e179306dcc1c](https://github.com/user-attachments/assets/593b10fd-656f-4b7a-aa1f-e179306dcc1c))" width="80%" alt="Data Flow Diagram" />
 
 </div>
 
