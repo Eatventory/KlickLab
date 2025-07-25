@@ -5,6 +5,7 @@ import dayjs from 'dayjs';
 import { FileText, Download } from 'lucide-react';
 import TableSection from '../ui/TableSection';
 import Collapse from '../ui/Collapse';
+import { mockKpiReportData } from '../../data/mockKpiReportData';
 
 interface KpiSection {
   category: string;
@@ -16,7 +17,7 @@ type KpiReportResponse = {
 };
 
 export const ReportDashboard: React.FC = () => {
-  const [reportData, setReportData] = useState<KpiReportResponse | null>(null);
+  const [reportData, setReportData] = useState<KpiReportResponse | null>(mockKpiReportData);
   const [openCollapse, setOpenCollapse] = useState<string[]>([]);
   const [exportFormat, setExportFormat] = useState<string>('csv');
 
@@ -27,37 +28,37 @@ export const ReportDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
-  const fetchReport = async (start: Date, end: Date) => {
-    try {
-      setLoading(true);
-      setError(false);
-      const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
-      if (!token) throw new Error("No token");
-      const startStr = dayjs(start).format('YYYY-MM-DD');
-      const endStr = dayjs(end).format('YYYY-MM-DD');
-      const res = await fetch(`/api/report/kpi-report?startDate=${startStr}&endDate=${endStr}`, { headers: { Authorization: `Bearer ${token}` }});
-      const data: KpiReportResponse = await res.json();
-      setReportData(data);
-    } catch (err) {
-      console.error(err || "KPI 리포트 생성 중 오류가 발생했습니다.");
-      setError(true);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // const fetchReport = async (start: Date, end: Date) => {
+  //   try {
+  //     setLoading(true);
+  //     setError(false);
+  //     const token = localStorage.getItem('klicklab_token') || sessionStorage.getItem('klicklab_token');
+  //     if (!token) throw new Error("No token");
+  //     const startStr = dayjs(start).format('YYYY-MM-DD');
+  //     const endStr = dayjs(end).format('YYYY-MM-DD');
+  //     const res = await fetch(`/api/report/kpi-report?startDate=${startStr}&endDate=${endStr}`, { headers: { Authorization: `Bearer ${token}` }});
+  //     const data: KpiReportResponse = await res.json();
+  //     setReportData(data);
+  //   } catch (err) {
+  //     console.error(err || "KPI 리포트 생성 중 오류가 발생했습니다.");
+  //     setError(true);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
-  useEffect(() => {
-    if (reportData) {
+  // useEffect(() => {
+  //   if (reportData) {
       // const initialCategories = Object.values(reportData).map((section) => section.category);
       // setOpenCollapse(initialCategories);
       // setOpenCollapse(prev => [...prev, '유입 분석: 방문자 수 및 변화 추이']);
-    }
-  }, [reportData]);
+    // }
+  // }, [reportData]);
 
-  useEffect(() => {
-    const { startDate, endDate } = dateRange[0];
-    fetchReport(startDate, endDate);
-  }, [dateRange]);
+  // useEffect(() => {
+  //   const { startDate, endDate } = dateRange[0];
+  //   fetchReport(startDate, endDate);
+  // }, [dateRange]);
 
   const handleExportCSV = async () => {
     try {
@@ -208,7 +209,7 @@ export const ReportDashboard: React.FC = () => {
           setShowPicker={setShowPicker}
           onApply={(start, end) => {
             setDateRange([{ startDate: start, endDate: end, key: 'selection' }]);
-            fetchReport(start, end);
+            // fetchReport(start, end);
           }}
         />
       </div>

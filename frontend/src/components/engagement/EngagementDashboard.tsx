@@ -22,7 +22,7 @@ import {
   sessionsPerUsers, usersOverTime, revisit,
   eventCounts, pageStats, visitStats,
   pageTimes, pageViewCounts, bounceRates
-} from '../../data/mockEngagementDataEnhanced';
+} from '../../data/mockEngagementData';
 
 // import type {
 //   PageTimeData,
