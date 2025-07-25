@@ -44,14 +44,42 @@
 
 ## 포스터
 
-<img width="2249" height="3179" alt="image" src="https://github.com/user-attachments/assets/2982378f-6e4d-42e7-be14-10f9972d5573" />
+<details>
+<summary>포스터 (A1) 열기/닫기</summary>
+
+<div align="center">
+
+<img src="https://github.com/user-attachments/assets/2982378f-6e4d-42e7-be14-10f9972d5573" width="80%" alt="KlickLab Poster" />
+
+</div>
+
+</details>
 
 ## 아키텍처
-![KlickLab_Light_0721_발표용](https://github.com/user-attachments/assets/e1b65435-379c-494c-a612-03a6ae95a116)
 
+<details>
+<summary>아키텍처 다이어그램 열기/닫기</summary>
 
-## 데이터 흐름
-![Infra Architecture for KlickLab](https://github.com/user-attachments/assets/b5458fb8-2a82-4ba7-9585-32fb0953b2ad)
+<div align="center">
+
+<img src="https://github.com/user-attachments/assets/e1b65435-379c-494c-a612-03a6ae95a116" width="80%" alt="KlickLab Architecture" />
+
+</div>
+
+</details>
+
+## 데이터 흐름도
+
+<details>
+<summary>데이터 흐름도 열기/닫기</summary>
+
+<div align="center">
+
+<img src="https://github.com/user-attachments/assets/b5458fb8-2a82-4ba7-9585-32fb0953b2ad" width="80%" alt="Data Flow Diagram" />
+
+</div>
+
+</details>
 
 
 ## 설치 및 실행
