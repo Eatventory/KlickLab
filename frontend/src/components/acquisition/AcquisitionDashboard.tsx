@@ -8,25 +8,25 @@ import DateRangeSelector from '../ui/DateRangeSelector';
 
 // 컴포넌트들 import
 import HorizontalBarChart from '../../components/HorizontalBarChart';
-import { FunnelConversionChart } from './FunnelConversionChart';
+// import { FunnelConversionChart } from './FunnelConversionChart';
 import { DeviceBrowserDonutChart } from './DeviceBrowserDonutChart';
 import { HourlyTrendLineChart } from './HourlyTrendLineChart';
 // import { ClickFlowSankeyChart } from './ClickFlowSankeyChart';
 import { ChannelGroupStackedChart } from './ChannelGroupStackedChart';
 import { TopLandingPages } from './TopLandingPages';
-import { keyframes } from 'framer-motion';
-import { ConversionRateWidget } from '../conversion/ConversionRateWidget';
-import { ConversionSummaryCard } from '../ConversionSummaryCard';
+// import { keyframes } from 'framer-motion';
+// import { ConversionRateWidget } from '../conversion/ConversionRateWidget';
+// import { ConversionSummaryCard } from '../ConversionSummaryCard';
 import { ChannelConversionTable } from '../traffic/ChannelConversionTable';
-import { RealtimeUsersSection } from '../overview/RealtimeUsersSection';
-import { LandingConversionTable } from '../traffic/LandingConversionTable';
+// import { RealtimeUsersSection } from '../overview/RealtimeUsersSection';
+// import { LandingConversionTable } from '../traffic/LandingConversionTable';
 
 // 타입 정의
-interface FilterOptions {
-  period: '1hour' | '1day' | '1week' | '1month';
-  source: 'all' | 'organic' | 'direct' | 'social' | 'referral';
-  device: 'all' | 'mobile' | 'desktop';
-}
+// interface FilterOptions {
+//   period: '1hour' | '1day' | '1week' | '1month';
+//   source: 'all' | 'organic' | 'direct' | 'social' | 'referral';
+//   device: 'all' | 'mobile' | 'desktop';
+// }
 
 interface AcquisitionData {
   hourlyTrendData: any[];
@@ -90,12 +90,12 @@ export const AcquisitionDashboard: React.FC = () => {
 
       // SDK_KEY 확인 로그
       // console.log('[SDK_KEY CHECK] Bearer Token:', token);
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        // console.log('[Decoded SDK Key]', payload.sdk_key || payload.sub || 'N/A');
-      } catch (err) {
-        console.warn('[SDK_KEY CHECK] 토큰 디코딩 실패:', err);
-      }
+      // try {
+      //   const payload = JSON.parse(atob(token.split('.')[1]));
+      //   console.log('[Decoded SDK Key]', payload.sdk_key || payload.sub || 'N/A');
+      // } catch (err) {
+      //   console.warn('[SDK_KEY CHECK] 토큰 디코딩 실패:', err);
+      // }
 
       // 전역 필터 조건을 URL 파라미터로 변환
       const globalFilterParams = new URLSearchParams();
@@ -301,10 +301,10 @@ export const AcquisitionDashboard: React.FC = () => {
         setRealtimeTrend(result.data.trend || []);
         setRealtimeLocations(result.data.topLocations || []);
         // console.log('[REALTIME DEBUG] Frontend state set:', {
-          users: result.data.activeUsers30min || 0,
-          trendLength: (result.data.trend || []).length,
-          locationsLength: (result.data.topLocations || []).length
-        });
+        //   users: result.data.activeUsers30min || 0,
+        //   trendLength: (result.data.trend || []).length,
+        //   locationsLength: (result.data.topLocations || []).length
+        // });
       }
     } catch (err) {
       console.error('실시간 데이터 fetch 오류:', err);

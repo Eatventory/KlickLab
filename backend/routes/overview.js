@@ -363,16 +363,16 @@ router.get("/realtime", authMiddleware, async (req, res) => {
     
     // console.log('[REALTIME DEBUG] Matched slots:', matchedSlots, '/ Total DB records:', trendResult.length);
     // console.log('[REALTIME DEBUG] DB timestamp samples:', trendResult.slice(0, 3).map(r => {
-      const dbHour = parseInt(r.summary_hour);
-      const dbMinute = parseInt(r.summary_minute);
-      const dbTime = new Date(koreaTime);
-      dbTime.setHours(dbHour, dbMinute, 0, 0);
-      return {
-        hour_minute: `${r.summary_hour}:${r.summary_minute}`,
-        converted: dbTime.toISOString().slice(0, 16),
-        users: r.users 
-      };
-    }));
+      // const dbHour = parseInt(r.summary_hour);
+      // const dbMinute = parseInt(r.summary_minute);
+      // const dbTime = new Date(koreaTime);
+      // dbTime.setHours(dbHour, dbMinute, 0, 0);
+      // return {
+      //   hour_minute: `${r.summary_hour}:${r.summary_minute}`,
+      //   converted: dbTime.toISOString().slice(0, 16),
+      //   users: r.users 
+      // };
+    // }));
     
     // 매칭된 슬롯이 적으면 현재 시간 기준으로 시뮬레이션 데이터 생성
     if (matchedSlots < 5) {
@@ -392,12 +392,12 @@ router.get("/realtime", authMiddleware, async (req, res) => {
     
     // console.log('[REALTIME DEBUG] Final trend data sample:', finalTrendData.slice(-5));
     // console.log('[REALTIME DEBUG] Final response:', {
-      activeUsers30min,
-      trendCount: minuteSlots.length,
-      locationCount: topLocations.length,
-      locationUsersSum: topLocations.reduce((sum, loc) => sum + loc.users, 0),
-      actualDataPoints: trendResult.length
-    });
+    //   activeUsers30min,
+    //   trendCount: minuteSlots.length,
+    //   locationCount: topLocations.length,
+    //   locationUsersSum: topLocations.reduce((sum, loc) => sum + loc.users, 0),
+    //   actualDataPoints: trendResult.length
+    // });
     
     res.status(200).json({
       data: {
