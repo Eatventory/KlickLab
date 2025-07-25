@@ -37,36 +37,192 @@ export const mockKpiReportData = {
   "conversions": {
     category: "전환 분석: 전환 수 및 전환율 변화",
     data: [
-      {date: "2025-06-26", conversions: 7.0, visitors: 69.0, conversion_rate: 10.1},
-      {date: "2025-06-27", conversions: 5.0, visitors: 55.0, conversion_rate: 9.1},
-      {date: "2025-06-28", conversions: 6.0, visitors: 62.0, conversion_rate: 9.7},
-      {date: "2025-06-29", conversions: 7.0, visitors: 69.0, conversion_rate: 10.1},
-      {date: "2025-06-30", conversions: 5.0, visitors: 55.0, conversion_rate: 9.1},
-      {date: "2025-07-01", conversions: 6.0, visitors: 62.0, conversion_rate: 9.7},
-      {date: "2025-07-02", conversions: 7.0, visitors: 69.0, conversion_rate: 10.1},
-      {date: "2025-07-03", conversions: 5.0, visitors: 55.0, conversion_rate: 9.1},
-      {date: "2025-07-04", conversions: 6.0, visitors: 62.0, conversion_rate: 9.7},
-      {date: "2025-07-05", conversions: 7.0, visitors: 69.0, conversion_rate: 10.1},
-      {date: "2025-07-06", conversions: 5.0, visitors: 55.0, conversion_rate: 9.1},
-      {date: "2025-07-07", conversions: 6.0, visitors: 62.0, conversion_rate: 9.7},
-      {date: "2025-07-08", conversions: 7.0, visitors: 69.0, conversion_rate: 10.1},
-      {date: "2025-07-09", conversions: 5.0, visitors: 55.0, conversion_rate: 9.1},
-      {date: "2025-07-10", conversions: 10.0, visitors: 80.0, conversion_rate: 12.5},
-      {date: "2025-07-11", conversions: 14.0, visitors: 100.0, conversion_rate: 14.0},
-      {date: "2025-07-12", conversions: 16.0, visitors: 110.0, conversion_rate: 14.5},
-      {date: "2025-07-13", conversions: 20.0, visitors: 130.0, conversion_rate: 15.4},
-      {date: "2025-07-14", conversions: 22.0, visitors: 140.0, conversion_rate: 15.7},
-      {date: "2025-07-15", conversions: 26.0, visitors: 160.0, conversion_rate: 16.2},
-      {date: "2025-07-16", conversions: 28.0, visitors: 170.0, conversion_rate: 16.5},
-      {date: "2025-07-17", conversions: 32.0, visitors: 190.0, conversion_rate: 16.8},
-      {date: "2025-07-18", conversions: 34.0, visitors: 200.0, conversion_rate: 17.0},
-      {date: "2025-07-19", conversions: 38.0, visitors: 220.0, conversion_rate: 17.3},
-      {date: "2025-07-20", conversions: 40.0, visitors: 230.0, conversion_rate: 17.4},
-      {date: "2025-07-21", conversions: 10.0, visitors: 100.0, conversion_rate: 10.0},
-      {date: "2025-07-22", conversions: 20.0, visitors: 200.0, conversion_rate: 10.0},
-      {date: "2025-07-23", conversions: 30.0, visitors: 300.0, conversion_rate: 10.0},
-      {date: "2025-07-24", conversions: 40.0, visitors: 400.0, conversion_rate: 10.0},
-      {date: "2025-07-26", conversions: 49.0, visitors: 481.0, conversion_rate: 13.0},
+      {
+        "date": "2025-06-26",
+        "conversions": 8.0,
+        "visitors": 26.0,
+        "conversion_rate": 30.8
+      },
+      {
+        "date": "2025-06-27",
+        "conversions": 8.0,
+        "visitors": 32.0,
+        "conversion_rate": 25.0
+      },
+      {
+        "date": "2025-06-28",
+        "conversions": 9.0,
+        "visitors": 17.0,
+        "conversion_rate": 52.9
+      },
+      {
+        "date": "2025-06-29",
+        "conversions": 7.0,
+        "visitors": 20.0,
+        "conversion_rate": 35.0
+      },
+      {
+        "date": "2025-06-30",
+        "conversions": 8.0,
+        "visitors": 9.0,
+        "conversion_rate": 88.9
+      },
+      {
+        "date": "2025-07-01",
+        "conversions": 10.0,
+        "visitors": 30.0,
+        "conversion_rate": 33.3
+      },
+      {
+        "date": "2025-07-02",
+        "conversions": 19.0,
+        "visitors": 47.0,
+        "conversion_rate": 40.4
+      },
+      {
+        "date": "2025-07-03",
+        "conversions": 23.0,
+        "visitors": 55.0,
+        "conversion_rate": 41.8
+      },
+      {
+        "date": "2025-07-04",
+        "conversions": 23.0,
+        "visitors": 58.0,
+        "conversion_rate": 39.7
+      },
+      {
+        "date": "2025-07-05",
+        "conversions": 21.0,
+        "visitors": 55.0,
+        "conversion_rate": 38.2
+      },
+      {
+        "date": "2025-07-06",
+        "conversions": 18.0,
+        "visitors": 46.0,
+        "conversion_rate": 39.1
+      },
+      {
+        "date": "2025-07-07",
+        "conversions": 18.0,
+        "visitors": 47.0,
+        "conversion_rate": 38.3
+      },
+      {
+        "date": "2025-07-08",
+        "conversions": 21.0,
+        "visitors": 16.0,
+        "conversion_rate": 131.2
+      },
+      {
+        "date": "2025-07-09",
+        "conversions": 35.0,
+        "visitors": 83.0,
+        "conversion_rate": 42.2
+      },
+      {
+        "date": "2025-07-10",
+        "conversions": 56.0,
+        "visitors": 91.0,
+        "conversion_rate": 61.5
+      },
+      {
+        "date": "2025-07-11",
+        "conversions": 53.0,
+        "visitors": 50.0,
+        "conversion_rate": 106.0
+      },
+      {
+        "date": "2025-07-12",
+        "conversions": 35.0,
+        "visitors": 63.0,
+        "conversion_rate": 55.6
+      },
+      {
+        "date": "2025-07-13",
+        "conversions": 46.0,
+        "visitors": 95.0,
+        "conversion_rate": 48.4
+      },
+      {
+        "date": "2025-07-14",
+        "conversions": 46.0,
+        "visitors": 75.0,
+        "conversion_rate": 61.3
+      },
+      {
+        "date": "2025-07-15",
+        "conversions": 41.0,
+        "visitors": 81.0,
+        "conversion_rate": 50.6
+      },
+      {
+        "date": "2025-07-16",
+        "conversions": 92.0,
+        "visitors": 180.0,
+        "conversion_rate": 51.1
+      },
+      {
+        "date": "2025-07-17",
+        "conversions": 97.0,
+        "visitors": 214.0,
+        "conversion_rate": 45.3
+      },
+      {
+        "date": "2025-07-18",
+        "conversions": 68.0,
+        "visitors": 173.0,
+        "conversion_rate": 39.3
+      },
+      {
+        "date": "2025-07-19",
+        "conversions": 76.0,
+        "visitors": 150.0,
+        "conversion_rate": 50.7
+      },
+      {
+        "date": "2025-07-20",
+        "conversions": 83.0,
+        "visitors": 108.0,
+        "conversion_rate": 76.9
+      },
+      {
+        "date": "2025-07-21",
+        "conversions": 85.0,
+        "visitors": 203.0,
+        "conversion_rate": 41.9
+      },
+      {
+        "date": "2025-07-22",
+        "conversions": 90.0,
+        "visitors": 196.0,
+        "conversion_rate": 45.9
+      },
+      {
+        "date": "2025-07-23",
+        "conversions": 92.0,
+        "visitors": 165.0,
+        "conversion_rate": 55.8
+      },
+      {
+        "date": "2025-07-24",
+        "conversions": 99.0,
+        "visitors": 161.0,
+        "conversion_rate": 61.5
+      },
+      {
+        "date": "2025-07-25",
+        "conversions": 106.0,
+        "visitors": 148.0,
+        "conversion_rate": 71.6
+      },
+      {
+        "date": "2025-07-26",
+        "conversions": 124.0,
+        "visitors": 146.0,
+        "conversion_rate": 84.9
+      }
     ]
   },
   "pages": {
