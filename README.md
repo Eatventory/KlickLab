@@ -25,8 +25,8 @@
 | [![Engage](https://github.com/user-attachments/assets/2b8c66e0-ea7f-42ee-9ce0-36bce874d143?raw=true)](https://github.com/user-attachments/assets/2b8c66e0-ea7f-42ee-9ce0-36bce874d143) | [![Timeline](https://github.com/user-attachments/assets/1c6546aa-0aca-4353-afea-47fe4e63b6f6?raw=true)](https://github.com/user-attachments/assets/1c6546aa-0aca-4353-afea-47fe4e63b6f6) | [![Report](https://github.com/user-attachments/assets/015974bb-86ed-4380-b6d0-e2d833becf1d?raw=true)](https://github.com/user-attachments/assets/015974bb-86ed-4380-b6d0-e2d833becf1d) |
 
 <details>
-<summary>컴포넌트 자세히 보기</summary>
-
+<summary>컴포넌트 자세히 보기</summary> <br/>클릭하면 원본 해상도로 확대됩니다.
+  
 | 컴포넌트 1 | 컴포넌트 2 | 컴포넌트 3 |
 |:---:|:---:|:---:|
 | [![img1](https://github.com/user-attachments/assets/d0759a17-f49e-40c9-8db7-c496a19db8aa?raw=true)](https://github.com/user-attachments/assets/d0759a17-f49e-40c9-8db7-c496a19db8aa) | [![img2](https://github.com/user-attachments/assets/ef53d693-a40f-4228-a7ab-7a638e6affa8?raw=true)](https://github.com/user-attachments/assets/ef53d693-a40f-4228-a7ab-7a638e6affa8) | [![img3](https://github.com/user-attachments/assets/a3ddabd7-752b-4726-9cc3-2a428e395644?raw=true)](https://github.com/user-attachments/assets/a3ddabd7-752b-4726-9cc3-2a428e395644) |
