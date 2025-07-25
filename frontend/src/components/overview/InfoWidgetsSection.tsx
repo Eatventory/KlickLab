@@ -75,7 +75,7 @@ export const InfoWidgetsSection: React.FC<InfoWidgetsSectionProps> = ({
   loading = false 
 }) => {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 p-6 pt-0">
       {/* 왼쪽: 트래픽 소스 */}
       <div className="lg:col-span-1">
         <WidgetFrame title="소스 / 매체별 사용자" icon={PieChart}>
