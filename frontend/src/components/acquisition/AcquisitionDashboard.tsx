@@ -3,7 +3,7 @@ import { addDays } from 'date-fns';
 import dayjs from 'dayjs';
 // import { Calendar, Settings, Share2, MoreHorizontal, BarChart3, Target, Globe, Users, TrendingUp, Clock } from 'lucide-react';
 import { useSegmentFilter } from '../../context/SegmentFilterContext';
-
+import { REGION_MAPPING } from '../../utils/regionUtils';
 import DateRangeSelector from '../ui/DateRangeSelector';
 
 // 컴포넌트들 import
@@ -508,7 +508,7 @@ export const AcquisitionDashboard: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
           {/* 마케팅 캠페인 유입 */}
           <div className="md:col-span-3 bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-            <h4 className="text-sm font-semibold text-gray-900 mb-2">마케팅 캠페인 유입</h4>
+            <h4 className="text-sm font-semibold text-gray-900 mb-4">마케팅 캠페인 유입</h4>
             <HorizontalBarChart
               data={acquisitionData.sessionData.slice(0, 5).map((c:any, index: number)=>({label:c.campaign,value:c.sessions, key: `campaign-${c.campaign}-${index}`}))}
               valueFormatter={(v)=>v.toLocaleString()+'회'}
@@ -520,11 +520,15 @@ export const AcquisitionDashboard: React.FC = () => {
             <ChannelConversionTable dateRange={dateRange[0]} />
           </div>
 
-                    {/* 상위 지역 유입 */}
-                    <div className="md:col-span-3 bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-            <h4 className="text-sm font-semibold text-gray-900 mb-2">상위 지역 유입</h4>
+          {/* 상위 지역 유입 */}
+          <div className="md:col-span-3 bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+            <h4 className="text-sm font-semibold text-gray-900 mb-4">상위 지역 유입</h4>
             <HorizontalBarChart
-              data={acquisitionData.realtimeData.topCountries.slice(0, 5).map((c:any, index: number)=>({label:c.city,value:c.users, key: `country-${c.city}-${index}`}))}
+              data={acquisitionData.realtimeData.topCountries.slice(0, 5).map((c:any, index: number)=>({
+                label:REGION_MAPPING[c.city],
+                value:c.users,
+                key: `country-${c.city}-${index}`
+              }))}
               valueFormatter={(v)=>v.toLocaleString()+'명'}
             />
           </div>

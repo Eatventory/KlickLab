@@ -2,7 +2,6 @@ import React from 'react';
 import { 
   BarChart3, 
   Users, 
-  // TrendingUp, 
   UserRoundCheck, 
   Settings, 
   FileText,
@@ -30,24 +29,12 @@ const tabs = [
     icon: Users,
     description: '사용자 행동'
   },
-  // {
-  //   id: 'traffic',
-  //   label: '트래픽 분석',
-  //   icon: TrendingUp,
-  //   description: '방문자 추이'
-  // },
   {
     id: 'acquisition',
     label: '유입 분석',
     icon: Target,
     description: '유입 소스 분석'
   },
-  // {
-  //   id: 'conversion',
-  //   label: '전환율',
-  //   icon: Target,
-  //   description: '전환 퍼널'
-  // },
   {
     id: 'engagement',
     label: '참여도 분석',
@@ -153,7 +140,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         )}
       >
         <div className="text-xs text-gray-500 whitespace-nowrap">
-          <div>버전 1.1.0</div>
+          <div>버전 1.1.1</div>
           <div>© 2025 KlickLab</div>
         </div>
       </div>
