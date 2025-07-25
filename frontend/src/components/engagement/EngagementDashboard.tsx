@@ -26,11 +26,15 @@ import type {
   SessionsPerUsersData,
   UsersOverTimeData,
 
-  RevisitData,
   EventCountsData,
   PageStatsData,
   VisitStatsData,
 } from '../../data/engagementTypes';
+
+interface TopEventItem {
+  label: string;
+  count: number;
+}
 
 const engagementTaps: string[] = ['참여도 개요', '이벤트 보고서', '페이지 및 화면 보고서', '방문 페이지 보고서', '퍼널 분석'];
 
@@ -44,7 +48,7 @@ export const EngagementDashboard: React.FC = () => {
   const [sessionsPerUsers, setSessionsPerUsers] = useState<SessionsPerUsersData[]>([]);
   const [usersOverTime, setUsersOverTime] = useState<UsersOverTimeData[]>([]);
 
-  const [revisit, setRevisit] = useState<RevisitData[]>([]);
+  const [topEvents, setTopEvents] = useState<TopEventItem[]>([]);
 
   const [eventCounts, setEventCounts] = useState<EventCountsData[]>([]);
   const [pageStats, setPageStats] = useState<PageStatsData[]>([]);
@@ -89,19 +93,19 @@ export const EngagementDashboard: React.FC = () => {
       setLoading(true);
       switch (tab) {
         case engagementTaps[0]: {
-          const [resOverview, resPageTimes, resPageViewCounts, resBounceRates,resViewCounts, resClickCounts, resUOTime, resRevisit] = await Promise.all([
+          const [resOverview, resPageTimes, resPageViewCounts, resBounceRates,resViewCounts, resClickCounts, resUOTime, resTopEvents] = await Promise.all([
             fetch(`/api/engagement/overview?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
             fetch(`/api/engagement/page-times?${query}&limit=5`, { headers: { Authorization: `Bearer ${token}` } }),
             fetch(`/api/engagement/page-views?${query}&limit=5`, { headers: { Authorization: `Bearer ${token}` } }),
-            fetch(`/api/engagement/bounce-rate?${query}&limit=5`, { headers: { Authorization: `Bearer ${token}` } }),
+            fetch(`/api/engagement/exit-rate?${query}&limit=5`, { headers: { Authorization: `Bearer ${token}` } }),
             fetch(`/api/engagement/view-counts?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
             fetch(`/api/engagement/click-counts?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
             fetch(`/api/engagement/users-over-time?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
-            fetch(`/api/engagement/revisit?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
+            fetch(`/api/overview/event-stats?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
           ]);
-          const [dataOverview, dataPageTimes, dataPageViewCounts, dataBounceRates, dataViewCounts, dataClickCounts, dataUOTime, dataRevisit] = await Promise.all([
+          const [dataOverview, dataPageTimes, dataPageViewCounts, dataBounceRates, dataViewCounts, dataClickCounts, dataUOTime, dataTopEvents] = await Promise.all([
             resOverview.json(), resPageTimes.json(), resPageViewCounts.json(), resBounceRates.json(),
-            resViewCounts.json(), resClickCounts.json(), resUOTime.json(), resRevisit.json(),
+            resViewCounts.json(), resClickCounts.json(), resUOTime.json(), resTopEvents.json(),
           ]);
           setAvgSessionSecs(dataOverview.data.avgSessionSeconds);
           setSessionsPerUsers(dataOverview.data.sessionsPerUser);
@@ -111,7 +115,13 @@ export const EngagementDashboard: React.FC = () => {
           setViewCounts(dataViewCounts);
           setClickCounts(dataClickCounts);
           setUsersOverTime(dataUOTime);
-          setRevisit(dataRevisit);
+          
+          // 이벤트 데이터를 TopClicks 형식으로 변환
+          const topEventsFormatted = dataTopEvents.data?.topEvents?.map(event => ({
+            label: event.event,
+            count: event.count
+          })) || [];
+          setTopEvents(topEventsFormatted);
           break;
         }
         case engagementTaps[1]: {
@@ -244,24 +254,24 @@ export const EngagementDashboard: React.FC = () => {
         onToggle={() => setOpenCollapse(prev => prev === engagementTaps[0] ? '' : engagementTaps[0])}
       >
         {openCollapse === engagementTaps[0] && (
-          <EngagementOverview
-            avgSessionSecs={avgSessionSecs}
-            sessionsPerUsers={sessionsPerUsers}
-            pageTimes={pageTimes}
-            pageViewCounts={pageViewCounts}
-            bounceRates={bounceRates}
-            viewCounts={viewCounts}
-            clickCounts={clickCounts}
-            usersOverTime={usersOverTime}
-            revisit={revisit}
-            selectedMetric={selectedMetric}
-            selectedMetric2={selectedMetric2}
-            setSelectedMetric={setSelectedMetric}
-            setSelectedMetric2={setSelectedMetric2}
-            isFirstLoad={isFirstLoad}
-            dateRange={dateRange}
-          />
-        )}
+        <EngagementOverview
+          avgSessionSecs={avgSessionSecs}
+          sessionsPerUsers={sessionsPerUsers}
+          pageTimes={pageTimes}
+          pageViewCounts={pageViewCounts}
+          bounceRates={bounceRates}
+          viewCounts={viewCounts}
+          clickCounts={clickCounts}
+          usersOverTime={usersOverTime}
+          topEvents={topEvents}
+          selectedMetric={selectedMetric}
+          selectedMetric2={selectedMetric2}
+          setSelectedMetric={setSelectedMetric}
+          setSelectedMetric2={setSelectedMetric2}
+          isFirstLoad={isFirstLoad}
+          dateRange={dateRange}
+      />
+            )}
       </Collapse>
 
       <Collapse

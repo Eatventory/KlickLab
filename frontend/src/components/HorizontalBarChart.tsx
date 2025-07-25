@@ -12,6 +12,7 @@ interface HorizontalBarChartProps {
   tooltipRenderer?: (item: BarChartItem) => React.ReactNode;
   isLoading?: boolean;
   valueFormatter?: (value: number, raw?: any) => string;
+  useAbsolutePercentage?: boolean; // 절대적인 퍼센트 사용 여부 (이탈률 등)
 }
 
 const AnimatedBar: React.FC<{ percentage: number }> = ({ percentage }) => {
@@ -32,7 +33,7 @@ const AnimatedBar: React.FC<{ percentage: number }> = ({ percentage }) => {
   );
 };
 
-const HorizontalBarChart: React.FC<HorizontalBarChartProps> = ({ data, tooltipRenderer, isLoading, valueFormatter }) => {
+const HorizontalBarChart: React.FC<HorizontalBarChartProps> = ({ data, tooltipRenderer, isLoading, valueFormatter, useAbsolutePercentage = false }) => {
   const [hoveredItem, setHoveredItem] = useState<BarChartItem | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const tooltipRef = useRef<HTMLDivElement | null>(null);
@@ -82,7 +83,9 @@ const HorizontalBarChart: React.FC<HorizontalBarChartProps> = ({ data, tooltipRe
   return (
     <div className="flex flex-col">
       {data.map((item) => {
-        const percentage = maxValue > 0 ? (item.value / maxValue) * 100 : 0;
+        const percentage = useAbsolutePercentage 
+          ? Math.min(item.value, 100) // 절대적 퍼센트 사용 (최대 100%)
+          : maxValue > 0 ? (item.value / maxValue) * 100 : 0; // 상대적 퍼센트 사용
 
         return (
           <div

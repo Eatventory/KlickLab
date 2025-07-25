@@ -54,7 +54,7 @@ export const DomainManager: React.FC = () => {
       setDomainData({
         domain: yourDomain.domain,
         status: yourDomain.status,
-        lastEvent: yourDomain.lastEvent !== '1970-01-01 09:00:00' ? yourDomain.lastEvent : '-',
+        lastEvent: !yourDomain.lastEvent.startsWith('1970-01-01') ? yourDomain.lastEvent : '-',
         eventCount: yourDomain.eventCount
       });
     } catch (error) {
