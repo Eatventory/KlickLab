@@ -1,7 +1,7 @@
 ![5 - Copy](https://github.com/user-attachments/assets/672ea52a-5424-419d-8908-52b85057fdc0)
 
 
-# KlickLab
+# *KlickLab*
 > **KlickLab**은 웹사이트에서 발생하는 행동 데이터를 실시간 수집·구조화하여
 > 운영자가 **Data-Driven** 방식으로 합리적인 의사결정을 내릴 수 있도록
 > 지원하는 **클릭스트림** 분석 플랫폼입니다.
