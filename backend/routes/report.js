@@ -8,17 +8,21 @@ const { formatLocalDateTime } = require('../utils/formatLocalDateTime');
 
 const { getKpiQueries } = require('../utils/reportUtils');
 
-router.get('/kpi-report', authMiddleware, async (req, res) => {
+router.get("/kpi-report", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
   const { startDate, endDate } = req.query;
-  if (!startDate || !endDate) return res.status(400).json({ error: 'Missing startDate or endDate' });
+  if (!startDate || !endDate)
+    return res.status(400).json({ error: "Missing startDate or endDate" });
 
   try {
     const queries = getKpiQueries(sdk_key, startDate, endDate);
 
     const results = await Promise.all(
       Object.entries(queries).map(([key, { query }]) =>
-        clickhouse.query({ query, format: 'JSON' }).then(r => r.json()).then(r => ({ key, data: r.data || [] }))
+        clickhouse
+          .query({ query, format: "JSON" })
+          .then((r) => r.json())
+          .then((r) => ({ key, data: r.data || [] }))
       )
     );
 
@@ -26,14 +30,14 @@ router.get('/kpi-report', authMiddleware, async (req, res) => {
     for (const { key, data } of results) {
       response[key] = {
         category: queries[key].category,
-        data
+        data,
       };
     }
 
     res.json(response);
   } catch (err) {
-    console.error('[ERROR] /api/kpi-report 실패:', err);
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error("[ERROR] /api/kpi-report 실패:", err);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
