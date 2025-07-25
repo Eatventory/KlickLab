@@ -84,28 +84,46 @@ router.get("/get-domain", authMiddleware, async (req, res) => {
     });
     const data = await dataRes.json();
     const domain = data.data[0]?.domain ?? '-';
-    
-    const auxRes = await clickhouse.query({
+
+    // 오늘 이벤트 수
+    const todayRes = await clickhouse.query({
       query: `
-        SELECT
-          (
-            SELECT count() FROM events
-            WHERE sdk_key = '${sdk_key}' AND toDate(timestamp) = today()
-          ) AS cnt,
-          (
-            SELECT formatDateTime(timestamp, '%Y-%m-%d %H:%i:%S')
-            FROM events
-            WHERE sdk_key = '${sdk_key}'
-            ORDER BY timestamp DESC
-            LIMIT 1
-          ) AS latest
+        SELECT sumMerge(page_views_state) AS cnt
+        FROM agg_page_content_stats
+        WHERE sdk_key = '${sdk_key}' AND summary_date = today()
       `,
       format: "JSON",
     });
-    const aux = await auxRes.json();
-    const auxRow = aux.data[0] ?? {};
-    const eventCount = auxRow.cnt ?? 0;
-    const lastEvent = auxRow.latest ?? '-';
+
+    // 과거 이벤트 수
+    const pastRes = await clickhouse.query({
+      query: `
+        SELECT sum(page_views) AS cnt
+        FROM flat_page_content_stats
+        WHERE sdk_key = '${sdk_key}' AND summary_date < today()
+      `,
+      format: "JSON",
+    });
+
+    // 최신 이벤트 시간
+    const latestRes = await clickhouse.query({
+      query: `
+        SELECT 
+          formatDateTime(max(updated_at), '%Y-%m-%d %H:%i:%S') AS latest
+        FROM flat_page_content_stats
+        WHERE sdk_key = '${sdk_key}'
+      `,
+      format: "JSON",
+    });
+
+    const todayData = await todayRes.json();
+    const pastData = await pastRes.json();
+    const latestData = await latestRes.json();
+
+    const todayCnt = Number(todayData.data?.[0]?.cnt ?? 0);
+    const pastCnt = Number(pastData.data?.[0]?.cnt ?? 0);
+    const eventCount = todayCnt + pastCnt;
+    const lastEvent = latestData.data?.[0]?.latest ?? '-';
 
     res.status(200).json({
       domain,
