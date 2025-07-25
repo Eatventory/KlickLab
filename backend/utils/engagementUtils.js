@@ -326,7 +326,7 @@ const getTodaySessionEngagement = async (clickhouse, sdkKey, startDate, endDate)
     ORDER BY summary_date ASC
   `;
   
-  console.log('[SESSION ENGAGEMENT DEBUG] Today query:', query);
+  // console.log('[SESSION ENGAGEMENT DEBUG] Today query:', query);
   const result = await clickhouse.query({ query, format: "JSON" });
   return await result.json();
 };
@@ -348,7 +348,7 @@ const getPastSessionEngagement = async (clickhouse, sdkKey, startDate, endDate) 
     ORDER BY summary_date ASC
   `;
   
-  console.log('[SESSION ENGAGEMENT DEBUG] Past query:', query);
+  // console.log('[SESSION ENGAGEMENT DEBUG] Past query:', query);
   const result = await clickhouse.query({ query, format: "JSON" });
   return await result.json();
 };
@@ -412,7 +412,7 @@ const getTodayPageTimes = async (clickhouse, sdkKey, startDate, endDate, limit =
     LIMIT ${limit}
   `;
   
-  console.log('[PAGE TIMES DEBUG] Today query (using time_on_page_sum_state):', query);
+  // console.log('[PAGE TIMES DEBUG] Today query (using time_on_page_sum_state):', query);
   const result = await clickhouse.query({ query, format: "JSON" });
   return await result.json();
 };
@@ -443,7 +443,7 @@ const getPastPageTimes = async (clickhouse, sdkKey, startDate, endDate, limit = 
     LIMIT ${limit}
   `;
   
-  console.log('[PAGE TIMES DEBUG] Past query (from events table):', query);
+  // console.log('[PAGE TIMES DEBUG] Past query (from events table):', query);
   const result = await clickhouse.query({ query, format: "JSON" });
   return await result.json();
 };
@@ -670,7 +670,7 @@ const getTodayEventCounts = async (clickhouse, sdkKey, startDate, endDate) => {
     ORDER BY summary_date ASC, event_count DESC
   `;
   
-  console.log('[EVENT COUNTS DEBUG] Today query:', query);
+  // console.log('[EVENT COUNTS DEBUG] Today query:', query);
   const result = await clickhouse.query({ query, format: "JSON" });
   return await result.json();
 };
@@ -691,7 +691,7 @@ const getPastEventCounts = async (clickhouse, sdkKey, startDate, endDate) => {
     ORDER BY summary_date ASC, event_count DESC
   `;
   
-  console.log('[EVENT COUNTS DEBUG] Past query:', query);
+  // console.log('[EVENT COUNTS DEBUG] Past query:', query);
   
   try {
     const result = await clickhouse.query({ query, format: "JSON" });
