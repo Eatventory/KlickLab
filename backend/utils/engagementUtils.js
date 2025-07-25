@@ -5,100 +5,56 @@ function getQueryWhereClause(startDate, endDate) {
 
 function getAvgSessionQuery(startDate, endDate, sdk_key) {
   return `
-    WITH
-      toDate('${startDate}') AS start,
-      toDate('${endDate}') AS end,
-      dateDiff('day', start, end) AS days
-    SELECT d.date, ifNull(avgData.avgSessionSeconds, 0) AS avgSessionSeconds
-    FROM (
-      SELECT addDays(start, number) AS date
-      FROM numbers(days + 1)
-    ) d
-    LEFT JOIN (
-      SELECT
-        summary_date AS date,
-        round(sumMerge(session_duration_sum_state) / nullIf(uniqMerge(sessions_state), 0), 2) AS avgSessionSeconds
-      FROM klicklab.agg_user_session_stats
-      WHERE sdk_key = '${sdk_key}'
-        AND summary_date BETWEEN start AND end
-      GROUP BY summary_date
-    ) AS avgData ON d.date = avgData.date
-    ORDER BY d.date ASC
+    SELECT
+      summary_date AS date,
+      round(sumMerge(session_duration_sum_state) / nullIf(uniqMerge(sessions_state), 0), 2) AS avgSessionSeconds
+    FROM klicklab.agg_user_session_stats
+    WHERE sdk_key = '${sdk_key}'
+      AND summary_date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
+    GROUP BY summary_date
+    ORDER BY summary_date ASC
   `;
 }
 
 function getSessionsPerUserQuery(startDate, endDate, sdk_key) {
   return `
-    WITH
-      toDate('${startDate}') AS start,
-      toDate('${endDate}') AS end,
-      dateDiff('day', start, end) AS days
-    SELECT d.date,
-      ifNull(userData.totalVisitors, 0) AS totalVisitors,
-      ifNull(userData.totalSessions, 0) AS totalSessions,
-      ifNull(userData.sessionsPerUser, 0) AS sessionsPerUser
-    FROM (
-      SELECT addDays(start, number) AS date FROM numbers(days + 1)
-    ) d
-    LEFT JOIN (
-      SELECT
-        summary_date AS date,
-        uniqMerge(unique_users_state) AS totalVisitors,
-        uniqMerge(sessions_state) AS totalSessions,
-        round(uniqMerge(sessions_state) / nullIf(uniqMerge(unique_users_state), 0), 2) AS sessionsPerUser
-      FROM klicklab.agg_user_session_stats
-      WHERE sdk_key = '${sdk_key}'
-        AND summary_date BETWEEN start AND end
-      GROUP BY summary_date
-    ) AS userData ON d.date = userData.date
-    ORDER BY d.date ASC
+    SELECT
+      summary_date AS date,
+      uniqMerge(unique_users_state) AS totalVisitors,
+      uniqMerge(sessions_state) AS totalSessions,
+      (uniqMerge(sessions_state) / nullIf(uniqMerge(unique_users_state), 0)) AS sessionsPerUser
+    FROM klicklab.agg_user_session_stats
+    WHERE sdk_key = '${sdk_key}'
+      AND summary_date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
+    GROUP BY summary_date
+    ORDER BY summary_date ASC
   `;
 }
 
 function getClickCountsQuery(startDate, endDate, sdk_key) {
   return `
-    WITH
-      toDate('${startDate}') AS start,
-      toDate('${endDate}') AS end,
-      dateDiff('day', start, end) AS days
-    SELECT d.date, ifNull(data.totalClicks, 0) AS totalClicks
-    FROM (
-      SELECT addDays(start, number) AS date FROM numbers(days + 1)
-    ) d
-    LEFT JOIN (
-      SELECT 
-        summary_date AS date, 
-        sumMerge(event_count_state) AS totalClicks
-      FROM klicklab.agg_event_stats
-      WHERE sdk_key = '${sdk_key}'
-        AND summary_date BETWEEN start AND end
-        AND event_name IN ('auto_click', 'user_click', 'click')
-      GROUP BY summary_date
-    ) AS data ON d.date = data.date
-    ORDER BY d.date ASC
+    SELECT
+      summary_date AS date,
+      sumMerge(event_count_state) AS totalClicks
+    FROM klicklab.agg_event_stats
+    WHERE sdk_key = '${sdk_key}'
+      AND summary_date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
+      AND event_name IN ('auto_click', 'user_click', 'click')
+    GROUP BY summary_date
+    ORDER BY summary_date ASC
   `;
 }
 
 function getViewCountsQuery(startDate, endDate, sdk_key) {
   return `
-    WITH
-      toDate('${startDate}') AS start,
-      toDate('${endDate}') AS end,
-      dateDiff('day', start, end) AS days
-    SELECT d.date, ifNull(v.totalViews, 0) AS totalViews
-    FROM (
-      SELECT addDays(start, number) AS date FROM numbers(days + 1)
-    ) d
-    LEFT JOIN (
-      SELECT 
-        summary_date AS date, 
-        sumMerge(page_views_state) AS totalViews
-      FROM klicklab.agg_page_content_stats
-      WHERE sdk_key = '${sdk_key}'
-        AND summary_date BETWEEN start AND end
-      GROUP BY summary_date
-    ) AS v ON d.date = v.date
-    ORDER BY d.date ASC
+    SELECT
+      summary_date AS date,
+      sumMerge(page_views_state) AS totalViews
+    FROM klicklab.agg_page_content_stats
+    WHERE sdk_key = '${sdk_key}'
+      AND summary_date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
+    GROUP BY summary_date
+    ORDER BY summary_date ASC
   `;
 }
 
@@ -155,40 +111,6 @@ function getUsersOverTimeQuery(startDate, endDate, sdk_key) {
     ) monthly ON base.date = monthly.date
 
     ORDER BY base_date ASC
-  `;
-}
-
-// DEPRECATED: getEventCountsQuery - 새로운 getTodayEventCounts, getPastEventCounts, mergeEventCountsData 함수들을 사용하세요
-function getEventCountsQuery(startDate, endDate, sdk_key) {
-  return `
-    WITH
-      toDate('${startDate}') AS start,
-      toDate('${endDate}') AS end,
-      dateDiff('day', start, end) AS days,
-      events AS (
-        SELECT
-          summary_date AS date,
-          event_name,
-          sumMerge(event_count_state) AS event_count,
-          uniqMerge(unique_users_state) AS user_count,
-          round(sumMerge(event_count_state) / uniqMerge(unique_users_state), 2) AS avg_event_per_user
-        FROM klicklab.agg_event_stats
-        WHERE sdk_key = '${sdk_key}'
-          AND summary_date BETWEEN start AND end
-        GROUP BY summary_date, event_name
-      )
-    SELECT
-      d.date,
-      e.event_name,
-      ifNull(e.event_count, 0) AS event_count,
-      ifNull(e.user_count, 0) AS user_count,
-      ifNull(e.avg_event_per_user, 0) AS avg_event_per_user
-    FROM (
-      SELECT addDays(start, number) AS date FROM numbers(days + 1)
-    ) d
-    LEFT JOIN events e ON d.date = e.date
-    WHERE e.event_name IS NOT NULL
-    ORDER BY d.date ASC, event_count DESC
   `;
 }
 
