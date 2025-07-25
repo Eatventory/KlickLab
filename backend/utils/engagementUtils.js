@@ -211,16 +211,25 @@ function getPageTimesQuery(startDate, endDate, sdk_key, limit = 10) {
 
 function getBounceRateQuery(startDate, endDate, sdk_key, limit = 10) {
   return `
+    WITH session_exits AS (
+      SELECT 
+        page_path,
+        session_id,
+        countIf(event_name = 'page_exit') > 0 AS has_exit
+      FROM klicklab.events
+      WHERE sdk_key = '${sdk_key}'
+        AND summary_date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
+        AND page_path != ''
+      GROUP BY page_path, session_id
+    )
     SELECT
       page_path,
-      sumMerge(page_views_state) AS total_views,
-      sumMerge(exits_state) AS total_exits,
-      round(total_exits / total_views * 100, 1) AS bounce_rate
-    FROM agg_page_content_stats
-    WHERE sdk_key = '${sdk_key}'
-      AND summary_date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
+      count() AS total_sessions,
+      sum(has_exit) AS exit_sessions,
+      round(sum(has_exit) / count() * 100, 1) AS bounce_rate
+    FROM session_exits
     GROUP BY page_path
-    HAVING total_views > 100 AND bounce_rate > 0
+    HAVING total_sessions > 5 AND bounce_rate > 0
     ORDER BY bounce_rate DESC
     LIMIT ${limit}
   `;

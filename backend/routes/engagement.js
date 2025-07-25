@@ -167,17 +167,57 @@ router.get('/bounce-rate', authMiddleware, async (req, res) => {
   const { startDate, endDate, limit = 10 } = req.query;
   if (!startDate || !endDate) return res.status(400).json({ error: 'Missing startDate or endDate' });
 
-
-  const query = getBounceRateQuery(startDate, endDate, sdk_key, limit);
-
   try {
-
-    const result = await clickhouse.query({ query, format: "JSONEachRow" });
-    const data = await result.json();
-    res.status(200).json(data);
+    const now = new Date();
+    const koreaTime = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+    const today = koreaTime.toISOString().slice(0, 10);
+    
+    const isOnlyToday = startDate === endDate && startDate === today;
+    const includesOnlyToday = startDate <= today && endDate >= today;
+    
+    let result = [];
+    
+    if (isOnlyToday) {
+      // 오늘만: agg 테이블 사용
+      const todayResult = await getTodayPageExitRate(clickhouse, sdk_key, startDate, endDate);
+      result = Array.isArray(todayResult) ? todayResult : (todayResult.data || []);
+    } else if (includesOnlyToday) {
+      // 오늘 포함: 과거 + 오늘 합치기
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().slice(0, 10);
+      
+      let pastData = [];
+      if (startDate <= yesterdayStr) {
+        const pastResult = await getPastPageExitRate(clickhouse, sdk_key, startDate, yesterdayStr);
+        pastData = Array.isArray(pastResult) ? pastResult : (pastResult.data || []);
+      }
+      
+      const todayResult = await getTodayPageExitRate(clickhouse, sdk_key, today, today);
+      const todayData = Array.isArray(todayResult) ? todayResult : (todayResult.data || []);
+      
+      result = mergePageExitData(pastData, todayData);
+    } else {
+      // 과거만: flat 테이블 사용
+      const pastResult = await getPastPageExitRate(clickhouse, sdk_key, startDate, endDate);
+      result = Array.isArray(pastResult) ? pastResult : (pastResult.data || []);
+    }
+    
+    // limit 적용 및 응답 포맷팅
+    const formattedResult = result
+      .slice(0, parseInt(limit))
+      .map(item => ({
+        page_path: item.page_path,
+        page_views: parseInt(item.page_views) || 0,
+        exits: parseInt(item.exits) || 0,
+        bounce_rate: parseFloat(item.exit_rate) || 0
+      }));
+    
+    res.status(200).json(formattedResult);
+    
   } catch (err) {
-    console.error("Bounce Top API ERROR:", err);
-    res.status(500).json({ error: "Failed to get bounce top data" });
+    console.error("Bounce Rate API ERROR:", err);
+    res.status(500).json({ error: "Failed to get bounce rate data" });
   }
 });
 
@@ -230,7 +270,7 @@ router.get('/exit-rate', authMiddleware, async (req, res) => {
         page_path: item.page_path,
         page_views: parseInt(item.page_views) || 0,
         exits: parseInt(item.exits) || 0,
-        bounce_rate: parseFloat(item.exit_rate) || 0  // 기존 필드명 유지
+        bounce_rate: parseFloat(item.exit_rate) || 0
       }));
     
     res.status(200).json(formattedResult);
