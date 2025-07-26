@@ -55,9 +55,6 @@ router.post("/kpi-report/csv", async (req, res) => {
     `attachment; filename="kpi-report-export-${dateTime}.csv"`
   );
 
-  // // UTF-8 with BOM 추가 (엑셀 한글 깨짐 방지)
-  res.write("\uFEFF");
-
   res.write("\uFEFF");
 
   try {
