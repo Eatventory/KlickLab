@@ -109,18 +109,40 @@ const EngagementOverview: React.FC<Props> = ({
             <h2 className="text-lg font-semibold text-gray-900">페이지 평균 체류시간</h2>
           </div>
           <HorizontalBarChart
-            data={pageTimes.slice(0, 5).map((d) => ({ label: d.page, value: d.averageTime, raw: d }))}
-            tooltipRenderer={(item) => (
-              <>
-                <div className="text-xs text-gray-500 mb-1">{rangeText}</div>
-                <div className="text-xs font-semibold uppercase text-gray-600 mb-1">{item.label}</div>
-                <div className="text-sm font-bold text-gray-900">
-                  평균 체류시간 {item.value < 1 ? `${Math.round(item.value * 60)}초` : `${item.value.toFixed(1)}분`}
-                </div>
-              </>
-            )}
+            data={pageTimes.slice(0, 5).map((d) => {
+              console.log('Page time data:', d); // 디버깅용 로그
+              return { 
+                label: d.page, 
+                value: (d.averageTimeSeconds || d.averageTime * 60), // 초 단위로 변환
+                raw: d 
+              };
+            })}
+            tooltipRenderer={(item) => {
+              const seconds = item.value;
+              const minutes = Math.floor(seconds / 60);
+              const remainingSeconds = Math.round(seconds % 60);
+              const timeDisplay = minutes > 0 
+                ? `${minutes}.${remainingSeconds}초`
+                : `${remainingSeconds}초`;
+              
+              return (
+                <>
+                  <div className="text-xs text-gray-500 mb-1">{rangeText}</div>
+                  <div className="text-xs font-semibold uppercase text-gray-600 mb-1">{item.label}</div>
+                  <div className="text-sm font-bold text-gray-900">
+                    평균 체류시간 {timeDisplay}
+                  </div>
+                </>
+              );
+            }}
             isLoading={isFirstLoad}
-            valueFormatter={(val) => `${val.toFixed(1)}분`}
+            valueFormatter={(val) => {
+              const minutes = Math.floor(val / 60);
+              const seconds = Math.round(val % 60);
+              return minutes > 0 
+                ? `${minutes}.${seconds}초`
+                : `${seconds}초`;
+            }}
           />
         </div>
 

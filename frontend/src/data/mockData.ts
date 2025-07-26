@@ -137,13 +137,13 @@ const exitPageData: ExitPageData[] = [
 
 // 페이지별 체류시간 더미 데이터
 const pageTimeData: PageTimeData[] = [
-  { page: '/home', averageTime: 2.5, visitCount: 1247 },
-  { page: '/products', averageTime: 4.2, visitCount: 892 },
-  { page: '/product-detail', averageTime: 6.8, visitCount: 743 },
-  { page: '/cart', averageTime: 1.8, visitCount: 456 },
-  { page: '/checkout', averageTime: 3.5, visitCount: 234 },
-  { page: '/profile', averageTime: 5.2, visitCount: 189 },
-  { page: '/about', averageTime: 2.1, visitCount: 123 }
+  { page: '/home', averageTime: 2.5, averageTimeSeconds: 150, visitCount: 1247 },
+  { page: '/products', averageTime: 4.2, averageTimeSeconds: 252, visitCount: 892 },
+  { page: '/product-detail', averageTime: 6.8, averageTimeSeconds: 408, visitCount: 743 },
+  { page: '/cart', averageTime: 1.8, averageTimeSeconds: 108, visitCount: 456 },
+  { page: '/checkout', averageTime: 3.5, averageTimeSeconds: 210, visitCount: 234 },
+  { page: '/profile', averageTime: 5.2, averageTimeSeconds: 312, visitCount: 189 },
+  { page: '/about', averageTime: 2.1, averageTimeSeconds: 126, visitCount: 123 }
 ];
 
 // 디바이스별 사용자 더미 데이터
