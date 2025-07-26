@@ -148,11 +148,14 @@ router.get('/page-times', authMiddleware, async (req, res) => {
       finalData = Array.isArray(pastResult) ? pastResult : (pastResult.data || []);
     }
 
-    // 기존 프론트엔드 형식에 맞게 변환
+    // 기존 프론트엔드 형식에 맞게 변환 (초 단위로 반환)
     const formattedData = finalData.map(row => ({
       page: row.page_path,
-      averageTime: parseFloat(row.average_time) || 0
+      averageTime: parseFloat(row.average_time) || 0,
+      averageTimeSeconds: parseFloat(row.average_time) * 60 || 0 // 분을 초로 변환
     }));
+    
+    console.log('Formatted page times data:', formattedData); // 디버깅용 로그
 
     res.status(200).json(formattedData);
   } catch (err) {

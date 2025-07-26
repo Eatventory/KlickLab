@@ -23,6 +23,7 @@ export interface ExitPageData {
 export interface PageTimeData {
     page: string;
     averageTime: number;
+    averageTimeSeconds?: number; // 초 단위 체류시간 (선택적)
     visitCount: number;
 }
 
