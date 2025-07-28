@@ -101,7 +101,7 @@ export const EngagementDashboard: React.FC = () => {
             fetch(`/api/engagement/view-counts?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
             fetch(`/api/engagement/click-counts?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
             fetch(`/api/engagement/users-over-time?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
-            fetch(`/api/overview/event-stats?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
+            fetch(`/api/overview/event-stats?${query}&limit=5`, { headers: { Authorization: `Bearer ${token}` } }),
           ]);
           const [dataOverview, dataPageTimes, dataPageViewCounts, dataBounceRates, dataViewCounts, dataClickCounts, dataUOTime, dataTopEvents] = await Promise.all([
             resOverview.json(), resPageTimes.json(), resPageViewCounts.json(), resBounceRates.json(),
