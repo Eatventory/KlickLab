@@ -1,5 +1,4 @@
 function getKpiQueries(sdk_key, startDate, endDate) {
-  // 한국시간 기준으로 오늘 날짜 계산
   const now = new Date();
   const koreaTime = new Date(now.getTime() + (9 * 60 * 60 * 1000));
   const today = koreaTime.toISOString().slice(0, 10);
@@ -19,59 +18,258 @@ function getKpiQueries(sdk_key, startDate, endDate) {
           ds.date,
           ifNull(agg.visitors, 0) AS visitors,
           ifNull(agg.sessions, 0) AS sessions,
-          ifNull(agg.avg_session_seconds, 0) AS avg_session_seconds
+          round(ifNull(agg.total_duration, 0) / nullIf(agg.sessions, 0), 2) AS avg_session_seconds
         FROM date_series ds
         LEFT JOIN (
           ${isOnlyToday ? `
-          -- 오늘만: agg 테이블 사용
-          SELECT
-            summary_date AS date,
-            toUInt32(uniqMerge(unique_users_state)) AS visitors,
-            toUInt32(uniqMerge(sessions_state)) AS sessions,
-            round(sumMerge(session_duration_sum_state) / nullIf(uniqMerge(sessions_state), 0), 2) AS avg_session_seconds
-          FROM klicklab.agg_user_session_stats
-          WHERE sdk_key = '${sdk_key}'
-            AND summary_date = toDate('${startDate}')
-          GROUP BY summary_date
+            SELECT
+              summary_date AS date,
+              toUInt32(uniqMerge(unique_users_state)) AS visitors,
+              toUInt32(uniqMerge(sessions_state)) AS sessions,
+              sumMerge(session_duration_sum_state) AS total_duration
+            FROM klicklab.agg_user_session_stats
+            WHERE sdk_key = '${sdk_key}' AND summary_date = toDate('${startDate}')
+            GROUP BY summary_date
           ` : includesOnlyToday ? `
-          -- 오늘 포함: 과거 + 오늘 합치기
-          SELECT
-            summary_date AS date,
-            toUInt32(uniqMerge(unique_users_state)) AS visitors,
-            toUInt32(uniqMerge(sessions_state)) AS sessions,
-            round(sumMerge(session_duration_sum_state) / nullIf(uniqMerge(sessions_state), 0), 2) AS avg_session_seconds
-          FROM klicklab.agg_user_session_stats
-          WHERE sdk_key = '${sdk_key}'
-            AND summary_date = toDate('${today}')
-          GROUP BY summary_date
-          
-          UNION ALL
-          
-          SELECT
-            summary_date AS date,
-            users AS visitors,
-            sessions,
-            round(session_duration_sum / nullIf(sessions, 0), 2) AS avg_session_seconds
-          FROM klicklab.flat_user_session_stats
-          WHERE sdk_key = '${sdk_key}'
-            AND summary_date BETWEEN toDate('${startDate}') AND toDate('${today}') - INTERVAL 1 DAY
-          GROUP BY summary_date, users, sessions, session_duration_sum
+            SELECT
+              date,
+              sum(visitors) AS visitors,
+              sum(sessions) AS sessions,
+              sum(total_duration) AS total_duration
+            FROM (
+              SELECT
+                summary_date AS date,
+                toUInt32(uniqMerge(unique_users_state)) AS visitors,
+                toUInt32(uniqMerge(sessions_state)) AS sessions,
+                sumMerge(session_duration_sum_state) AS total_duration
+              FROM klicklab.agg_user_session_stats
+              WHERE sdk_key = '${sdk_key}' AND summary_date = toDate('${today}')
+              GROUP BY summary_date
+
+              UNION ALL
+
+              SELECT
+                summary_date AS date,
+                sum(users) AS visitors,
+                sum(sessions) AS sessions,
+                sum(session_duration_sum) AS total_duration
+              FROM klicklab.flat_user_session_stats
+              WHERE sdk_key = '${sdk_key}'
+                AND summary_date BETWEEN toDate('${startDate}') AND toDate('${today}') - INTERVAL 1 DAY
+              GROUP BY summary_date
+            )
+            GROUP BY date
           ` : `
-          -- 과거만: flat 테이블 사용
-          SELECT
-            summary_date AS date,
-            users AS visitors,
-            sessions,
-            round(session_duration_sum / nullIf(sessions, 0), 2) AS avg_session_seconds
-          FROM klicklab.flat_user_session_stats
-          WHERE sdk_key = '${sdk_key}'
-            AND summary_date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
-          GROUP BY summary_date, users, sessions, session_duration_sum
+            SELECT
+              summary_date AS date,
+              sum(users) AS visitors,
+              sum(sessions) AS sessions,
+              sum(session_duration_sum) AS total_duration
+            FROM klicklab.flat_user_session_stats
+            WHERE sdk_key = '${sdk_key}' 
+              AND summary_date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
+            GROUP BY summary_date
           `}
         ) agg ON ds.date = agg.date
-        ORDER BY ds.date
+        ORDER BY ds.date ASC
       `
     },
+
+    conversions: {
+      category: '전환 분석: 전환 수 및 전환율 변화',
+      query: `
+        WITH date_series AS (
+          SELECT toDate('${startDate}') + number AS date
+          FROM numbers(datediff('day', toDate('${startDate}'), toDate('${endDate}')) + 1)
+        )
+        SELECT 
+          ds.date,
+          ifNull(agg.conversions, 0) AS conversions,
+          ifNull(agg.visitors, 0) AS visitors,
+          round(ifNull(agg.conversions, 0) / nullIf(agg.visitors, 0) * 100, 2) AS conversion_rate
+        FROM date_series ds
+        LEFT JOIN (
+          ${isOnlyToday ? `
+            SELECT
+              summary_date AS date,
+              sumMerge(conversions_state) AS conversions,
+              toUInt32(uniqMerge(users_state)) AS visitors
+            FROM klicklab.agg_traffic_marketing_stats
+            WHERE sdk_key = '${sdk_key}' AND summary_date = toDate('${startDate}')
+            GROUP BY summary_date
+          ` : includesOnlyToday ? `
+            SELECT
+              date,
+              sum(conversions) AS conversions,
+              sum(visitors) AS visitors
+            FROM (
+              SELECT
+                summary_date AS date,
+                sumMerge(conversions_state) AS conversions,
+                toUInt32(uniqMerge(users_state)) AS visitors
+              FROM klicklab.agg_traffic_marketing_stats
+              WHERE sdk_key = '${sdk_key}' AND summary_date = toDate('${today}')
+              GROUP BY summary_date
+
+              UNION ALL
+
+              SELECT
+                summary_date AS date,
+                sum(conversions) AS conversions,
+                sum(users) AS visitors
+              FROM klicklab.flat_traffic_marketing_stats
+              WHERE sdk_key = '${sdk_key}' 
+                AND summary_date BETWEEN toDate('${startDate}') AND toDate('${today}') - INTERVAL 1 DAY
+              GROUP BY summary_date
+            )
+            GROUP BY date
+          ` : `
+            SELECT
+              summary_date AS date,
+              sum(conversions) AS conversions,
+              sum(users) AS visitors
+            FROM klicklab.flat_traffic_marketing_stats
+            WHERE sdk_key = '${sdk_key}' 
+              AND summary_date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
+            GROUP BY summary_date
+          `}
+        ) agg ON ds.date = agg.date
+        ORDER BY ds.date ASC
+      `
+    },
+
+    pages: {
+      category: '페이지 분석: 페이지 조회수 및 체류 시간',
+      query: `
+        ${isOnlyToday ? `
+        -- 오늘만: agg 테이블 사용
+        SELECT
+          summary_date AS date,
+          page_path,
+          toUInt64(sumMerge(page_views_state)) AS page_views,
+          toUInt32(uniqMerge(unique_page_views_state)) AS active_users,
+          round(sumMerge(page_views_state) / nullIf(uniqMerge(unique_page_views_state), 0), 2) AS pageviews_per_user,
+          round(sumMerge(time_on_page_sum_state) / nullIf(uniqMerge(unique_page_views_state), 0), 2) AS avg_time_on_page
+        FROM klicklab.agg_page_content_stats
+        WHERE sdk_key = '${sdk_key}'
+          AND summary_date = toDate('${startDate}')
+          AND page_path != ''
+        GROUP BY summary_date, page_path
+        ORDER BY date ASC, page_path ASC
+        LIMIT 10
+        ` : includesOnlyToday ? `
+        -- 오늘 포함: 과거 + 오늘 합치기
+        SELECT
+          summary_date AS date,
+          page_path,
+          toUInt64(sumMerge(page_views_state)) AS page_views,
+          toUInt32(uniqMerge(unique_page_views_state)) AS active_users,
+          round(sumMerge(page_views_state) / nullIf(uniqMerge(unique_page_views_state), 0), 2) AS pageviews_per_user,
+          round(sumMerge(time_on_page_sum_state) / nullIf(uniqMerge(unique_page_views_state), 0), 2) AS avg_time_on_page
+        FROM klicklab.agg_page_content_stats
+        WHERE sdk_key = '${sdk_key}'
+          AND summary_date = toDate('${today}')
+          AND page_path != ''
+        GROUP BY summary_date, page_path
+        
+        UNION ALL
+        
+        SELECT
+          summary_date AS date,
+          page_path,
+          page_views,
+          unique_page_views AS active_users,
+          round(page_views / nullIf(unique_page_views, 0), 2) AS pageviews_per_user,
+          round(time_on_page_sum / nullIf(unique_page_views, 0), 2) AS avg_time_on_page
+        FROM klicklab.flat_page_content_stats
+        WHERE sdk_key = '${sdk_key}'
+          AND summary_date BETWEEN toDate('${startDate}') AND toDate('${today}') - INTERVAL 1 DAY
+          AND page_path != ''
+        GROUP BY summary_date, page_path, page_views, unique_page_views, time_on_page_sum
+        ORDER BY date ASC, page_path ASC
+        LIMIT 10
+        ` : `
+        -- 과거만: flat 테이블 사용
+        SELECT
+          summary_date AS date,
+          page_path,
+          page_views,
+          unique_page_views AS active_users,
+          round(page_views / nullIf(unique_page_views, 0), 2) AS pageviews_per_user,
+          round(time_on_page_sum / nullIf(unique_page_views, 0), 2) AS avg_time_on_page
+        FROM klicklab.flat_page_content_stats
+        WHERE sdk_key = '${sdk_key}'
+          AND summary_date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
+          AND page_path != ''
+        GROUP BY summary_date, page_path, page_views, unique_page_views, time_on_page_sum
+        ORDER BY date ASC, page_path ASC
+        LIMIT 10
+        `}
+      `
+    },
+
+    events: {
+      category: '이벤트 분석: 사용자 행동 Top 10',
+      query: `
+        SELECT
+          event_name,
+          total_events,
+          unique_users,
+          round(total_events / nullIf(unique_users, 0), 2) AS avg_per_user
+        FROM (
+          ${isOnlyToday ? `
+            SELECT
+              event_name,
+              toUInt64(sumMerge(event_count_state)) AS total_events,
+              toUInt32(uniqMerge(unique_users_state)) AS unique_users
+            FROM klicklab.agg_event_stats
+            WHERE sdk_key = '${sdk_key}' AND summary_date = toDate('${startDate}')
+              AND event_name != ''
+            GROUP BY event_name
+          ` : includesOnlyToday ? `
+            SELECT
+              event_name,
+              sum(total_events) AS total_events,
+              sum(unique_users) AS unique_users
+            FROM (
+              SELECT
+                event_name,
+                toUInt64(sumMerge(event_count_state)) AS total_events,
+                toUInt32(uniqMerge(unique_users_state)) AS unique_users
+              FROM klicklab.agg_event_stats
+              WHERE sdk_key = '${sdk_key}' AND summary_date = toDate('${today}')
+                AND event_name != ''
+              GROUP BY event_name
+
+              UNION ALL
+
+              SELECT
+                event_name,
+                event_count AS total_events,
+                unique_users
+              FROM klicklab.flat_event_stats
+              WHERE sdk_key = '${sdk_key}' 
+                AND summary_date BETWEEN toDate('${startDate}') AND toDate('${today}') - INTERVAL 1 DAY
+                AND event_name != ''
+            )
+            GROUP BY event_name
+          ` : `
+            SELECT
+              event_name,
+              sum(event_count) AS total_events,
+              sum(unique_users) AS unique_users
+            FROM klicklab.flat_event_stats
+            WHERE sdk_key = '${sdk_key}' 
+              AND summary_date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
+              AND event_name != ''
+            GROUP BY event_name
+          `}
+        )
+        ORDER BY total_events DESC
+        LIMIT 10
+      `
+    },
+
     clicks: {
       category: '클릭 분석: 인기 클릭 세그먼트 Top 10',
       query: `
@@ -137,200 +335,7 @@ function getKpiQueries(sdk_key, startDate, endDate) {
         `}
       `
     },
-    events: {
-      category: '이벤트 분석: 사용자 행동 Top 10',
-      query: `
-        ${isOnlyToday ? `
-        -- 오늘만: agg 테이블 사용
-        SELECT
-          event_name,
-          toUInt64(sumMerge(event_count_state)) AS total_events,
-          toUInt32(uniqMerge(unique_users_state)) AS unique_users,
-          round(sumMerge(event_count_state) / nullIf(uniqMerge(unique_users_state), 0), 2) AS avg_per_user
-        FROM klicklab.agg_event_stats
-        WHERE sdk_key = '${sdk_key}'
-          AND summary_date = toDate('${startDate}')
-          AND event_name != ''
-        GROUP BY event_name
-        ORDER BY total_events DESC
-        LIMIT 10
-        ` : includesOnlyToday ? `
-        -- 오늘 포함: 과거 + 오늘 합치기
-        SELECT
-          event_name,
-          toUInt64(sumMerge(event_count_state)) AS total_events,
-          toUInt32(uniqMerge(unique_users_state)) AS unique_users,
-          round(sumMerge(event_count_state) / nullIf(uniqMerge(unique_users_state), 0), 2) AS avg_per_user
-        FROM klicklab.agg_event_stats
-        WHERE sdk_key = '${sdk_key}'
-          AND summary_date = toDate('${today}')
-          AND event_name != ''
-        GROUP BY event_name
-        
-        UNION ALL
-        
-        SELECT
-          event_name,
-          event_count AS total_events,
-          unique_users,
-          round(event_count / nullIf(unique_users, 0), 2) AS avg_per_user
-        FROM klicklab.flat_event_stats
-        WHERE sdk_key = '${sdk_key}'
-          AND summary_date BETWEEN toDate('${startDate}') AND toDate('${today}') - INTERVAL 1 DAY
-          AND event_name != ''
-        GROUP BY event_name, event_count, unique_users
-        ORDER BY total_events DESC
-        LIMIT 10
-        ` : `
-        -- 과거만: flat 테이블 사용
-        SELECT
-          event_name,
-          event_count AS total_events,
-          unique_users,
-          round(event_count / nullIf(unique_users, 0), 2) AS avg_per_user
-        FROM klicklab.flat_event_stats
-        WHERE sdk_key = '${sdk_key}'
-          AND summary_date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
-          AND event_name != ''
-        GROUP BY event_name, event_count, unique_users
-        ORDER BY total_events DESC
-        LIMIT 10
-        `}
-      `
-    },
-    conversions: {
-      category: '전환 분석: 전환 수 및 전환율 변화',
-      query: `
-        WITH date_series AS (
-          SELECT toDate('${startDate}') + number AS date
-          FROM numbers(datediff('day', toDate('${startDate}'), toDate('${endDate}')) + 1)
-        )
-        SELECT 
-          ds.date,
-          ifNull(agg.conversions, 0) AS conversions,
-          ifNull(agg.visitors, 0) AS visitors,
-          ifNull(agg.conversion_rate, 0) AS conversion_rate
-        FROM date_series ds
-        LEFT JOIN (
-          ${isOnlyToday ? `
-          -- 오늘만: agg 테이블 사용
-          SELECT
-            summary_date AS date,
-            toUInt32(sumMerge(conversions_state)) AS conversions,
-            toUInt32(uniqMerge(users_state)) AS visitors,
-            round(sumMerge(conversions_state) / nullIf(uniqMerge(users_state), 0) * 100, 2) AS conversion_rate
-          FROM klicklab.agg_traffic_marketing_stats
-          WHERE sdk_key = '${sdk_key}'
-            AND summary_date = toDate('${startDate}')
-          GROUP BY summary_date
-          ` : includesOnlyToday ? `
-          -- 오늘 포함: 과거 + 오늘 합치기
-          SELECT
-            summary_date AS date,
-            toUInt32(sumMerge(conversions_state)) AS conversions,
-            toUInt32(uniqMerge(users_state)) AS visitors,
-            round(sumMerge(conversions_state) / nullIf(uniqMerge(users_state), 0) * 100, 2) AS conversion_rate
-          FROM klicklab.agg_traffic_marketing_stats
-          WHERE sdk_key = '${sdk_key}'
-            AND summary_date = toDate('${today}')
-          GROUP BY summary_date
-          
-          UNION ALL
-          
-          SELECT
-            summary_date AS date,
-            conversions,
-            users AS visitors,
-            round(conversions / nullIf(users, 0) * 100, 2) AS conversion_rate
-          FROM klicklab.flat_traffic_marketing_stats
-          WHERE sdk_key = '${sdk_key}'
-            AND summary_date BETWEEN toDate('${startDate}') AND toDate('${today}') - INTERVAL 1 DAY
-          GROUP BY summary_date, conversions, users
-          ` : `
-          -- 과거만: flat 테이블 사용
-          SELECT
-            summary_date AS date,
-            conversions,
-            users AS visitors,
-            round(conversions / nullIf(users, 0) * 100, 2) AS conversion_rate
-          FROM klicklab.flat_traffic_marketing_stats
-          WHERE sdk_key = '${sdk_key}'
-            AND summary_date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
-          GROUP BY summary_date, conversions, users
-          `}
-        ) agg ON ds.date = agg.date
-        ORDER BY ds.date
-      `
-    },
-    pages: {
-      category: '페이지 분석: 페이지 조회수 및 체류 시간',
-      query: `
-        ${isOnlyToday ? `
-        -- 오늘만: agg 테이블 사용
-        SELECT
-          summary_date AS date,
-          page_path,
-          toUInt64(sumMerge(page_views_state)) AS page_views,
-          toUInt32(uniqMerge(unique_page_views_state)) AS active_users,
-          round(sumMerge(page_views_state) / nullIf(uniqMerge(unique_page_views_state), 0), 2) AS pageviews_per_user,
-          round(sumMerge(time_on_page_sum_state) / nullIf(uniqMerge(unique_page_views_state), 0), 2) AS avg_time_on_page
-        FROM klicklab.agg_page_content_stats
-        WHERE sdk_key = '${sdk_key}'
-          AND summary_date = toDate('${startDate}')
-          AND page_path != ''
-        GROUP BY summary_date, page_path
-        ORDER BY page_views DESC
-        LIMIT 10
-        ` : includesOnlyToday ? `
-        -- 오늘 포함: 과거 + 오늘 합치기
-        SELECT
-          summary_date AS date,
-          page_path,
-          toUInt64(sumMerge(page_views_state)) AS page_views,
-          toUInt32(uniqMerge(unique_page_views_state)) AS active_users,
-          round(sumMerge(page_views_state) / nullIf(uniqMerge(unique_page_views_state), 0), 2) AS pageviews_per_user,
-          round(sumMerge(time_on_page_sum_state) / nullIf(uniqMerge(unique_page_views_state), 0), 2) AS avg_time_on_page
-        FROM klicklab.agg_page_content_stats
-        WHERE sdk_key = '${sdk_key}'
-          AND summary_date = toDate('${today}')
-          AND page_path != ''
-        GROUP BY summary_date, page_path
-        
-        UNION ALL
-        
-        SELECT
-          summary_date AS date,
-          page_path,
-          page_views,
-          unique_page_views AS active_users,
-          round(page_views / nullIf(unique_page_views, 0), 2) AS pageviews_per_user,
-          round(time_on_page_sum / nullIf(unique_page_views, 0), 2) AS avg_time_on_page
-        FROM klicklab.flat_page_content_stats
-        WHERE sdk_key = '${sdk_key}'
-          AND summary_date BETWEEN toDate('${startDate}') AND toDate('${today}') - INTERVAL 1 DAY
-          AND page_path != ''
-        GROUP BY summary_date, page_path, page_views, unique_page_views, time_on_page_sum
-        ORDER BY page_views DESC
-        LIMIT 10
-        ` : `
-        -- 과거만: flat 테이블 사용
-        SELECT
-          summary_date AS date,
-          page_path,
-          page_views,
-          unique_page_views AS active_users,
-          round(page_views / nullIf(unique_page_views, 0), 2) AS pageviews_per_user,
-          round(time_on_page_sum / nullIf(unique_page_views, 0), 2) AS avg_time_on_page
-        FROM klicklab.flat_page_content_stats
-        WHERE sdk_key = '${sdk_key}'
-          AND summary_date BETWEEN toDate('${startDate}') AND toDate('${endDate}')
-          AND page_path != ''
-        GROUP BY summary_date, page_path, page_views, unique_page_views, time_on_page_sum
-        ORDER BY page_views DESC
-        LIMIT 10
-        `}
-      `
-    },
+
     bounce: {
       category: '이탈 분석: 페이지별 이탈률 Top 10',
       query: `

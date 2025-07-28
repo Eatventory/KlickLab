@@ -247,43 +247,45 @@ export const ReportDashboard: React.FC = () => {
           </div>
 
           <div className="overflow-x-auto flex flex-col">
-            {reportData &&
-              Object.entries(reportData).map(([key, section]) => {
-                return (
-                  <Collapse
-                    key={key}
-                    title={section.category}
-                    isOpen={openCollapse.includes(section.category)}
-                    isCard={true}
-                    onToggle={() =>
-                      setOpenCollapse((prev) =>
-                        prev.includes(section.category)
-                          ? prev.filter((item) => item !== section.category)
-                          : [...prev, section.category]
-                      )
+          {reportData &&
+            Object.entries(reportData).map(([key, section]) => {
+              const hasData = section.data && section.data.length > 0;
+              const fallbackData = !hasData ? [{ date: '-' }] : section.data;
+              const fallbackColumns = section.data && section.data.length > 0 ? Object.keys(section.data[0]) : ['date'];
+              const fallbackTitle = !hasData ? 'No Data' : section.category;
+              return (
+                <Collapse
+                  key={key}
+                  title={fallbackTitle}
+                  isOpen={openCollapse.includes(section.category)}
+                  isCard={true}
+                  onToggle={() =>
+                    setOpenCollapse((prev) =>
+                      prev.includes(section.category)
+                        ? prev.filter((item) => item !== section.category)
+                        : [...prev, section.category]
+                    )
+                  }
+                >
+                  <TableSection
+                    data={fallbackData}
+                    defaultSort={
+                      key === 'clicks'
+                        ? { key: 'total_clicks', direction: 'desc' }
+                        : key === 'events'
+                        ? { key: 'total_events', direction: 'desc' }
+                        : key === 'bounce'
+                        ? { key: 'bounce_rate', direction: 'desc' }
+                        : { key: 'date', direction: 'asc' }
                     }
-                  >
-                    <TableSection
-                      data={section.data}
-                      defaultSort={
-                        key === 'clicks'
-                          ? { key: 'total_clicks', direction: 'desc' }
-                          : key === 'events'
-                          ? { key: 'total_events', direction: 'desc' }
-                          : key === 'pages'
-                          ? { key: 'page_views', direction: 'desc' }
-                          : key === 'bounce'
-                          ? { key: 'bounce_rate', direction: 'desc' }
-                          : { key: 'date', direction: 'asc' }
-                      }
-                      columns={Object.keys(section.data?.[0] || {}).map((k) => ({
-                        header: k,
-                        key: k,
-                      }))}
-                    />
-                  </Collapse>
-                );
-              })}
+                    columns={fallbackColumns.map((k) => ({
+                      header: k,
+                      key: k,
+                    }))}
+                  />
+                </Collapse>
+              );
+            })}
           </div>
         </div>
       </div>

@@ -623,7 +623,7 @@ router.get("/page-stats", authMiddleware, async (req, res) => {
 // 이벤트 통계 API
 router.get("/event-stats", authMiddleware, async (req, res) => {
   const { sdk_key } = req.user;
-  const { startDate, endDate } = req.query;
+  const { startDate, endDate, limit = 10 } = req.query;
   
   try {
     const now = new Date();
@@ -673,7 +673,7 @@ router.get("/event-stats", authMiddleware, async (req, res) => {
         count: parseInt(count) || 0 
       }))
       .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
+      .slice(0, limit);
     
     res.status(200).json({
       data: {
