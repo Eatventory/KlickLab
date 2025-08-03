@@ -18,6 +18,7 @@
 > **KlickLab**은 웹사이트에서 발생하는 행동 데이터를 실시간 수집·구조화하여<br />
 > 운영자가 **Data-Driven** 방식으로 합리적인 의사결정을 내릴 수 있도록<br />
 > 지원하는 **클릭스트림** 분석 플랫폼입니다.
+- 프로젝트 기간 : 2025-06-19 ~ 2025-07-26
 - 배포 URL : https://klicklab.co.kr/
 
 ## 팀원 소개
@@ -111,7 +112,7 @@
 ![Express](https://img.shields.io/badge/Express-000000?style=flat&logo=express&logoColor=white)
 ![ClickHouse](https://img.shields.io/badge/ClickHouse-FFCC00?style=flat&logo=clickhouse&logoColor=black)
 ![JWT](https://img.shields.io/badge/JWT-000000?style=flat&logo=jsonwebtokens&logoColor=white)
-![Prometheus Client](https://img.shields.io/badge/Prom--Client-000000?style=flat&logo=prometheus&logoColor=white)
+![Prometheus Client](https://img.shields.io/badge/Prom--Client-E6522C?style=flat&logo=prometheus&logoColor=white)
 
 ### Infrastructure  
 ![Amazon AWS](https://img.shields.io/badge/Amazon_AWS-232F3E?style=flat&logo=amazonaws&logoColor=white)
