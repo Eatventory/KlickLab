@@ -88,7 +88,7 @@
 
 <div align="center">
 
-![Infra Architecture for KlickLab](https://github.com/user-attachments/assets/593b10fd-656f-4b7a-aa1f-e179306dcc1c)
+![Infra Architecture for KlickLab](./assets/dataflow.png)
 
 
 
