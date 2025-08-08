@@ -18,8 +18,8 @@
 > **KlickLab**은 웹사이트에서 발생하는 행동 데이터를 실시간 수집·구조화하여<br />
 > 운영자가 **Data-Driven** 방식으로 합리적인 의사결정을 내릴 수 있도록<br />
 > 지원하는 **클릭스트림** 분석 플랫폼입니다.
-- 프로젝트 기간 : 2025-06-19 ~ 2025-07-26
 - 배포 URL : https://klicklab.co.kr/
+- 소개 영상 : https://jungle.krafton.com/board/project/read/213
 
 ## 팀원 소개
 | <img src="https://img.shields.io/badge/Project_Leader-FF5733" /> | <img src="https://img.shields.io/badge/Frontend_Leader-%2300264B" /> | <img src="https://img.shields.io/badge/Backend_Leader-%2310069F" /> | <img src="https://img.shields.io/badge/Database_Leader-blue" /> | <img src="https://img.shields.io/badge/발사대_Leader-%23009688" /> | <img src="https://img.shields.io/badge/Infra_Leader-003df3" /> |
@@ -41,7 +41,7 @@
 
 <details>
 <summary>컴포넌트 자세히 보기</summary> <br/>클릭하면 원본 해상도로 확대됩니다.
-
+  
 | 컴포넌트 1 | 컴포넌트 2 | 컴포넌트 3 |
 |:---:|:---:|:---:|
 | [![img1](https://github.com/user-attachments/assets/d0759a17-f49e-40c9-8db7-c496a19db8aa?raw=true)](https://github.com/user-attachments/assets/d0759a17-f49e-40c9-8db7-c496a19db8aa) | [![img2](https://github.com/user-attachments/assets/ef53d693-a40f-4228-a7ab-7a638e6affa8?raw=true)](https://github.com/user-attachments/assets/ef53d693-a40f-4228-a7ab-7a638e6affa8) | [![img3](https://github.com/user-attachments/assets/a3ddabd7-752b-4726-9cc3-2a428e395644?raw=true)](https://github.com/user-attachments/assets/a3ddabd7-752b-4726-9cc3-2a428e395644) |
@@ -82,6 +82,22 @@
 
 </details>
 
+<details>
+<summary>아키텍처 관련 글 모음</summary>
+
+### Architectural Improvements 시리즈
+1. [Architectural Improvements 1](https://velog.io/@qnfrma1997/Architectural-Improvements-1)  
+2. [Architectural Improvements 2](https://velog.io/@qnfrma1997/Architectural-Improvements-2)  
+3. [Architectural Improvements 3](https://velog.io/@qnfrma1997/Architectural-Improvements-3)  
+4. [Architectural Improvements 4](https://velog.io/@qnfrma1997/Architectural-Improvements4)  
+
+### DeepDive 시리즈
+- [DeepDive: GC Triggered Stop-the-World](https://velog.io/@qnfrma1997/DeepDive-GC-Triggered-Stop-the-World)  
+- [DeepDive: Many Over Mighty](https://velog.io/@qnfrma1997/DeepDive-Many-Over-Mighty)  
+
+</details>
+
+
 ## 데이터 흐름도
 
 <details>
@@ -89,7 +105,7 @@
 
 <div align="center">
 
-![Infra Architecture for KlickLab](./assets/dataflow.png)
+![Infra Architecture for KlickLab](https://github.com/user-attachments/assets/593b10fd-656f-4b7a-aa1f-e179306dcc1c)
 
 
 
@@ -106,20 +122,42 @@
 ![Vite](https://img.shields.io/badge/Vite-646CFF?style=flat&logo=vite&logoColor=white)
 ![TailwindCSS](https://img.shields.io/badge/TailwindCSS-06B6D4?style=flat&logo=tailwindcss&logoColor=white)
 ![React Router](https://img.shields.io/badge/React--Router-CA4245?style=flat&logo=reactrouter&logoColor=white)
+![Zustand](https://img.shields.io/badge/Zustand-000000?style=flat&logo=zustand&logoColor=white)
+![Recharts](https://img.shields.io/badge/Recharts-FF4A00?style=flat&logo=chartdotjs&logoColor=white)
+![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=flat&logo=html5&logoColor=white)
+![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=flat&logo=css&logoColor=white)
+![Framer Motion](https://img.shields.io/badge/Framer--Motion-000000?style=flat&logo=framer&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-000000?style=flat&logo=next.js&logoColor=white)
 
 ### Backend  
 ![Node.js](https://img.shields.io/badge/Node.js-339933?style=flat&logo=node.js&logoColor=white)
 ![Express](https://img.shields.io/badge/Express-000000?style=flat&logo=express&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat&logo=postgresql&logoColor=white)
 ![ClickHouse](https://img.shields.io/badge/ClickHouse-FFCC00?style=flat&logo=clickhouse&logoColor=black)
 ![JWT](https://img.shields.io/badge/JWT-000000?style=flat&logo=jsonwebtokens&logoColor=white)
-![Prometheus Client](https://img.shields.io/badge/Prom--Client-E6522C?style=flat&logo=prometheus&logoColor=white)
+![Prometheus Client](https://img.shields.io/badge/Prom--Client-000000?style=flat&logo=prometheus&logoColor=white)
+![Nginx](https://img.shields.io/badge/Nginx-009639?style=flat&logo=nginx&logoColor=white)
 
 ### Infrastructure  
 ![Amazon AWS](https://img.shields.io/badge/Amazon_AWS-232F3E?style=flat&logo=amazonaws&logoColor=white)
+![AWS EC2](https://img.shields.io/badge/AWS--EC2-FF9900?style=flat&logo=amazonec2&logoColor=black)
 ![AWS MSK](https://img.shields.io/badge/AWS--MSK-FF9900?style=flat&logo=apachekafka&logoColor=white)
-![ClickHouse Keeper](https://img.shields.io/badge/ClickHouse_Keeper-FFCC00?style=flat&logo=clickhouse&logoColor=black)
+![Amazon CloudWatch](https://img.shields.io/badge/CloudWatch-FF4F8B?style=flat&logo=amazoncloudwatch&logoColor=white)
+![Amazon API Gateway](https://img.shields.io/badge/API--Gateway-FF4F00?style=flat&logo=amazonapigateway&logoColor=white)
+![Elastic Load Balancer](https://img.shields.io/badge/Load--Balancer-0073BB?style=flat&logo=awselasticloadbalancing&logoColor=white)
+![Linux](https://img.shields.io/badge/Linux-FCC624?style=flat&logo=linux&logoColor=black)
+![Ubuntu](https://img.shields.io/badge/Ubuntu-E95420?style=flat&logo=ubuntu&logoColor=white)
+![ClickHouse Keeper](https://img.shields.io/badge/ClickHouse--Keeper-FFCC00?style=flat&logo=zookeeper&logoColor=black)
+![Postman](https://img.shields.io/badge/Postman-FF6C37?style=flat&logo=postman&logoColor=white)
 ![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?style=flat&logo=prometheus&logoColor=white)
 ![Grafana](https://img.shields.io/badge/Grafana-F46800?style=flat&logo=grafana&logoColor=white)
+
+### Tools
+![npm](https://img.shields.io/badge/npm-CB3837?style=flat&logo=npm&logoColor=white)
+![Cloudflare](https://img.shields.io/badge/Cloudflare-F38020?style=flat&logo=cloudflare&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=flat&logo=javascript&logoColor=white)
+![Go](https://img.shields.io/badge/Go-00ADD8?style=flat&logo=go&logoColor=white)
+![workerpool](https://img.shields.io/badge/workerpool-000000?style=flat&logo=nodedotjs&logoColor=white)
 
 ## 설치 및 실행
 
